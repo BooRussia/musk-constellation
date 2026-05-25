@@ -1,0 +1,584 @@
+import React, { useState, useMemo, useCallback, lazy, Suspense } from 'react'
+import { motion, AnimatePresence, MotionConfig } from 'framer-motion'
+import {
+  X, RotateCcw, Layers, ZoomIn, Info,
+  Globe, ChevronUp, ChevronDown, Menu,
+} from 'lucide-react'
+import { toast } from 'sonner'
+import SearchBar from './components/SearchBar'
+import NodeBrowser from './components/NodeBrowser'
+import WebGLErrorBoundary from './components/WebGLErrorBoundary'
+import CanvasLoader from './components/CanvasLoader'
+import {
+  NODES, LINKS,
+  getChildren, getNodeLinks, getNodeById, getVisibleNodes,
+  GROUP_COLORS, LINK_COLORS, LINK_LABELS,
+  INITIAL_FOCUS,
+} from './data/constellation'
+import type { Link } from './data/constellation'
+
+const ConstellationCanvas = lazy(() => import('./components/ConstellationCanvas'))
+
+const GITHUB_URL = 'https://github.com/BooRussia/musk-constellation'
+
+function formatLinkDescription(link: Link): string {
+  return link.note || `${LINK_LABELS[link.type]} connection`
+}
+
+// ============================================
+// MAIN APP
+// ============================================
+export default function MuskConstellation() {
+  const [selectedId, setSelectedId] = useState<string | null>(INITIAL_FOCUS)
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set(['tesla', 'spacex', 'xai']))
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showLegend, setShowLegend] = useState(false)
+  const [showMobilePanel, setShowMobilePanel] = useState(true)
+
+  const selectedNode = selectedId ? getNodeById(selectedId) : null
+
+  const visibleNodes = useMemo(
+    () => getVisibleNodes(expandedIds),
+    [expandedIds],
+  )
+
+  const highlightLinkIds = useMemo(() => {
+    if (!selectedId) return new Set<string>()
+    const links = getNodeLinks(selectedId)
+    return new Set(links.map(l => `${l.source}-${l.target}`))
+  }, [selectedId])
+
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return []
+    const q = searchQuery.toLowerCase()
+    return NODES.filter(n =>
+      n.label.toLowerCase().includes(q) ||
+      n.short.toLowerCase().includes(q) ||
+      (n.mission && n.mission.toLowerCase().includes(q)),
+    ).slice(0, 6)
+  }, [searchQuery])
+
+  // ============================================
+  // ACTIONS
+  // ============================================
+  const handleExpand = useCallback((parentId: string) => {
+    const parent = getNodeById(parentId)
+    if (!parent || !parent.children || parent.children.length === 0) {
+      toast.error('No sub-webs defined for this node')
+      return
+    }
+
+    setExpandedIds(prev => {
+      const next = new Set(prev)
+      const wasExpanded = next.has(parentId)
+      if (wasExpanded) {
+        next.delete(parentId)
+        toast('Collapsed sub-webs', { description: parent.label })
+      } else {
+        next.add(parentId)
+        const childCount = parent.children?.length || 0
+        toast.success(`Expanded ${parent.label}`, {
+          description: `${childCount} sub-webs now visible in the constellation`,
+        })
+      }
+      return next
+    })
+  }, [])
+
+  const handleSelect = useCallback((id: string | null) => {
+    setSelectedId(id)
+    setSearchQuery('')
+    if (id) setShowMobilePanel(true)
+  }, [])
+
+  const resetView = useCallback(() => {
+    setSelectedId(INITIAL_FOCUS)
+    setExpandedIds(new Set(['tesla', 'spacex', 'xai']))
+    setSearchQuery('')
+    toast('Constellation reset', { description: 'Core empire + key sub-webs restored' })
+  }, [])
+
+  const expandAll = useCallback(() => {
+    const allParents = NODES.filter(n => n.children?.length).map(n => n.id)
+    setExpandedIds(new Set(allParents))
+    toast.success('All sub-webs expanded', { description: 'Full depth of the empire now visible' })
+  }, [])
+
+  const collapseAll = useCallback(() => {
+    setExpandedIds(new Set())
+    setSelectedId(null)
+    toast('All collapsed', { description: 'Showing only core nodes' })
+  }, [])
+
+  const flyToNode = useCallback((id: string) => {
+    handleSelect(id)
+  }, [handleSelect])
+
+  const handleEscape = useCallback(() => {
+    if (showLegend) {
+      setShowLegend(false)
+      return
+    }
+    if (searchQuery.trim()) {
+      setSearchQuery('')
+      return
+    }
+    if (selectedId) {
+      handleSelect(null)
+    }
+  }, [showLegend, searchQuery, selectedId, handleSelect])
+
+  const liveAnnouncement = selectedNode
+    ? `Selected ${selectedNode.label}. ${selectedNode.short}`
+    : 'No node selected. Overview panel visible.'
+
+  // ============================================
+  // RENDER
+  // ============================================
+  return (
+    <MotionConfig reducedMotion="user">
+      <div className="relative h-full w-full overflow-hidden bg-black text-[#e5e5e5]">
+        <a href="#main-content" className="skip-link">
+          Skip to main content
+        </a>
+
+        <div className="sr-only" aria-live="polite" aria-atomic="true">
+          {liveAnnouncement}
+        </div>
+
+        <Suspense fallback={<CanvasLoader />}>
+          <WebGLErrorBoundary onSelect={flyToNode}>
+            <ConstellationCanvas
+              selectedId={selectedId}
+              expandedIds={expandedIds}
+              onSelect={handleSelect}
+              onExpand={handleExpand}
+              highlightLinkIds={highlightLinkIds}
+            />
+          </WebGLErrorBoundary>
+        </Suspense>
+
+        <header className="topnav ui-layer flex flex-wrap items-center justify-between gap-3 px-4 py-3 md:gap-4 md:px-6 md:py-4">
+          <div className="flex min-w-0 items-center gap-3 md:gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full border border-white/30">
+                <Globe className="h-4 w-4" aria-hidden="true" />
+              </div>
+              <div>
+                <p className="font-mono text-[11px] tracking-[4px] text-white/50 md:text-[13px]">THE LIVING WEB</p>
+                <h1 className="text-xl font-semibold tracking-[-1.5px] text-white md:text-2xl">CONSTELLATION</h1>
+              </div>
+            </div>
+            <p className="ml-2 hidden text-[11px] text-white/40 lg:block">
+              ELON MUSK&apos;S INTERCONNECTED EMPIRE
+            </p>
+          </div>
+
+          <SearchBar
+            query={searchQuery}
+            onQueryChange={setSearchQuery}
+            results={searchResults}
+            onSelect={flyToNode}
+            compact
+            className="order-last w-full md:order-none md:w-auto"
+          />
+
+          <nav aria-label="Constellation controls" className="flex items-center gap-2">
+            <div className="hidden items-center gap-2 md:flex">
+              <button type="button" onClick={resetView} className="btn flex items-center gap-1.5">
+                <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> RESET
+              </button>
+              <button type="button" onClick={expandAll} className="btn flex items-center gap-1.5">
+                <Layers className="h-3.5 w-3.5" aria-hidden="true" /> EXPAND ALL
+              </button>
+              <button type="button" onClick={collapseAll} className="btn btn-ghost flex items-center gap-1.5">
+                COLLAPSE
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowLegend(v => !v)}
+                className={`btn flex items-center gap-1.5 ${showLegend ? 'border-white/40' : ''}`}
+                aria-expanded={showLegend}
+              >
+                <Info className="h-3.5 w-3.5" aria-hidden="true" /> LEGEND
+              </button>
+              <a
+                href={GITHUB_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-ghost tracking-widest"
+              >
+                GITHUB
+              </a>
+            </div>
+
+            <details className="relative md:hidden">
+              <summary className="btn flex cursor-pointer list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden">
+                <Menu className="h-3.5 w-3.5" aria-hidden="true" /> MENU
+              </summary>
+              <div className="absolute right-0 z-50 mt-2 min-w-[200px] rounded-xl border border-white/10 bg-black/95 p-2 shadow-2xl backdrop-blur-xl">
+                <button type="button" onClick={resetView} className="btn mb-1 w-full justify-start gap-1.5">
+                  <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> RESET
+                </button>
+                <button type="button" onClick={expandAll} className="btn mb-1 w-full justify-start gap-1.5">
+                  <Layers className="h-3.5 w-3.5" aria-hidden="true" /> EXPAND ALL
+                </button>
+                <button type="button" onClick={collapseAll} className="btn btn-ghost mb-1 w-full justify-start">
+                  COLLAPSE
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowLegend(v => !v)}
+                  className={`btn w-full justify-start gap-1.5 ${showLegend ? 'border-white/40' : ''}`}
+                  aria-expanded={showLegend}
+                >
+                  <Info className="h-3.5 w-3.5" aria-hidden="true" /> LEGEND
+                </button>
+              </div>
+            </details>
+
+            <a
+              href={GITHUB_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-ghost tracking-widest md:hidden"
+            >
+              GITHUB
+            </a>
+          </nav>
+        </header>
+
+        <aside className="ui-layer left-4 top-[5.5rem] hidden w-64 lg:block xl:left-6 xl:top-20">
+          <div className="glass panel rounded-2xl p-5 text-sm">
+            <div className="mb-3 flex items-center justify-between text-xs uppercase tracking-[2px] text-white/50">
+              <h2 className="text-xs font-normal uppercase tracking-[2px]">THE EMPIRE</h2>
+              <div className="font-mono text-[12px] tracking-[1px]">
+                {NODES.filter(n => n.type === 'core').length} CORES • {expandedIds.size} EXPANDED
+              </div>
+            </div>
+
+            <div className="space-y-2.5 text-base">
+              <div className="flex justify-between"><span className="text-white/60">Combined valuation</span> <span className="font-mono text-white/90">~$430B+</span></div>
+              <div className="flex justify-between"><span className="text-white/60">Major revenue drivers</span> <span className="font-mono text-white/90">14</span></div>
+              <div className="flex justify-between"><span className="text-white/60">Documented links</span> <span className="font-mono text-white/90">{LINKS.length}</span></div>
+            </div>
+
+            <div className="my-4 h-px bg-white/10" />
+
+            <NodeBrowser
+              nodes={visibleNodes}
+              selectedId={selectedId}
+              onSelect={flyToNode}
+              label="Visible nodes"
+            />
+
+            <div className="mt-4 text-xs leading-relaxed text-white/50">
+              Drag to rotate • Scroll to zoom • Click any node to focus.<br />
+              Use <span className="font-mono text-white/70">EXPAND</span> to reveal sub-webs and deeper revenue drivers.
+            </div>
+          </div>
+        </aside>
+
+        <button
+          type="button"
+          onClick={() => setShowMobilePanel(v => !v)}
+          className="ui-layer bottom-[calc(58vh+12px)] left-1/2 z-40 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-white/15 bg-black/80 px-4 py-2 text-xs uppercase tracking-widest text-white/70 backdrop-blur-md md:hidden"
+          aria-expanded={showMobilePanel}
+          aria-controls="main-content"
+        >
+          {showMobilePanel ? (
+            <>
+              <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" /> Hide panel
+            </>
+          ) : (
+            <>
+              <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" /> Show panel
+            </>
+          )}
+        </button>
+
+        <AnimatePresence mode="wait">
+          {selectedNode ? (
+              <motion.main
+                key={selectedNode.id}
+                id="main-content"
+                initial={{ x: 60, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: 40, opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 140, damping: 22 }}
+                className={`details-panel glass panel border-l border-white/10 bg-black/90 text-sm ${!showMobilePanel ? 'max-md:hidden' : ''}`}
+              >
+                <div className="mb-6 flex items-start justify-between">
+                  <div>
+                    <div
+                      className="mb-1 inline-block rounded px-2 py-px text-[12px] font-medium tracking-[1.5px]"
+                      style={{ backgroundColor: GROUP_COLORS[selectedNode.group] + '22', color: GROUP_COLORS[selectedNode.group] }}
+                    >
+                      {selectedNode.type.toUpperCase()} • {selectedNode.group.toUpperCase()}
+                    </div>
+                    <h2 className="company-title tracking-[-0.8px]">{selectedNode.label}</h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleSelect(null)}
+                    className="btn btn-ghost -mr-2 p-2"
+                    aria-label="Close details panel"
+                  >
+                    <X className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </div>
+
+                {selectedNode.mission && (
+                  <div className="mission mb-6 text-[15px] leading-tight">
+                    &ldquo;{selectedNode.mission}&rdquo;
+                  </div>
+                )}
+
+                <div className="mb-6 grid grid-cols-1 gap-2.5">
+                  {selectedNode.metric && (
+                    <div className="rounded-xl border border-white/10 bg-white/3 px-4 py-3">
+                      <div className="label mb-1">KEY METRIC</div>
+                      <div className="stat text-base text-white/90">{selectedNode.metric}</div>
+                    </div>
+                  )}
+                  {selectedNode.revenueNote && (
+                    <div className="rounded-xl border border-white/10 bg-white/3 px-4 py-3">
+                      <div className="label mb-1">REVENUE / IMPACT</div>
+                      <div className="text-sm leading-snug text-white/85">{selectedNode.revenueNote}</div>
+                    </div>
+                  )}
+                </div>
+
+                {selectedNode.children && selectedNode.children.length > 0 && (
+                  <div className="mb-8">
+                    <h2 className="section-title">SUB-WEBS &amp; REVENUE DRIVERS</h2>
+                    <div className="space-y-2.5">
+                      {(selectedNode.children ? getChildren(selectedNode.id) : []).map(child => {
+                        const isExpanded = expandedIds.has(selectedNode.id)
+                        return (
+                          <button
+                            key={child.id}
+                            type="button"
+                            onClick={() => {
+                              if (!isExpanded) handleExpand(selectedNode.id)
+                              setTimeout(() => handleSelect(child.id), 120)
+                            }}
+                            className="group flex w-full items-center justify-between rounded-lg border border-white/10 bg-white/3 px-3 py-2.5 text-left transition hover:border-white/25 hover:bg-white/5"
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <div className="h-1.5 w-1.5 rounded-full" style={{ background: GROUP_COLORS[child.group] }} />
+                              <span className="font-medium text-white/90 group-hover:text-white">{child.label}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-white/40">
+                              {child.metric?.split('•')[0].trim()}
+                              <ZoomIn className="h-3 w-3 opacity-40 group-hover:opacity-70" aria-hidden="true" />
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleExpand(selectedNode.id)}
+                      className="mt-2 w-full rounded-lg border border-white/10 py-1.5 text-xs uppercase tracking-widest text-white/50 hover:bg-white/5"
+                    >
+                      {expandedIds.has(selectedNode.id) ? 'COLLAPSE SUB-WEBS FROM CONSTELLATION' : 'ADD SUB-WEBS TO 3D CONSTELLATION'}
+                    </button>
+                  </div>
+                )}
+
+                <div>
+                  <h2 className="section-title">HOW IT WEAVES IN THE WEB</h2>
+                  <div className="space-y-2.5">
+                    {getNodeLinks(selectedNode.id).length === 0 && (
+                      <div className="text-sm text-white/40">No direct documented links in current view.</div>
+                    )}
+                    {getNodeLinks(selectedNode.id).map((link) => {
+                      const otherId = link.source === selectedNode.id ? link.target : link.source
+                      const other = getNodeById(otherId)
+                      if (!other) return null
+                      return (
+                        <button
+                          key={`${link.source}-${link.target}-${link.type}`}
+                          type="button"
+                          onClick={() => handleSelect(otherId)}
+                          className="w-full rounded-xl border border-white/10 bg-white/3 px-3.5 py-3 text-left transition hover:border-white/30 hover:bg-white/5"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="conn-pill"
+                              style={{ borderColor: LINK_COLORS[link.type] + '55', color: LINK_COLORS[link.type] }}
+                            >
+                              {LINK_LABELS[link.type]}
+                            </span>
+                            <span className="font-medium text-white/90">{other.label}</span>
+                          </div>
+                          <div className="mt-1.5 text-sm leading-tight text-white/70">
+                            {formatLinkDescription(link)}
+                          </div>
+                          {link.label && (
+                            <div className="mt-1 font-mono text-xs text-white/40">{link.label}</div>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {selectedNode.assists && selectedNode.assists.length > 0 && (
+                  <div className="mt-7 border-t border-white/10 pt-5">
+                    <h2 className="section-title text-[#f97316]">ASSISTS OUTSIDE THE UMBRELLA</h2>
+                    {selectedNode.assists.map((assist) => {
+                      const targetNode = getNodeById(assist.target)
+                      return (
+                        <div key={assist.target} className="mb-4 rounded-xl border-l-2 border-[#f97316] bg-white/3 py-2.5 pl-3.5 text-sm">
+                          <div className="font-medium text-white/85">
+                            {targetNode ? targetNode.label : assist.target}
+                          </div>
+                          <div className="text-white/60">{assist.description}</div>
+                          {targetNode && (
+                            <button type="button" onClick={() => handleSelect(assist.target)} className="mt-1 text-xs text-[#f97316] hover:underline">
+                              FOCUS IN CONSTELLATION →
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                <div className="mt-8 text-xs text-white/30">
+                  Data synthesized from public filings, NASA contracts, company statements (2025-2026).
+                  Some figures are estimates. This is an interpretive living map.
+                </div>
+              </motion.main>
+            ) : (
+              <motion.main
+                key="overview"
+                id="main-content"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className={`details-panel glass panel border-l border-white/10 bg-black/90 ${!showMobilePanel ? 'max-md:hidden' : ''}`}
+              >
+                <div className="mb-5">
+                  <p className="text-xs uppercase tracking-[3px] text-white/50">THE DEEP WEB</p>
+                  <h2 className="text-[26px] font-semibold tracking-[-1.2px] text-white">Elon Musk&apos;s Empire</h2>
+                </div>
+
+                <div className="prose prose-invert text-sm leading-relaxed text-white/75">
+                  This is a fully interactive 3D spatial constellation of the companies, divisions, products,
+                  and external partners that form one of the most ambitious industrial webs in history.
+                </div>
+
+                <div className="my-6 h-px bg-white/10" />
+
+                <div className="space-y-4 text-sm">
+                  <div>
+                    <div className="label mb-1">CORE NODES</div>
+                    <div className="text-white/80">Tesla, SpaceX, xAI, Neuralink, X, The Boring Company</div>
+                  </div>
+                  <div>
+                    <div className="label mb-1">KEY SUB-WEBS VISIBLE</div>
+                    <div className="text-white/80">Optimus • Robotaxi/FSD • Megapack Energy • Starlink • Colossus • Grok</div>
+                  </div>
+                  <div>
+                    <div className="label mb-1">NOTABLE EXTERNAL WEAVES</div>
+                    <div className="text-white/80">NASA (ISS + Artemis) • Anthropic (Colossus compute) • Global Starlink customers</div>
+                  </div>
+                </div>
+
+                <NodeBrowser
+                  nodes={visibleNodes}
+                  selectedId={selectedId}
+                  onSelect={flyToNode}
+                  className="mt-6 lg:hidden"
+                  label="Browse visible nodes"
+                />
+
+                <button type="button" onClick={() => handleSelect(INITIAL_FOCUS)} className="btn btn-primary mt-8 w-full">
+                  BEGIN WITH TESLA — THE CENTRAL NODE
+                </button>
+
+                <div className="mt-4 text-center text-xs text-white/30">
+                  Click any glowing node in the constellation to dive deeper.
+                </div>
+              </motion.main>
+            )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {showLegend && (
+            <motion.aside
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              aria-label="Legend"
+              className="ui-layer bottom-6 left-6 glass panel max-w-[460px] rounded-2xl p-4 text-sm"
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="font-mono text-xs font-normal tracking-[1.5px] text-white/60">LEGEND</h2>
+                <button
+                  type="button"
+                  onClick={() => setShowLegend(false)}
+                  className="text-white/40 hover:text-white"
+                  aria-label="Close legend"
+                >
+                  <X size={14} aria-hidden="true" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-x-8 gap-y-2.5">
+                <div>
+                  <div className="mb-1.5 text-xs text-white/50">COMPANIES</div>
+                  {Object.entries(GROUP_COLORS).slice(0, 7).map(([key, color]) => (
+                    <div key={key} className="legend-item">
+                      <div className="dot" style={{ backgroundColor: color }} />
+                      <span className="capitalize">{key}</span>
+                    </div>
+                  ))}
+                </div>
+                <div>
+                  <div className="mb-1.5 text-xs text-white/50">LINK TYPES</div>
+                  {Object.entries(LINK_COLORS).map(([type, color]) => (
+                    <div key={type} className="legend-item">
+                      <div className="h-px w-5" style={{ backgroundColor: color }} />
+                      <span>{LINK_LABELS[type as keyof typeof LINK_LABELS]}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-3 border-t border-white/10 pt-3 text-xs text-white/40">
+                Lines = relationships (ownership, power, contracts, data, sales, infrastructure).<br />
+                Drag nodes to manually reposition. Simulation continues in real time.
+              </div>
+            </motion.aside>
+          )}
+        </AnimatePresence>
+
+        <div className="ui-layer bottom-5 right-5 hidden text-xs text-white/40 md:block">
+          R — reset &nbsp;•&nbsp; ESC — close legend / clear search / deselect &nbsp;•&nbsp; Drag nodes to rearrange
+        </div>
+
+        <GlobalKeys onReset={resetView} onEscape={handleEscape} />
+      </div>
+    </MotionConfig>
+  )
+}
+
+function GlobalKeys({ onReset, onEscape }: { onReset: () => void; onEscape: () => void }) {
+  React.useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === 'r' && !['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) {
+        onReset()
+      }
+      if (e.key === 'Escape') {
+        onEscape()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onReset, onEscape])
+  return null
+}

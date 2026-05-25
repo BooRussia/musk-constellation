@@ -1,0 +1,678 @@
+@import "tailwindcss";
+
+/* ============================================
+   CONSTELLATION — Deep Space Theme
+   SpaceX / xAI / Tesla inspired: pure black, 
+   silver-white text, tight tracking, minimal
+   ============================================ */
+
+:root {
+  --bg: #000000;
+  --bg-elev: #0a0a0f;
+  --panel: rgba(10, 10, 15, 0.92);
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --text: #e5e5e5;
+  --text-muted: #a1a1aa;
+  --text-dim: #a1a1aa;
+  --accent: #c084fc;        /* xAI purple */
+  --accent-2: #f97316;      /* SpaceX flame */
+  --tesla: #e82127;
+  --spacex: #ff4500;
+  --xai: #a855f7;
+  --neural: #22c55e;
+  --boring: #eab308;
+  --x: #ffffff;
+  --external: #64748b;
+  --link-owns: #ffffff;
+  --link-powers: #22c55e;
+  --link-contract: #f97316;
+  --link-data: #a855f7;
+  --glow: rgba(192, 132, 252, 0.6);
+
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Professional dark-space typography scale (px for precision + readability in 3D+UI) — FINAL POLISH: noticeably larger across all 2D UI for perfect legibility harmony with 16.5-22px 3D ALL-CAPS labels */
+  --text-xs: 14px;     /* labels, small meta, legend items, badges */
+  --text-sm: 16px;     /* body, nav, buttons, search, toasts, sub items */
+  --text-base: 18px;   /* primary reading, missions, descriptions */
+  --text-lg: 21px;
+  --text-xl: 26px;     /* panel titles, company names (ALL CAPS) */
+  --text-2xl: 34px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+body {
+  background: radial-gradient(circle at 50% 30%, #111113 0%, #000000 70%);
+}
+
+/* Glassmorphic panels — SpaceX minimalist */
+.glass {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.panel {
+  box-shadow: 0 8px 32px -8px rgba(0, 0, 0, 0.8);
+}
+
+/* SpaceX / Tesla style buttons */
+.btn {
+  font-size: var(--text-sm);
+  letter-spacing: 2.2px;
+  text-transform: uppercase;
+  font-weight: 500;
+  padding: 10px 18px;
+  min-height: 44px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: transparent;
+  color: var(--text);
+  transition: all 0.15s cubic-bezier(0.23, 1, 0.32, 1);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn:hover {
+  border-color: rgba(255,255,255,0.4);
+  background: rgba(255,255,255,0.03);
+  color: #fff;
+}
+
+.btn:active {
+  transform: translateY(0.5px);
+}
+
+.btn:focus-visible,
+.search-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.btn-primary {
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #000;
+}
+
+.btn-ghost {
+  border-color: transparent;
+  color: var(--text-muted);
+}
+
+.btn-ghost:hover {
+  color: #fff;
+  border-color: rgba(255,255,255,0.2);
+}
+
+/* Node detail typography */
+.mission {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  font-style: italic;
+  border-left: 2px solid var(--accent);
+  padding-left: 14px;
+}
+
+.stat {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  letter-spacing: -0.3px;
+}
+
+.label {
+  font-size: var(--text-xs);
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--text-dim);
+  line-height: 1.3;
+}
+
+/* Search */
+.search-input {
+  background: rgba(0,0,0,0.6);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #fff;
+  font-size: var(--text-sm);
+  padding: 11px 16px 11px 42px;
+  width: 340px;
+  transition: all 0.2s ease;
+  border-radius: 999px;
+}
+
+.search-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.1);
+  width: 400px;
+}
+
+.search-input::placeholder {
+  color: var(--text-dim);
+}
+
+/* Connection pills */
+.conn-pill {
+  font-size: var(--text-xs);
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.1);
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+}
+
+/* Legend */
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ============================================
+   3D CONSTELLATION LABELS — PERFECT LEGIBILITY
+   High-contrast, billboarded, space-aesthetic
+   BIG, ALL-CAPS, pill-backed, stroke+shadow for
+   readability against stars, bloom, bright links
+   ============================================ */
+.constellation-label {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 10px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 
+    0 3px 14px rgba(0, 0, 0, 0.95),
+    0 0 0 1px rgba(0, 0, 0, 0.7) inset,
+    0 1px 0 rgba(255,255,255,0.06) inset;
+  /* Robust outline for contrast vs any bright element */
+  -webkit-text-stroke: 1.1px #000000;
+  text-shadow: 
+    0 0 3px #000000,
+    0 0 6px #000000,
+    1.5px 1.5px 0 #000000,
+    -1px -1px 0 #000000,
+    0 1px 2px rgba(0,0,0,0.9);
+  pointer-events: none;
+  user-select: none;
+  transition: transform 0.08s cubic-bezier(0.23, 1, 0.32, 1), 
+              opacity 0.12s ease,
+              background 0.1s ease,
+              border-color 0.1s ease;
+  will-change: transform, opacity;
+}
+
+/* Selected / connected state — even more prominent */
+.constellation-label.is-selected,
+.constellation-label.is-connected {
+  background: rgba(0, 0, 0, 0.88);
+  border-color: rgba(255, 255, 255, 0.32);
+  box-shadow: 
+    0 4px 20px rgba(0, 0, 0, 0.98),
+    0 0 0 1.5px rgba(0, 0, 0, 0.85) inset,
+    0 0 8px rgba(255,255,255,0.1);
+  -webkit-text-stroke: 1.35px #000000;
+  text-shadow: 
+    0 0 4px #000000,
+    0 0 8px #000000,
+    2px 2px 0 #000000,
+    -1.5px -1.5px 0 #000000;
+}
+
+/* Subtle scale pop on selection for emphasis */
+.constellation-label.is-selected {
+  transform: scale(1.08);
+}
+
+/* Faded / secondary for dense non-connected views (prevents clutter) */
+.constellation-label.is-secondary {
+  opacity: 0.65;
+  background: rgba(0, 0, 0, 0.72);
+  border-color: rgba(255, 255, 255, 0.08);
+  -webkit-text-stroke: 0.9px #000000;
+}
+
+/* ============================================
+   CONSTELLATION UI — SPACIOUS, LEGIBLE, CLEAN
+   Applied from detailed text audit recommendations
+   (generous padding, hierarchy, no overlap with 3D canvas)
+   ============================================ */
+
+.company-title {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  letter-spacing: -0.6px;
+  line-height: 1.15;
+  color: #fff;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  padding-right: 32px; /* space for close button */
+}
+
+.section-title {
+  font-size: var(--text-xs);
+  letter-spacing: 2.8px;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--text-dim);
+  margin: 22px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.mission {
+  font-size: var(--text-sm);
+  line-height: 1.65;
+  color: var(--text-muted);
+  font-style: italic;
+  border-left: 2px solid var(--accent);
+  padding-left: 14px;
+}
+
+.revenue-block,
+.stat-row {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+
+.revenue-note {
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.subweb-item,
+.connection-card,
+.assist-item {
+  background: rgba(255,255,255,0.025);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 8px;
+  padding: 13px 15px;
+  margin-bottom: 8px;
+  transition: border-color 0.15s ease;
+}
+
+.subweb-item:hover,
+.connection-card:hover {
+  border-color: rgba(255,255,255,0.18);
+}
+
+.connection-target {
+  font-size: var(--text-xs);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Search dropdown results */
+.search-result-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.search-result-meta {
+  font-size: var(--text-xs);
+  color: var(--text-dim);
+}
+
+/* Left stats / empire overview + Legend */
+.left-stats,
+.empire-overview,
+.legend {
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.legend-item {
+  font-size: var(--text-xs);
+  letter-spacing: 0.5px;
+}
+
+/* Sonner toasts — glass, legible */
+[data-sonner-toaster] {
+  --normal-bg: rgba(10,10,15,0.95);
+  --normal-border: rgba(255,255,255,0.1);
+  --normal-text: #e5e5e5;
+}
+
+.sonner-toast .toast-title {
+  font-size: var(--text-sm);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+}
+
+/* Screen-reader only utility */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Skip to main content link */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 16px;
+  z-index: 100;
+  padding: 10px 18px;
+  background: var(--bg-elev);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  font-size: var(--text-sm);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: top 0.2s ease;
+}
+
+.skip-link:focus {
+  top: 16px;
+}
+
+/* Reduced motion — disable animations and transitions */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .selected-hint {
+    animation: none;
+  }
+
+  .constellation-label {
+    transition: none;
+  }
+}
+
+/* Scrollbars — minimal */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.2);
+  border-radius: 20px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.35);
+}
+
+/* Canvas container */
+#constellation {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: #000;
+  touch-action: none;
+}
+
+/* Overlay UI layers */
+.ui-layer {
+  position: absolute;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.ui-layer > * {
+  pointer-events: auto;
+}
+
+/* Details panel slide */
+.details-panel {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 440px;
+  max-width: 94vw;
+  z-index: 30;
+  overflow-y: auto;
+  padding: 40px 34px 40px 32px; /* significantly more spacious + premium breathing room for long content (multi sub-webs + connections + assists) without any crowding or edge overlap */
+  max-height: calc(100vh - 2rem);
+  transition: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.details-panel.is-collapsed {
+  transform: translateY(calc(100% - 48px));
+}
+
+.details-panel-handle {
+  display: none;
+  width: 100%;
+  height: 48px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: -28px -22px 12px -20px;
+}
+
+.details-panel-handle::before {
+  content: '';
+  display: block;
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.details-panel-handle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Top nav */
+.topnav {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  background: linear-gradient(to bottom, rgba(0,0,0,0.85), transparent);
+}
+
+/* Selection highlight ring in 3D via CSS hint */
+.selected-hint {
+  animation: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* Node browser list */
+.node-browser {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.node-browser-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.node-browser-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.node-browser-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-color: var(--accent);
+}
+
+/* Mobile friendly (desktop primary) */
+@media (max-width: 768px) {
+  .glass {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(10, 10, 15, 0.95);
+  }
+
+  .details-panel {
+    width: 100%;
+    max-width: 100%;
+    bottom: 0;
+    top: auto;
+    height: 55vh;
+    padding: 28px 22px 26px 20px;
+    border-top: 1px solid var(--panel-border);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .details-panel.is-collapsed {
+    transform: translateY(calc(100% - 48px));
+  }
+
+  .details-panel-handle {
+    display: flex;
+  }
+
+  .search-input {
+    width: 180px;
+  }
+
+  .search-input:focus {
+    width: 220px;
+  }
+
+  .nav-menu-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 8px;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: var(--text);
+    cursor: pointer;
+  }
+
+  .nav-menu-toggle:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .nav-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 16px;
+    background: rgba(10, 10, 15, 0.98);
+    border-bottom: 1px solid var(--panel-border);
+  }
+
+  .nav-menu.is-open {
+    display: flex;
+  }
+
+  .nav-menu a,
+  .nav-menu button {
+    min-height: 44px;
+    padding: 10px 14px;
+    color: var(--text);
+    text-decoration: none;
+    font-size: var(--text-sm);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    border-radius: 4px;
+  }
+
+  .nav-menu a:focus-visible,
+  .nav-menu button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
