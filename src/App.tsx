@@ -21,8 +21,6 @@ import type { Link } from './data/constellation'
 
 const ConstellationCanvas = lazy(() => import('./components/ConstellationCanvas'))
 
-const GITHUB_URL = 'https://github.com/BooRussia/musk-constellation'
-
 function formatLinkDescription(link: Link): string {
   return link.note || `${LINK_LABELS[link.type]} connection`
 }
@@ -135,6 +133,16 @@ export default function MuskConstellation() {
     }
   }, [showLegend, searchQuery, selectedId, handleSelect])
 
+  // The X button on the details panel collapses the panel back to the right
+  // edge (rather than just clearing the selection, which would leave the
+  // overview state visible). Selection is dropped too so reopening the panel
+  // shows a clean overview.
+  const closeDetailsPanel = useCallback(() => {
+    setShowDesktopPanel(false)
+    setShowMobilePanel(false)
+    setSelectedId(null)
+  }, [])
+
   const liveAnnouncement = selectedNode
     ? `Selected ${selectedNode.label}. ${selectedNode.short}`
     : 'No node selected. Overview panel visible.'
@@ -235,14 +243,6 @@ export default function MuskConstellation() {
                   <PanelRightOpen className="h-3.5 w-3.5" aria-hidden="true" />
                 )}
               </button>
-              <a
-                href={GITHUB_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn btn-ghost"
-              >
-                GITHUB
-              </a>
             </div>
 
             <div className="topnav-actions-mobile flex items-center gap-2 md:!hidden">
@@ -268,14 +268,6 @@ export default function MuskConstellation() {
                   >
                     <Info className="h-3.5 w-3.5" aria-hidden="true" /> LEGEND
                   </button>
-                  <a
-                    href={GITHUB_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-ghost mb-1 w-full justify-start tracking-widest"
-                  >
-                    GITHUB
-                  </a>
                 </div>
               </details>
             </div>
@@ -370,9 +362,10 @@ export default function MuskConstellation() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => handleSelect(null)}
+                    onClick={closeDetailsPanel}
                     className="btn btn-ghost shrink-0 p-2"
                     aria-label="Close details panel"
+                    title="Close panel"
                   >
                     <X className="h-4 w-4" aria-hidden="true" />
                   </button>
@@ -528,9 +521,10 @@ export default function MuskConstellation() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setShowDesktopPanel(false)}
-                    className="btn btn-ghost hidden shrink-0 p-2 lg:flex"
-                    aria-label="Dismiss overview panel"
+                    onClick={closeDetailsPanel}
+                    className="btn btn-ghost shrink-0 p-2"
+                    aria-label="Close details panel"
+                    title="Close panel"
                   >
                     <X className="h-4 w-4" aria-hidden="true" />
                   </button>
