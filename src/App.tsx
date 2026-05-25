@@ -272,8 +272,8 @@ export default function MuskConstellation() {
             </div>
 
             <div className="space-y-2.5 text-base">
-              <div className="flex justify-between"><span className="text-white/60">Combined valuation</span> <span className="font-mono text-white/90">~$430B+</span></div>
-              <div className="flex justify-between"><span className="text-white/60">Major revenue drivers</span> <span className="font-mono text-white/90">14</span></div>
+              <div className="flex justify-between"><span className="text-white/60">Combined valuation</span> <span className="font-mono text-white/90">~$2.8T+</span></div>
+              <div className="flex justify-between"><span className="text-white/60">Cores + sub-webs</span> <span className="font-mono text-white/90">{NODES.length}</span></div>
               <div className="flex justify-between"><span className="text-white/60">Documented links</span> <span className="font-mono text-white/90">{LINKS.length}</span></div>
             </div>
 
@@ -526,15 +526,15 @@ export default function MuskConstellation() {
                 <div className="space-y-4 text-sm">
                   <div>
                     <div className="label mb-1">CORE NODES</div>
-                    <div className="text-white/80">Tesla, SpaceX, xAI, Neuralink, X, The Boring Company</div>
+                    <div className="text-white/80">Tesla, SpaceX (acq. xAI, Feb 2026), xAI, Neuralink, X, The Boring Company</div>
                   </div>
                   <div>
-                    <div className="label mb-1">KEY SUB-WEBS VISIBLE</div>
-                    <div className="text-white/80">Optimus • Robotaxi/FSD • Megapack Energy • Starlink • Colossus • Grok</div>
+                    <div className="label mb-1">KEY SUB-WEBS</div>
+                    <div className="text-white/80">Optimus • Robotaxi/FSD • Megapack Energy • Starlink • Colossus • Grok • Music City Loop</div>
                   </div>
                   <div>
                     <div className="label mb-1">NOTABLE EXTERNAL WEAVES</div>
-                    <div className="text-white/80">NASA (ISS + Artemis) • Anthropic (Colossus compute) • Global Starlink customers</div>
+                    <div className="text-white/80">NASA (ISS + Artemis) • Anthropic (Colossus compute) • Cursor ($60B acq option) • Global Starlink customers</div>
                   </div>
                 </div>
 

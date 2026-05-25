@@ -65,9 +65,12 @@ export interface Link {
 // sees actually reflects what each entity is worth.
 //
 //   cores / externals: val = cbrt(valuationBillions) * 0.36
-//     Tesla   $1000B → 3.60     SpaceX  $2000B → 4.54
-//     xAI     $50B   → 1.32     X       $30B  → 1.12
-//     Neural  $9B    → 0.75     Boring  $7B   → 0.69
+//     SpaceX  $1500B → 4.12 (pre-IPO target, post-xAI merger)
+//     Tesla   $1000B → 3.60
+//     xAI     $250B  → 2.27 (merger valuation Feb 2026, acquired by SpaceX)
+//     X       $30B   → 1.12
+//     Cursor  $29B   → 1.10 ($60B SpaceX acq option, Apr 2026)
+//     Neural  $9B    → 0.75     Boring  $7B → 0.69
 //
 //   subs: val = sqrt(shareOfParent) * parent.val
 //     Visual *area* is proportional to share of parent — a sub worth 25% of
@@ -96,12 +99,12 @@ export const NODES: Node[] = [
     label: 'SpaceX',
     type: 'core',
     group: 'spacex',
-    valuationB: 2000,
-    val: 4.54, // cbrt(2000)*0.36
-    short: 'Reusable rockets • Starlink • Human spaceflight • Mars',
+    valuationB: 1500,
+    val: 4.12, // cbrt(1500)*0.36
+    short: 'Rockets • Starlink • Spaceflight • Acquired xAI (2026) • Mars',
     mission: 'Making life multiplanetary.',
-    metric: 'Valuation ~$2T+ • Rev ~$15B+ (Starlink dominant)',
-    revenueNote: 'Starlink ~60%+ of revenue and growing fast (10M+ terminals). Launch + human spaceflight the rest.',
+    metric: 'Valuation ~$1.5T (pre-IPO target) • Acquired xAI Feb 2026',
+    revenueNote: 'Starlink ~60%+ of revenue (10M+ terminals). Acquired xAI Feb 2026 in $1.25T combined deal — now building orbital data centers post-merger. SpaceX IPO targeted later 2026.',
     children: ['spacex-starlink'],
     assists: [
       { target: 'nasa', description: 'Dragon crew + cargo to ISS (multiple flights/year). HLS lunar lander for Artemis program returning humans to the Moon.' }
@@ -112,12 +115,12 @@ export const NODES: Node[] = [
     label: 'xAI',
     type: 'core',
     group: 'xai',
-    valuationB: 50,
-    val: 1.32, // cbrt(50)*0.36
-    short: 'Frontier AI • Grok • Colossus supercluster',
+    valuationB: 250,
+    val: 2.27, // cbrt(250)*0.36
+    short: 'Frontier AI • Grok • Colossus • Acquired by SpaceX (Feb 2026)',
     mission: 'Accelerate our collective understanding of the universe.',
-    metric: 'Valuation ~$50B+ (2025-26)',
-    revenueNote: 'Grok API + consumer/enterprise. Colossus infrastructure also leased to other AI labs.',
+    metric: 'Valued at $250B in SpaceX merger (Feb 2026)',
+    revenueNote: 'Grok API + consumer/enterprise + X integration. Colossus capacity leased to other AI labs. Acquired by SpaceX Feb 2026 — combined entity ~$1.25T, with plans for space-based AI data centers.',
     children: ['xai-colossus', 'xai-grok'],
     assists: [
       { target: 'anthropic', description: 'Leases significant Colossus GPU capacity to Anthropic for their frontier model training.' }
@@ -156,10 +159,11 @@ export const NODES: Node[] = [
     group: 'boring',
     valuationB: 7,
     val: 0.69, // cbrt(7)*0.36
-    short: 'Tunnels • Urban transport • Infrastructure',
+    short: 'Tunnels • Urban transport • Music City Loop (2026)',
     mission: 'Solve traffic with tunnels.',
-    metric: 'Valuation ~$7B',
-    revenueNote: 'Vegas Loop (millions of rides), tunnels for Tesla Gigafactories, public infrastructure projects.',
+    metric: 'Valuation ~$7B • Music City Loop under construction',
+    revenueNote: 'Vegas Loop (millions of rides), Music City Loop in Nashville (~13mi, $240-300M, fully privately funded — Phase 1 BNA→Capitol targeted late 2026, full route 2029), tunnels for Tesla Gigafactories, additional city RFPs in evaluation.',
+    children: ['boring-music-city'],
     assists: []
   },
 
@@ -210,8 +214,8 @@ export const NODES: Node[] = [
     label: 'Starlink',
     type: 'sub',
     group: 'spacex',
-    valuationB: 900, // ~45% of SpaceX value — majority revenue + biggest growth
-    val: 3.05, // sqrt(0.45) * 4.54
+    valuationB: 675, // ~45% of SpaceX value — majority revenue + biggest growth
+    val: 2.77, // sqrt(0.45) * 4.12
     short: 'Satellite broadband • Global connectivity',
     mission: 'High-speed internet everywhere on Earth (and soon Mars).',
     metric: '~45% of SpaceX value • ~10M+ terminals',
@@ -225,12 +229,12 @@ export const NODES: Node[] = [
     label: 'Colossus',
     type: 'sub',
     group: 'xai',
-    valuationB: 28, // ~55% — the moat (largest training cluster in the world)
-    val: 0.98, // sqrt(0.55) * 1.32
+    valuationB: 138, // ~55% — the moat (largest training cluster in the world)
+    val: 1.68, // sqrt(0.55) * 2.27
     short: 'World\'s largest AI training cluster • Memphis',
     mission: 'The compute engine for understanding the universe.',
     metric: '~55% of xAI value • 300k+ GPUs (1M+ target) • 150+ MW',
-    revenueNote: 'Primarily internal for Grok training. Significant capacity leased to other frontier labs.',
+    revenueNote: 'Primarily internal for Grok training. Significant capacity leased to other frontier labs. Foundation for SpaceX\'s planned orbital data centers post-merger.',
     assists: [
       { target: 'anthropic', description: 'Leases large blocks of H100/H200 capacity for Anthropic\'s model training runs.' }
     ]
@@ -240,12 +244,27 @@ export const NODES: Node[] = [
     label: 'Grok',
     type: 'sub',
     group: 'xai',
-    valuationB: 15, // ~30% of xAI — the product surface
-    val: 0.72, // sqrt(0.30) * 1.32
+    valuationB: 75, // ~30% of xAI — the product surface
+    val: 1.24, // sqrt(0.30) * 2.27
     short: 'Frontier reasoning models • Real-time by X',
     mission: 'Maximum truth-seeking AI with a rebellious streak.',
     metric: '~30% of xAI value • Grok-3 / Grok-4 class',
     revenueNote: 'API access, x.com Premium+ integration, enterprise deals.',
+    assists: []
+  },
+
+  // === BORING COMPANY SUB-WEBS ===
+  {
+    id: 'boring-music-city',
+    label: 'Music City Loop',
+    type: 'sub',
+    group: 'boring',
+    valuationB: 2.5, // ~35% of Boring — flagship active project, ~13mi twin tunnels
+    val: 0.41, // sqrt(0.35) * 0.69
+    short: 'Nashville: BNA airport → Capitol → Lower Broadway',
+    mission: 'Zero-emission underground transit for Nashville.',
+    metric: '~13 miles • $240-300M • Construction started Feb 2026',
+    revenueNote: 'TDOT + Federal Highway approval Feb 25, 2026. Phase 1 (Capitol → BNA, ~10mi) targeted late 2026. Full route through downtown Music City Center + Lower Broadway by 2029. Fully privately funded; Prufrock-MB1 tunneling machine on-site.',
     assists: []
   },
 
@@ -289,6 +308,19 @@ export const NODES: Node[] = [
     mission: 'Connectivity everywhere on Earth.',
     metric: 'Millions of terminals globally',
     assists: []
+  },
+  {
+    id: 'cursor',
+    label: 'Cursor',
+    type: 'external',
+    group: 'external',
+    valuationB: 29, // Nov 2025 standalone valuation; SpaceX acq option struck at $60B
+    val: 1.10, // cbrt(29)*0.36
+    short: 'AI coding IDE • Anysphere • $60B SpaceX acquisition option',
+    mission: 'AI-native software development at scale.',
+    metric: '~$29B valuation • $2B+ ARR • $60B SpaceX acq option (Apr 2026)',
+    revenueNote: 'SpaceX has the right to acquire parent Anysphere for $60B later in 2026, or pay $10B as a collaboration fee if it walks. Cursor gains access to Colossus compute (effectively ~1M H100s) post-deal.',
+    assists: []
   }
 ]
 
@@ -309,6 +341,8 @@ export const LINKS: Link[] = [
   { source: 'xai', target: 'xai-colossus', type: 'owns', strength: 1.0, label: 'INFRA', note: 'Colossus is xAI\'s owned training cluster in Memphis.' },
   { source: 'xai', target: 'xai-grok', type: 'owns', strength: 0.95, label: 'PRODUCT', note: 'Grok models are xAI\'s flagship product line.' },
   { source: 'xai', target: 'x', type: 'acquired', strength: 0.85, label: 'ACQUIRED 2025', note: 'X Corp acquired by xAI in 2025, creating deep data + distribution integration.' },
+  { source: 'spacex', target: 'xai', type: 'acquired', strength: 1.0, label: 'ACQUIRED FEB 2026', note: 'SpaceX acquired xAI in Feb 2026 — largest M&A deal ever, $1.25T combined entity. Plans orbital data centers powered by Colossus.' },
+  { source: 'boring', target: 'boring-music-city', type: 'owns', strength: 1.0, label: 'PROJECT', note: 'Music City Loop is The Boring Company\'s flagship active project (Nashville).' },
 
   // === Power supply (provider → consumer) ===
   { source: 'tesla-energy', target: 'xai-colossus', type: 'powers', strength: 0.95, label: '$430M+ MEGAPACKS', note: 'Tesla deployed 200+ Megapacks providing 150+ MW of behind-the-meter power for Colossus.' },
@@ -320,6 +354,7 @@ export const LINKS: Link[] = [
   { source: 'spacex', target: 'nasa', type: 'contracts', strength: 0.85, label: 'DRAGON + HLS', note: 'Multi-billion-dollar contracts for ISS crew/cargo (Dragon) and the Artemis lunar lander (HLS).' },
   { source: 'xai-colossus', target: 'anthropic', type: 'contracts', strength: 0.75, label: 'GPU LEASE', note: 'Anthropic rents large blocks of Colossus capacity for frontier model training.' },
   { source: 'spacex-starlink', target: 'nasa', type: 'contracts', strength: 0.5, label: 'COMMS', note: 'Starlink provides high-bandwidth connectivity for the ISS and future deep-space missions.' },
+  { source: 'spacex', target: 'cursor', type: 'contracts', strength: 0.75, label: '$60B ACQ OPTION', note: 'SpaceX has right to acquire Anysphere (Cursor) for $60B in 2026, or $10B for collaboration only. Cursor unlocks Colossus compute access.' },
 
   // === Data / platform (data source → consumer) ===
   { source: 'x', target: 'xai', type: 'data', strength: 0.9, label: 'TRAINING DATA + DISTRIBUTION', note: 'X is the primary real-time data source for Grok and the main surface where Grok features ship.' },
