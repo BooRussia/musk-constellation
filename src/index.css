@@ -856,7 +856,9 @@ body {
   left: calc(14px + 280px + 8px);
 }
 
-/* Desktop panel reopen toggle */
+/* Floating panel toggle — sits on the LEFT edge of the right details panel
+   when the panel is open, and at the right edge of the screen when it's
+   collapsed. Mirrors the .left-sidebar-toggle tab on the left side. */
 .desktop-panel-toggle {
   position: absolute;
   right: 14px;
@@ -871,6 +873,7 @@ body {
   background: rgba(0,0,0,0.85);
   color: var(--text-muted);
   cursor: pointer;
+  transition: right 0.3s cubic-bezier(0.23, 1, 0.32, 1), color 0.15s ease;
 }
 
 .desktop-panel-toggle:hover {
@@ -878,8 +881,8 @@ body {
   border-color: rgba(255,255,255,0.3);
 }
 
-.desktop-panel-toggle--hidden {
-  display: none !important;
+.desktop-panel-toggle--open {
+  right: calc(14px + 440px + 8px);
 }
 
 /* Legend + keyboard hints positioning */

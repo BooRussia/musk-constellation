@@ -229,20 +229,6 @@ export default function MuskConstellation() {
               >
                 <Info className="h-3.5 w-3.5" aria-hidden="true" /> LEGEND
               </button>
-              <button
-                type="button"
-                onClick={() => setShowDesktopPanel(v => !v)}
-                className="btn btn-ghost hidden lg:inline-flex"
-                aria-expanded={showDesktopPanel}
-                aria-controls="main-content"
-                title={showDesktopPanel ? 'Hide details panel' : 'Show details panel'}
-              >
-                {showDesktopPanel ? (
-                  <PanelRightClose className="h-3.5 w-3.5" aria-hidden="true" />
-                ) : (
-                  <PanelRightOpen className="h-3.5 w-3.5" aria-hidden="true" />
-                )}
-              </button>
             </div>
 
             <div className="topnav-actions-mobile flex items-center gap-2 md:!hidden">
@@ -573,12 +559,18 @@ export default function MuskConstellation() {
 
         <button
           type="button"
-          onClick={() => setShowDesktopPanel(true)}
-          className={`ui-layer desktop-panel-toggle hidden lg:flex ${showDesktopPanel ? 'desktop-panel-toggle--hidden' : ''}`}
+          onClick={() => setShowDesktopPanel(v => !v)}
+          className={`ui-layer desktop-panel-toggle hidden lg:flex ${showDesktopPanel ? 'desktop-panel-toggle--open' : ''}`}
           aria-controls="main-content"
-          aria-label="Show details panel"
+          aria-expanded={showDesktopPanel}
+          aria-label={showDesktopPanel ? 'Hide details panel' : 'Show details panel'}
+          title={showDesktopPanel ? 'Hide details panel' : 'Show details panel'}
         >
-          <PanelRightOpen className="h-4 w-4" aria-hidden="true" />
+          {showDesktopPanel ? (
+            <PanelRightClose className="h-4 w-4" aria-hidden="true" />
+          ) : (
+            <PanelRightOpen className="h-4 w-4" aria-hidden="true" />
+          )}
         </button>
 
         <AnimatePresence>
