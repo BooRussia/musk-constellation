@@ -330,10 +330,10 @@ export default function MuskConstellation() {
               <motion.main
                 key={selectedNode.id}
                 id="main-content"
-                initial={{ x: 60, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                exit={{ x: 40, opacity: 0 }}
-                transition={{ type: 'spring', stiffness: 140, damping: 22 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18 }}
                 className={`details-panel glass panel border-l border-white/10 bg-black/90 text-sm ${!showMobilePanel ? 'max-md:hidden' : ''} ${!showDesktopPanel ? 'details-panel--desktop-collapsed' : ''}`}
               >
                 <div className="details-panel-header mb-6 flex items-start justify-between gap-3">
