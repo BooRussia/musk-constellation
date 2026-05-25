@@ -65,7 +65,7 @@ export interface Link {
 // sees actually reflects what each entity is worth.
 //
 //   cores / externals: val = cbrt(valuationBillions) * 0.36
-//     Tesla   $1000B → 3.60     SpaceX  $375B → 2.59
+//     Tesla   $1000B → 3.60     SpaceX  $2000B → 4.54
 //     xAI     $50B   → 1.32     X       $30B  → 1.12
 //     Neural  $9B    → 0.75     Boring  $7B   → 0.69
 //
@@ -96,11 +96,11 @@ export const NODES: Node[] = [
     label: 'SpaceX',
     type: 'core',
     group: 'spacex',
-    valuationB: 375,
-    val: 2.59, // cbrt(375)*0.36
+    valuationB: 2000,
+    val: 4.54, // cbrt(2000)*0.36
     short: 'Reusable rockets • Starlink • Human spaceflight • Mars',
     mission: 'Making life multiplanetary.',
-    metric: 'Valuation ~$350-400B • Rev ~$15B+ (Starlink dominant)',
+    metric: 'Valuation ~$2T+ • Rev ~$15B+ (Starlink dominant)',
     revenueNote: 'Starlink ~60%+ of revenue and growing fast (10M+ terminals). Launch + human spaceflight the rest.',
     children: ['spacex-starlink'],
     assists: [
@@ -210,8 +210,8 @@ export const NODES: Node[] = [
     label: 'Starlink',
     type: 'sub',
     group: 'spacex',
-    valuationB: 170, // ~45% of SpaceX value — majority revenue + biggest growth
-    val: 1.74, // sqrt(0.45) * 2.59
+    valuationB: 900, // ~45% of SpaceX value — majority revenue + biggest growth
+    val: 3.05, // sqrt(0.45) * 4.54
     short: 'Satellite broadband • Global connectivity',
     mission: 'High-speed internet everywhere on Earth (and soon Mars).',
     metric: '~45% of SpaceX value • ~10M+ terminals',
