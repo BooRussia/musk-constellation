@@ -263,86 +263,82 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 2px 7px;
-  border-radius: 3px;
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #cfcfd6;
-  opacity: 0.8;
-  -webkit-text-stroke: 0.4px rgba(0, 0, 0, 0.6);
+  padding: 4px 10px;
+  border-radius: 4px;
+  /* Solid-enough background so labels read against bright bloomed cores
+     and the warm/cool starfield. Backdrop-blur softens any star behind. */
+  background: rgba(8, 8, 14, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(6px) saturate(120%);
+  -webkit-backdrop-filter: blur(6px) saturate(120%);
+  color: #ececf3;
+  -webkit-text-stroke: 0.35px rgba(0, 0, 0, 0.55);
   text-shadow:
     0 0 2px rgba(0, 0, 0, 0.95),
-    0 0 4px rgba(0, 0, 0, 0.85);
+    0 0 6px rgba(0, 0, 0, 0.8);
   pointer-events: none;
   user-select: none;
-  transition: transform 0.08s cubic-bezier(0.23, 1, 0.32, 1),
-              opacity 0.18s ease,
+  /* Opacity is driven per-frame in JS for distance fade, so don't transition
+     it (would lag the fade). Keep other transitions snappy. */
+  transition: transform 0.12s cubic-bezier(0.23, 1, 0.32, 1),
               background 0.15s ease,
-              border-color 0.15s ease;
-  will-change: transform, opacity;
+              border-color 0.15s ease,
+              color 0.15s ease;
+  will-change: opacity, transform;
 }
 
-/* Visual hierarchy by node type */
+/* Type hierarchy: core nodes loudest, sub nodes lighter, external nodes
+   neutral. All sizes fixed in CSS pixels — no distanceFactor scaling. */
 .constellation-label.is-core {
   font-size: 13px;
-  letter-spacing: 1.8px;
-  color: #f0f0f5;
-  opacity: 0.95;
-  background: rgba(0, 0, 0, 0.7);
-  border-color: rgba(255, 255, 255, 0.18);
-  -webkit-text-stroke: 0.5px rgba(0, 0, 0, 0.7);
+  letter-spacing: 2px;
+  font-weight: 700;
+  color: #ffffff;
+  background: rgba(8, 8, 14, 0.88);
+  border-color: rgba(255, 255, 255, 0.22);
+  padding: 5px 11px;
 }
 
 .constellation-label.is-sub {
-  font-size: 10.5px;
-  letter-spacing: 1.1px;
-  color: #b0b0bc;
-  opacity: 0.65;
-  padding: 1px 6px;
-  background: rgba(0, 0, 0, 0.45);
-  border-color: rgba(255, 255, 255, 0.06);
+  font-size: 11px;
+  letter-spacing: 1.3px;
+  font-weight: 500;
+  color: #c4c4cf;
+  background: rgba(8, 8, 14, 0.7);
+  border-color: rgba(255, 255, 255, 0.08);
+  padding: 3px 8px;
 }
 
 .constellation-label.is-external {
   font-size: 11.5px;
-  letter-spacing: 1.3px;
-  color: #c8c8d2;
-  opacity: 0.78;
-  background: rgba(0, 0, 0, 0.55);
-  border-color: rgba(255, 255, 255, 0.1);
+  letter-spacing: 1.4px;
+  color: #d8d8e2;
+  background: rgba(8, 8, 14, 0.78);
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
-/* Selected / connected state — even more prominent */
+/* Selected / connected state — louder background + ring so the focused web
+   reads at a glance even before you see the link lines. */
 .constellation-label.is-selected,
 .constellation-label.is-connected {
-  background: rgba(0, 0, 0, 0.82);
-  border-color: rgba(255, 255, 255, 0.32);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 4px 14px rgba(0, 0, 0, 0.7);
+  background: rgba(8, 8, 14, 0.92);
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 6px 20px rgba(0, 0, 0, 0.7);
   color: #ffffff;
-  opacity: 1;
 }
 
-.constellation-label.is-selected.is-core { font-size: 15px; }
-.constellation-label.is-selected.is-sub { font-size: 12px; }
-.constellation-label.is-selected.is-external { font-size: 13.5px; }
-
-.constellation-label.is-connected:not(.is-selected) {
-  opacity: 0.92;
-}
+.constellation-label.is-selected.is-core { font-size: 15px; letter-spacing: 2.2px; }
+.constellation-label.is-selected.is-sub { font-size: 12.5px; letter-spacing: 1.5px; }
+.constellation-label.is-selected.is-external { font-size: 13px; letter-spacing: 1.6px; }
 
 .constellation-label.is-selected {
-  transform: scale(1.06);
+  transform: scale(1.05);
 }
 
-/* Dimmed: when something is selected, fade unrelated labels right out so
-   only the focused star + its web read clearly. */
-.constellation-label.is-dimmed {
-  opacity: 0.18 !important;
-  background: transparent;
-  border-color: transparent;
-  color: rgba(255, 255, 255, 0.45);
-}
-
+/* drei wraps each <Html center> in a div with translate(-50%, -50%). We
+   don't want pointer events stealing canvas clicks. */
 .constellation-label-wrap {
   pointer-events: none;
 }

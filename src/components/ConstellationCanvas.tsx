@@ -77,11 +77,6 @@ function hashRotation(id: string): [number, number, number] {
   ]
 }
 
-function hashLabelOffset(id: string): [number, number] {
-  const angle = ((hashFromId(id) >>> 0) / 4294967296) * Math.PI * 2
-  return [Math.cos(angle), Math.sin(angle)]
-}
-
 function fitCameraToNodes(
   camera: THREE.PerspectiveCamera,
   controls: OrbitControlsImpl,
@@ -161,6 +156,7 @@ const NodeMesh = memo(function NodeMesh({
   onPointerDown,
 }: NodeMeshProps) {
   const groupRef = useRef<THREE.Group>(null)
+  const labelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const group = groupRef.current
@@ -175,16 +171,38 @@ const NodeMesh = memo(function NodeMesh({
   const color = GROUP_COLORS[node.group]
   const radius = node.val * 0.55
   const ringRotation = useMemo(() => hashRotation(node.id), [node.id])
-  const labelOffset = useMemo(() => hashLabelOffset(node.id), [node.id])
-  const labelSpread = radius * (2.65 + (node.val > 2 ? 0.45 : node.val > 1.6 ? 0.25 : 0))
+  // Label sits directly below the sphere for predictable positioning at
+  // any camera angle. The radius offset keeps the label clear of the
+  // glowing core while leaving the connection lines visible above it.
   const labelPosition = useMemo(
-    (): [number, number, number] => [
-      labelOffset[0] * labelSpread * 0.9,
-      radius * 1.15 + labelOffset[1] * labelSpread * 0.55,
-      labelOffset[1] * labelSpread * 0.4 + 0.6,
-    ],
-    [labelOffset, labelSpread, radius],
+    (): [number, number, number] => [0, -(radius + 0.9 + node.val * 0.25), 0],
+    [radius, node.val],
   )
+
+  // Per-frame distance fade — labels stay readable up close and gently
+  // dim as they move past a "comfortable read" distance. This replaces
+  // distanceFactor scaling, which made the focused node's label balloon
+  // while the rest collapsed to unreadable specks.
+  const worldPos = useRef(new THREE.Vector3())
+  useFrame(({ camera }) => {
+    const el = labelRef.current
+    const group = groupRef.current
+    if (!el || !group) return
+    group.getWorldPosition(worldPos.current)
+    const dist = camera.position.distanceTo(worldPos.current)
+    // Visibility curve: full opacity 0-32 units, fade 32-70, hidden past 80.
+    let target: number
+    if (dist < 32) target = 1
+    else if (dist > 80) target = 0
+    else if (dist > 70) target = (80 - dist) / 10 * 0.35
+    else target = 1 - (dist - 32) / 38 * 0.65
+    // Selected / connected labels always read at full strength.
+    if (isSelected || isConnected) target = 1
+    // When something is selected and this isn't part of the focused web,
+    // bias toward the dimmed end so the focus reads cleanly.
+    if (hasSelection && !isSelected && !isConnected) target = Math.min(target, 0.22)
+    el.style.opacity = target.toFixed(3)
+  })
 
   return (
     <group ref={groupRef}>
@@ -234,17 +252,17 @@ const NodeMesh = memo(function NodeMesh({
 
       <Html
         position={labelPosition}
-        distanceFactor={22}
+        center
         zIndexRange={[5, 80]}
         wrapperClass="constellation-label-wrap"
         style={{
           pointerEvents: 'none',
           userSelect: 'none',
-          transform: 'translate(-50%, -50%)',
         }}
       >
         <div
-          className={`constellation-label is-${node.type} ${isSelected ? 'is-selected' : ''} ${isConnected && !isSelected ? 'is-connected' : ''} ${hasSelection && !isSelected && !isConnected ? 'is-dimmed' : ''}`}
+          ref={labelRef}
+          className={`constellation-label is-${node.type} ${isSelected ? 'is-selected' : ''} ${isConnected && !isSelected ? 'is-connected' : ''}`}
         >
           {node.label.toUpperCase()}
         </div>
