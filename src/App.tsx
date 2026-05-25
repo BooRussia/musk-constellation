@@ -13,6 +13,7 @@ import CanvasLoader from './components/CanvasLoader'
 import {
   NODES, LINKS,
   getChildren, getNodeLinks, getNodeById, getVisibleNodes,
+  getLinkRole, getLinkRoleLabel,
   GROUP_COLORS, LINK_COLORS, LINK_LABELS,
   INITIAL_FOCUS,
 } from './data/constellation'
@@ -443,9 +444,12 @@ export default function MuskConstellation() {
                       <div className="text-sm text-white/40">No direct documented links in current view.</div>
                     )}
                     {getNodeLinks(selectedNode.id).map((link) => {
-                      const otherId = link.source === selectedNode.id ? link.target : link.source
+                      const role = getLinkRole(link, selectedNode.id)
+                      const otherId = role === 'outgoing' ? link.target : link.source
                       const other = getNodeById(otherId)
                       if (!other) return null
+                      const roleLabel = getLinkRoleLabel(link, selectedNode.id)
+                      const arrow = role === 'outgoing' ? '→' : '←'
                       return (
                         <button
                           key={`${link.source}-${link.target}-${link.type}`}
@@ -457,8 +461,15 @@ export default function MuskConstellation() {
                             <span
                               className="conn-pill shrink-0"
                               style={{ borderColor: LINK_COLORS[link.type] + '55', color: LINK_COLORS[link.type] }}
+                              title={LINK_LABELS[link.type]}
                             >
-                              {LINK_LABELS[link.type]}
+                              {roleLabel.toUpperCase()}
+                            </span>
+                            <span
+                              aria-hidden="true"
+                              className="font-mono text-base leading-none text-white/45"
+                            >
+                              {arrow}
                             </span>
                             <span className="connection-label font-medium text-white/90">{other.label}</span>
                           </div>

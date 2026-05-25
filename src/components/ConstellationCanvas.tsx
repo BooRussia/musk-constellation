@@ -10,6 +10,7 @@ import {
   GROUP_COLORS,
   LINK_COLORS,
   getConnectedIds,
+  getNodeById,
   getVisibleNodes,
   getVisibleLinks,
 } from '../data/constellation'
@@ -296,21 +297,29 @@ const LinkLines = memo(function LinkLines({
     const hi: number[] = []
 
     links.forEach((link, i) => {
-      const rgb = hexToRgb(LINK_COLORS[link.type] || '#888888')
       const isHighlighted =
         highlightLinkIds.has(`${link.source}-${link.target}`) ||
         highlightLinkIds.has(`${link.target}-${link.source}`)
-      const opacity = isHighlighted ? 0.95 : selectedId ? 0.25 : 0.55
-      const r = (rgb[0] / 255) * opacity
-      const g = (rgb[1] / 255) * opacity
-      const b = (rgb[2] / 255) * opacity
+      // Direction-aware gradient: source node's group color at the source
+      // end, target node's group color at the target end. A viewer can see
+      // a Tesla→Boring link reading red→yellow (Tesla side starts the line)
+      // and immediately knows which way the relationship flows.
+      const srcNode = getNodeById(link.source)
+      const tgtNode = getNodeById(link.target)
+      const srcRgb = hexToRgb(srcNode ? GROUP_COLORS[srcNode.group] : (LINK_COLORS[link.type] || '#888888'))
+      const tgtRgb = hexToRgb(tgtNode ? GROUP_COLORS[tgtNode.group] : (LINK_COLORS[link.type] || '#888888'))
+      const opacity = isHighlighted ? 0.95 : selectedId ? 0.18 : 0.5
+      // Brighten the source end slightly so the gradient reads as "flowing
+      // FROM source" rather than as an arbitrary mix.
+      const srcMul = opacity * 1.0
+      const tgtMul = opacity * 0.55
       const base = i * 6
-      col[base] = r
-      col[base + 1] = g
-      col[base + 2] = b
-      col[base + 3] = r
-      col[base + 4] = g
-      col[base + 5] = b
+      col[base + 0] = (srcRgb[0] / 255) * srcMul
+      col[base + 1] = (srcRgb[1] / 255) * srcMul
+      col[base + 2] = (srcRgb[2] / 255) * srcMul
+      col[base + 3] = (tgtRgb[0] / 255) * tgtMul
+      col[base + 4] = (tgtRgb[1] / 255) * tgtMul
+      col[base + 5] = (tgtRgb[2] / 255) * tgtMul
       if (isHighlighted) hi.push(i)
     })
 
@@ -402,10 +411,187 @@ const LinkLines = memo(function LinkLines({
               args={[highlightPositions, 3]}
             />
           </bufferGeometry>
-          <lineBasicMaterial color="#ffffff" transparent opacity={0.6} linewidth={0.8} />
+          <lineBasicMaterial color="#ffffff" transparent opacity={0.55} linewidth={0.8} />
         </lineSegments>
       )}
+
+      <LinkFlow
+        links={links}
+        highlightIndices={highlightIndices}
+        simNodesRef={simNodesRef}
+      />
     </>
+  )
+})
+
+// ============================================
+// LINK FLOW PARTICLES — animated dots travel along each highlighted link
+// from source toward target, making the direction of the relationship
+// completely unambiguous at a glance.
+// ============================================
+const FLOW_PARTICLES_PER_LINK = 4
+const FLOW_MAX_LINKS = 40
+const FLOW_TOTAL = FLOW_PARTICLES_PER_LINK * FLOW_MAX_LINKS
+const FLOW_SPEED = 0.35 // 1/seconds — particle traverses link in ~3s
+
+const FLOW_VERT = /* glsl */ `
+  attribute float aSize;
+  attribute vec3 aColor;
+  varying vec3 vColor;
+  uniform float uPixelRatio;
+  void main() {
+    vColor = aColor;
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    float dist = max(-mv.z, 1.0);
+    gl_PointSize = aSize * (260.0 / dist) * uPixelRatio;
+    gl_PointSize = clamp(gl_PointSize, 2.0, 24.0);
+    gl_Position = projectionMatrix * mv;
+  }
+`
+const FLOW_FRAG = /* glsl */ `
+  varying vec3 vColor;
+  void main() {
+    vec2 uv = gl_PointCoord * 2.0 - 1.0;
+    float d2 = dot(uv, uv);
+    if (d2 > 1.0) discard;
+    float core = smoothstep(0.55, 0.0, sqrt(d2));
+    float halo = smoothstep(1.0, 0.0, sqrt(d2));
+    gl_FragColor = vec4(vColor * (0.5 + core), halo * 0.95);
+  }
+`
+
+interface LinkFlowProps {
+  links: Link[]
+  highlightIndices: number[]
+  simNodesRef: React.MutableRefObject<SimNode[]>
+}
+
+const LinkFlow = memo(function LinkFlow({
+  links,
+  highlightIndices,
+  simNodesRef,
+}: LinkFlowProps) {
+  const pointsRef = useRef<THREE.Points>(null!)
+  const dpr = typeof window !== 'undefined' ? Math.min(window.devicePixelRatio, 2) : 1
+
+  // Pre-allocated attribute buffers, owned by component state (lazy init)
+  // so useFrame can write into them without tripping the "modify captured
+  // render value" lint. useFrame rewrites every active particle each frame
+  // and zeros sizes for inactive ones; no separate reset is needed.
+  const [positions] = useState(() => new Float32Array(FLOW_TOTAL * 3))
+  const [sizes] = useState(() => new Float32Array(FLOW_TOTAL))
+  const [colors] = useState(() => new Float32Array(FLOW_TOTAL * 3))
+
+  const [material] = useState(
+    () =>
+      new THREE.ShaderMaterial({
+        uniforms: { uPixelRatio: { value: dpr } },
+        vertexShader: FLOW_VERT,
+        fragmentShader: FLOW_FRAG,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+  )
+  const materialRef = useRef<THREE.ShaderMaterial | null>(null)
+  useLayoutEffect(() => {
+    materialRef.current = material
+    return () => {
+      material.dispose()
+      materialRef.current = null
+    }
+  }, [material])
+
+  useFrame(({ clock }) => {
+    const pts = pointsRef.current
+    if (!pts) return
+    const geo = pts.geometry as THREE.BufferGeometry
+    const posAttr = geo.getAttribute('position') as THREE.BufferAttribute
+    const sizeAttr = geo.getAttribute('aSize') as THREE.BufferAttribute
+    const colorAttr = geo.getAttribute('aColor') as THREE.BufferAttribute
+    const posArr = posAttr.array as Float32Array
+    const sizeArr = sizeAttr.array as Float32Array
+    const colorArr = colorAttr.array as Float32Array
+
+    if (highlightIndices.length === 0) {
+      // Hide all particles.
+      sizeArr.fill(0)
+      sizeAttr.needsUpdate = true
+      return
+    }
+
+    const t = clock.elapsedTime
+    const nodeMap = new Map(simNodesRef.current.map((n) => [n.id, n]))
+
+    const activeCount = Math.min(highlightIndices.length, FLOW_MAX_LINKS)
+
+    for (let li = 0; li < activeCount; li++) {
+      const linkIdx = highlightIndices[li]
+      const link = links[linkIdx]
+      if (!link) continue
+      const s = nodeMap.get(link.source)
+      const tg = nodeMap.get(link.target)
+      if (!s || !tg) continue
+
+      const sx = s.x ?? 0, sy = s.y ?? 0, sz = s.z ?? 0
+      const tx = tg.x ?? 0, ty = tg.y ?? 0, tz = tg.z ?? 0
+      const dx = tx - sx, dy = ty - sy, dz = tz - sz
+
+      // Source-node color so particles read as "leaving the source"
+      const srcNode = getNodeById(link.source)
+      const tgtNode = getNodeById(link.target)
+      const srcRgb = srcNode ? hexToRgb(GROUP_COLORS[srcNode.group]) : [255, 255, 255]
+      const tgtRgb = tgtNode ? hexToRgb(GROUP_COLORS[tgtNode.group]) : [255, 255, 255]
+
+      for (let p = 0; p < FLOW_PARTICLES_PER_LINK; p++) {
+        const offset = p / FLOW_PARTICLES_PER_LINK
+        // Travel from 0.08 to 0.92 along the link so particles don't pile
+        // up inside the spheres at either end.
+        const u = ((t * FLOW_SPEED + offset) % 1)
+        const u01 = 0.08 + u * 0.84
+        const idx = (li * FLOW_PARTICLES_PER_LINK + p)
+        const base = idx * 3
+
+        posArr[base + 0] = sx + dx * u01
+        posArr[base + 1] = sy + dy * u01
+        posArr[base + 2] = sz + dz * u01
+
+        // Tint shifts from source color near the start to target color
+        // near the end so each particle visibly carries the source's
+        // identity outward.
+        const mixR = srcRgb[0] / 255 * (1 - u01) + tgtRgb[0] / 255 * u01
+        const mixG = srcRgb[1] / 255 * (1 - u01) + tgtRgb[1] / 255 * u01
+        const mixB = srcRgb[2] / 255 * (1 - u01) + tgtRgb[2] / 255 * u01
+        colorArr[base + 0] = mixR
+        colorArr[base + 1] = mixG
+        colorArr[base + 2] = mixB
+
+        // Brighter / bigger near the head, softer near the tail.
+        sizeArr[idx] = 1.6 + u * 1.0
+      }
+    }
+
+    // Zero-out unused particles past activeCount so they don't render.
+    for (let li = activeCount; li < FLOW_MAX_LINKS; li++) {
+      for (let p = 0; p < FLOW_PARTICLES_PER_LINK; p++) {
+        const idx = li * FLOW_PARTICLES_PER_LINK + p
+        sizeArr[idx] = 0
+      }
+    }
+
+    posAttr.needsUpdate = true
+    sizeAttr.needsUpdate = true
+    colorAttr.needsUpdate = true
+  })
+
+  return (
+    <points ref={pointsRef} material={material} frustumCulled={false}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        <bufferAttribute attach="attributes-aSize" args={[sizes, 1]} />
+        <bufferAttribute attach="attributes-aColor" args={[colors, 3]} />
+      </bufferGeometry>
+    </points>
   )
 })
 

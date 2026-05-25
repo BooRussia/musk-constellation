@@ -17,8 +17,17 @@ export interface Node {
   label: string
   type: NodeType
   group: 'tesla' | 'spacex' | 'xai' | 'neuralink' | 'boring' | 'x' | 'external'
-  // Visual weight (radius in 3D)
+  /**
+   * Visual weight (radius in 3D). Derived from valuation:
+   *  - cores & externals: `cbrt(valuationBillions) * 0.36`
+   *  - subs: `sqrt(shareOfParent) * parent.val` so visual area is
+   *    proportional to the sub's share of the parent's value.
+   * Pre-computed and stored here rather than recomputed at render time.
+   */
   val: number
+  /** USD valuation in billions (latest 2025-26 estimate). Optional for
+   *  externals where a comparable corporate valuation isn't meaningful. */
+  valuationB?: number
   // Short description for hover / list
   short: string
   // Full mission / positioning statement
@@ -52,6 +61,17 @@ export interface Link {
 // CORE NODES + SUB-WEBS + KEY EXTERNALS
 // ============================================
 
+// Visual sizing scale: vals derived from real valuations so the orb a viewer
+// sees actually reflects what each entity is worth.
+//
+//   cores / externals: val = cbrt(valuationBillions) * 0.36
+//     Tesla   $1000B → 3.60     SpaceX  $375B → 2.59
+//     xAI     $50B   → 1.32     X       $30B  → 1.12
+//     Neural  $9B    → 0.75     Boring  $7B   → 0.69
+//
+//   subs: val = sqrt(shareOfParent) * parent.val
+//     Visual *area* is proportional to share of parent — a sub worth 25% of
+//     its parent's value renders as an orb half the parent's radius.
 export const NODES: Node[] = [
   // === CORE EMPIRE ===
   {
@@ -59,7 +79,8 @@ export const NODES: Node[] = [
     label: 'Tesla',
     type: 'core',
     group: 'tesla',
-    val: 2.8,
+    valuationB: 1000,
+    val: 3.60, // cbrt(1000)*0.36
     short: 'Electric vehicles • Energy • Autonomy • Robotics',
     mission: 'Build a world of amazing abundance.',
     metric: 'Market cap ~$1T+ • 2025 Rev ~$97.7B',
@@ -75,15 +96,15 @@ export const NODES: Node[] = [
     label: 'SpaceX',
     type: 'core',
     group: 'spacex',
-    val: 2.6,
+    valuationB: 375,
+    val: 2.59, // cbrt(375)*0.36
     short: 'Reusable rockets • Starlink • Human spaceflight • Mars',
     mission: 'Making life multiplanetary.',
-    metric: 'Valuation ~$350B+ • Rev ~$15B+ (Starlink dominant)',
+    metric: 'Valuation ~$350-400B • Rev ~$15B+ (Starlink dominant)',
     revenueNote: 'Starlink ~60%+ of revenue and growing fast (10M+ terminals). Launch + human spaceflight the rest.',
     children: ['spacex-starlink'],
     assists: [
-      { target: 'nasa', description: 'Dragon crew + cargo to ISS (multiple flights/year). HLS lunar lander for Artemis program returning humans to the Moon.' },
-      { target: 'tesla', description: 'Launch services & orbital comms support; Starlink connectivity for remote Tesla sites.' }
+      { target: 'nasa', description: 'Dragon crew + cargo to ISS (multiple flights/year). HLS lunar lander for Artemis program returning humans to the Moon.' }
     ]
   },
   {
@@ -91,15 +112,15 @@ export const NODES: Node[] = [
     label: 'xAI',
     type: 'core',
     group: 'xai',
-    val: 2.4,
+    valuationB: 50,
+    val: 1.32, // cbrt(50)*0.36
     short: 'Frontier AI • Grok • Colossus supercluster',
     mission: 'Accelerate our collective understanding of the universe.',
     metric: 'Valuation ~$50B+ (2025-26)',
     revenueNote: 'Grok API + consumer/enterprise. Colossus infrastructure also leased to other AI labs.',
     children: ['xai-colossus', 'xai-grok'],
     assists: [
-      { target: 'anthropic', description: 'Leases significant Colossus GPU capacity to Anthropic for their frontier model training.' },
-      { target: 'x', description: 'X (acquired 2025) provides real-time data for training + distribution of Grok.' }
+      { target: 'anthropic', description: 'Leases significant Colossus GPU capacity to Anthropic for their frontier model training.' }
     ]
   },
   {
@@ -107,7 +128,8 @@ export const NODES: Node[] = [
     label: 'Neuralink',
     type: 'core',
     group: 'neuralink',
-    val: 1.9,
+    valuationB: 9,
+    val: 0.75, // cbrt(9)*0.36
     short: 'Brain-computer interfaces • Restore autonomy',
     mission: 'Restore autonomy to those with unmet medical needs today and unlock human potential tomorrow.',
     metric: 'Valuation ~$9-10B (2025)',
@@ -119,54 +141,52 @@ export const NODES: Node[] = [
     label: 'X',
     type: 'core',
     group: 'x',
-    val: 2.1,
+    valuationB: 30,
+    val: 1.12, // cbrt(30)*0.36
     short: 'Everything app • Public conversation • Real-time data',
     mission: 'The town square of the internet — an everything app.',
-    metric: 'Acquired by xAI (2025) • Valuation private',
+    metric: 'Acquired by xAI (2025) • Valuation ~$30B',
     revenueNote: 'Advertising + subscriptions + data licensing. Deep integration with Grok.',
-    assists: [
-      { target: 'xai', description: 'Primary real-time training data source for Grok models + surface for Grok responses.' }
-    ]
+    assists: []
   },
   {
     id: 'boring',
     label: 'The Boring Company',
     type: 'core',
     group: 'boring',
-    val: 1.6,
+    valuationB: 7,
+    val: 0.69, // cbrt(7)*0.36
     short: 'Tunnels • Urban transport • Infrastructure',
     mission: 'Solve traffic with tunnels.',
     metric: 'Valuation ~$7B',
     revenueNote: 'Vegas Loop (millions of rides), tunnels for Tesla Gigafactories, public infrastructure projects.',
-    assists: [
-      { target: 'tesla', description: 'Underground logistics tunnels beneath Giga Texas and other factories for vehicle/parts movement.' }
-    ]
+    assists: []
   },
 
-  // === TESLA SUB-WEBS (major revenue/impact drivers) ===
+  // === TESLA SUB-WEBS (sized as share of Tesla's $1T value) ===
   {
     id: 'tesla-energy',
     label: 'Tesla Energy',
     type: 'sub',
     group: 'tesla',
-    val: 1.5,
+    valuationB: 250, // ~25% of Tesla's value as the fastest-growing segment
+    val: 1.80, // sqrt(0.25) * 3.60
     short: 'Megapack • Powerwall • Solar • Grid storage',
     mission: 'Accelerate the world\'s transition to sustainable energy — at grid scale.',
-    metric: 'Fastest-growing Tesla segment',
+    metric: '~25% of Tesla value • Fastest-growing segment',
     revenueNote: 'Megapack deployments exploding globally. 200+ units deployed to single xAI Colossus project alone.',
-    assists: [
-      { target: 'xai-colossus', description: 'Primary power backbone for 300k+ H100-class GPUs. One of the largest behind-the-meter storage deployments ever.' }
-    ]
+    assists: []
   },
   {
     id: 'tesla-autonomy',
     label: 'Autonomy (FSD + Robotaxi)',
     type: 'sub',
     group: 'tesla',
-    val: 1.4,
+    valuationB: 200, // ~20% optionality from FSD + Robotaxi network
+    val: 1.61, // sqrt(0.20) * 3.60
     short: 'Full Self-Driving • Cybercab • Dojo supercomputer',
     mission: 'Autonomous transportation at massive scale.',
-    metric: '2025: Robotaxi / Cybercab unveiled & early ops',
+    metric: '~20% of Tesla value • 2025 Robotaxi/Cybercab early ops',
     revenueNote: 'FSD subscriptions + robotaxi network (future) expected to dwarf auto gross margin. Dojo trains the vision models.',
     assists: []
   },
@@ -175,15 +195,13 @@ export const NODES: Node[] = [
     label: 'Optimus',
     type: 'sub',
     group: 'tesla',
-    val: 1.3,
+    valuationB: 80, // ~8% — small today, massive future optionality
+    val: 1.02, // sqrt(0.08) * 3.60
     short: 'Humanoid general-purpose robot',
     mission: 'A useful humanoid robot in every home and factory.',
-    metric: 'Production ramping 2025-2026',
+    metric: '~8% of Tesla value (optionality) • Production ramping',
     revenueNote: 'Long-term: potentially the largest opportunity. Early units working inside Tesla factories.',
-    assists: [
-      { target: 'spacex', description: 'Future: construction, maintenance & manufacturing labor on Mars and at Starbase.' },
-      { target: 'tesla', description: 'Internal factory labor + eventual consumer product.' }
-    ]
+    assists: []
   },
 
   // === SPACEX SUB-WEBS ===
@@ -192,15 +210,13 @@ export const NODES: Node[] = [
     label: 'Starlink',
     type: 'sub',
     group: 'spacex',
-    val: 1.7,
+    valuationB: 170, // ~45% of SpaceX value — majority revenue + biggest growth
+    val: 1.74, // sqrt(0.45) * 2.59
     short: 'Satellite broadband • Global connectivity',
     mission: 'High-speed internet everywhere on Earth (and soon Mars).',
-    metric: '~10M+ terminals • Majority of SpaceX revenue',
+    metric: '~45% of SpaceX value • ~10M+ terminals',
     revenueNote: 'Residential, enterprise, maritime, aviation, government. Starlink Direct to Cell launching.',
-    assists: [
-      { target: 'nasa', description: 'Provides comms redundancy and high-bandwidth data for ISS and future Artemis missions.' },
-      { target: 'anthropic', description: 'Critical connectivity for remote AI training clusters and global enterprise customers.' }
-    ]
+    assists: []
   },
 
   // === xAI SUB-WEBS ===
@@ -209,14 +225,14 @@ export const NODES: Node[] = [
     label: 'Colossus',
     type: 'sub',
     group: 'xai',
-    val: 1.8,
+    valuationB: 28, // ~55% — the moat (largest training cluster in the world)
+    val: 0.98, // sqrt(0.55) * 1.32
     short: 'World\'s largest AI training cluster • Memphis',
     mission: 'The compute engine for understanding the universe.',
-    metric: '300k+ GPUs (expanding to 1M+) • 150+ MW power',
+    metric: '~55% of xAI value • 300k+ GPUs (1M+ target) • 150+ MW',
     revenueNote: 'Primarily internal for Grok training. Significant capacity leased to other frontier labs.',
     assists: [
-      { target: 'anthropic', description: 'Leases large blocks of H100/H200 capacity for Anthropic\'s model training runs.' },
-      { target: 'xai', description: 'Trains every Grok model iteration at unprecedented speed and scale.' }
+      { target: 'anthropic', description: 'Leases large blocks of H100/H200 capacity for Anthropic\'s model training runs.' }
     ]
   },
   {
@@ -224,14 +240,13 @@ export const NODES: Node[] = [
     label: 'Grok',
     type: 'sub',
     group: 'xai',
-    val: 1.5,
+    valuationB: 15, // ~30% of xAI — the product surface
+    val: 0.72, // sqrt(0.30) * 1.32
     short: 'Frontier reasoning models • Real-time by X',
     mission: 'Maximum truth-seeking AI with a rebellious streak.',
-    metric: 'Grok-3 / Grok-4 class • API + consumer',
+    metric: '~30% of xAI value • Grok-3 / Grok-4 class',
     revenueNote: 'API access, x.com Premium+ integration, enterprise deals.',
-    assists: [
-      { target: 'x', description: 'Powers Grok chatbot on X, image gen, coding, deep search, and agentic features.' }
-    ]
+    assists: []
   },
 
   // === EXTERNALS (real partners & contracts) ===
@@ -240,10 +255,12 @@ export const NODES: Node[] = [
     label: 'NASA',
     type: 'external',
     group: 'external',
-    val: 1.1,
+    // NASA is an agency, not a private company. Sized to read as a major
+    // institutional partner without competing with Tesla/SpaceX visually.
+    val: 1.45,
     short: 'Human spaceflight & exploration',
     mission: 'Explore the unknown and inspire the world.',
-    metric: 'Long-term partner via COTS, CRS, CCP, HLS',
+    metric: 'FY annual budget ~$25B • Long-term SpaceX partner',
     revenueNote: 'SpaceX is NASA\'s primary commercial crew & cargo provider to the ISS.',
     assists: []
   },
@@ -252,10 +269,11 @@ export const NODES: Node[] = [
     label: 'Anthropic',
     type: 'external',
     group: 'external',
-    val: 1.0,
+    valuationB: 60,
+    val: 1.41, // cbrt(60)*0.36
     short: 'Frontier AI safety-focused lab (Claude)',
     mission: 'Build reliable, interpretable, and steerable AI systems.',
-    metric: 'Major Colossus compute customer',
+    metric: 'Valuation ~$60B • Major Colossus compute customer',
     revenueNote: 'Pays xAI for access to massive GPU clusters during key training phases.',
     assists: []
   },
@@ -264,7 +282,9 @@ export const NODES: Node[] = [
     label: 'Global Starlink Customers',
     type: 'external',
     group: 'external',
-    val: 0.9,
+    // Aggregate of millions of terminals — sized as a sizable market presence
+    // but smaller than individual corporate orbs.
+    val: 0.95,
     short: 'Enterprise, maritime, aviation, disaster response worldwide',
     mission: 'Connectivity everywhere on Earth.',
     metric: 'Millions of terminals globally',
@@ -276,41 +296,39 @@ export const NODES: Node[] = [
 // INTERCONNECTION LINKS (the "web")
 // ============================================
 
+// Links are directed: `source` is the entity providing/owning/initiating
+// and `target` is the entity receiving/owned/responding. Vague "synergy"
+// or "talent flow" ties have been removed — only concrete, day-to-day
+// working relationships remain.
 export const LINKS: Link[] = [
-  // Ownership / Corporate structure
-  { source: 'tesla', target: 'tesla-energy', type: 'owns', strength: 1.0, label: 'DIVISION', note: 'Tesla Energy is a core Tesla business unit.' },
-  { source: 'tesla', target: 'tesla-autonomy', type: 'owns', strength: 0.9, label: 'DIVISION', note: 'Full Self-Driving and future Robotaxi network are Tesla initiatives.' },
+  // === Ownership / Corporate structure (parent → child) ===
+  { source: 'tesla', target: 'tesla-energy', type: 'owns', strength: 1.0, label: 'DIVISION', note: 'Tesla Energy is a core Tesla business unit (Megapack, Powerwall, Solar).' },
+  { source: 'tesla', target: 'tesla-autonomy', type: 'owns', strength: 0.9, label: 'DIVISION', note: 'Full Self-Driving and the future Robotaxi network are Tesla initiatives.' },
   { source: 'tesla', target: 'tesla-optimus', type: 'owns', strength: 0.85, label: 'DIVISION', note: 'Optimus humanoid program run inside Tesla.' },
   { source: 'spacex', target: 'spacex-starlink', type: 'owns', strength: 1.0, label: 'DIVISION', note: 'Starlink is SpaceX\'s satellite constellation and broadband business.' },
-  { source: 'xai', target: 'xai-colossus', type: 'owns', strength: 1.0, label: 'INFRA', note: 'Colossus is xAI\'s owned training cluster (Memphis).' },
+  { source: 'xai', target: 'xai-colossus', type: 'owns', strength: 1.0, label: 'INFRA', note: 'Colossus is xAI\'s owned training cluster in Memphis.' },
   { source: 'xai', target: 'xai-grok', type: 'owns', strength: 0.95, label: 'PRODUCT', note: 'Grok models are xAI\'s flagship product line.' },
-  { source: 'xai', target: 'x', type: 'acquired', strength: 0.7, label: 'ACQUIRED', note: 'X Corp acquired by xAI in 2025, creating deep data + distribution integration.' },
+  { source: 'xai', target: 'x', type: 'acquired', strength: 0.85, label: 'ACQUIRED 2025', note: 'X Corp acquired by xAI in 2025, creating deep data + distribution integration.' },
 
-  // Power & Infrastructure (Tesla Energy <-> xAI)
-  { source: 'tesla-energy', target: 'xai-colossus', type: 'powers', strength: 0.95, label: '$430M+ MEGAPACKS', note: 'Tesla deployed hundreds of Megapacks providing 150+ MW behind-the-meter power for Colossus.' },
+  // === Power supply (provider → consumer) ===
+  { source: 'tesla-energy', target: 'xai-colossus', type: 'powers', strength: 0.95, label: '$430M+ MEGAPACKS', note: 'Tesla deployed 200+ Megapacks providing 150+ MW of behind-the-meter power for Colossus.' },
 
-  // Vehicle & Fleet sales (Tesla <-> SpaceX)
-  { source: 'tesla', target: 'spacex', type: 'sells-to', strength: 0.6, label: 'CYBERTRUCK FLEET', note: '$143M+ of Tesla vehicles (incl. Cybertrucks) sold to SpaceX for Starbase operations.' },
+  // === Hardware sales (seller → buyer) ===
+  { source: 'tesla', target: 'spacex', type: 'sells-to', strength: 0.6, label: 'CYBERTRUCK FLEET', note: '$143M+ of Tesla vehicles (incl. Cybertrucks) sold to SpaceX for Starbase fleet ops.' },
 
-  // Contracts & Services (SpaceX <-> NASA)
-  { source: 'spacex', target: 'nasa', type: 'contracts', strength: 0.85, label: 'DRAGON + HLS', note: 'Multi-billion dollar contracts for ISS crew/cargo and Artemis lunar lander (HLS).' },
+  // === Service contracts (provider → customer) ===
+  { source: 'spacex', target: 'nasa', type: 'contracts', strength: 0.85, label: 'DRAGON + HLS', note: 'Multi-billion-dollar contracts for ISS crew/cargo (Dragon) and the Artemis lunar lander (HLS).' },
+  { source: 'xai-colossus', target: 'anthropic', type: 'contracts', strength: 0.75, label: 'GPU LEASE', note: 'Anthropic rents large blocks of Colossus capacity for frontier model training.' },
+  { source: 'spacex-starlink', target: 'nasa', type: 'contracts', strength: 0.5, label: 'COMMS', note: 'Starlink provides high-bandwidth connectivity for the ISS and future deep-space missions.' },
 
-  // Compute leasing (xAI <-> Anthropic)
-  { source: 'xai-colossus', target: 'anthropic', type: 'contracts', strength: 0.75, label: 'GPU LEASE', note: 'Anthropic rents large portions of Colossus capacity for frontier model training.' },
+  // === Data / platform (data source → consumer) ===
+  { source: 'x', target: 'xai', type: 'data', strength: 0.9, label: 'TRAINING DATA + DISTRIBUTION', note: 'X is the primary real-time data source for Grok and the main surface where Grok features ship.' },
 
-  // Data & Platform (X <-> xAI)
-  { source: 'x', target: 'xai', type: 'data', strength: 0.9, label: 'TRAINING DATA + DISTRIBUTION', note: 'X is the primary real-time data source for Grok and the main surface for Grok features.' },
-
-  // Infra (Boring <-> Tesla)
+  // === Infrastructure build (builder → consumer) ===
   { source: 'boring', target: 'tesla', type: 'infra', strength: 0.55, label: 'FACTORY TUNNELS', note: 'The Boring Company built underground logistics tunnels at Giga Texas for Tesla.' },
 
-  // Cross-Elon synergies (light but real)
-  { source: 'spacex', target: 'tesla', type: 'partners', strength: 0.4, label: 'SHARED OPS', note: 'Talent flow, shared suppliers, and occasional joint engineering efforts.' },
-  { source: 'xai', target: 'tesla', type: 'partners', strength: 0.35, label: 'COMPUTE + TALENT', note: 'xAI uses Tesla Megapacks at massive scale; some shared engineering DNA.' },
-
-  // External assists examples
-  { source: 'spacex-starlink', target: 'nasa', type: 'contracts', strength: 0.5, label: 'COMMS', note: 'Starlink provides high-bandwidth connectivity for ISS and future deep-space missions.' },
-  { source: 'spacex-starlink', target: 'global-customers', type: 'partners', strength: 0.4, label: 'GLOBAL CONNECTIVITY', note: 'Enterprise, maritime, aviation, disaster response, and remote scientific outposts worldwide.' }
+  // === Connectivity (provider → broad market) ===
+  { source: 'spacex-starlink', target: 'global-customers', type: 'partners', strength: 0.5, label: 'GLOBAL CONNECTIVITY', note: 'Enterprise, maritime, aviation, disaster response, and remote scientific outposts worldwide.' }
 ]
 
 export const nodeById = new Map(NODES.map(n => [n.id, n]))
@@ -367,6 +385,39 @@ export const LINK_LABELS: Record<LinkType, string> = {
   acquired: 'ACQUIRED',
   partners: 'SYNERGY',
   infra: 'INFRASTRUCTURE'
+}
+
+/**
+ * Direction-aware labels for the details panel. Each link type has a
+ * different verb depending on whether the viewing node is the source
+ * (outgoing) or the target (incoming) of the relationship.
+ *
+ * Example: an `owns` link from Tesla → Tesla Energy reads as
+ *   "Owns" when viewing Tesla, and "Owned by" when viewing Tesla Energy.
+ */
+export const LINK_ROLE_LABELS: Record<LinkType, { outgoing: string; incoming: string }> = {
+  owns:        { outgoing: 'Owns',          incoming: 'Owned by' },
+  powers:      { outgoing: 'Powers',        incoming: 'Powered by' },
+  'sells-to':  { outgoing: 'Sells to',      incoming: 'Buys from' },
+  contracts:  { outgoing: 'Contracts',     incoming: 'Contracted by' },
+  data:        { outgoing: 'Feeds data to', incoming: 'Sources data from' },
+  acquired:    { outgoing: 'Acquired',      incoming: 'Acquired by' },
+  partners:    { outgoing: 'Serves',        incoming: 'Served by' },
+  infra:       { outgoing: 'Built infra for', incoming: 'Infra built by' },
+}
+
+/** Returns the side a node sits on for a given link. */
+export function getLinkRole(link: Link, viewingNodeId: string): 'outgoing' | 'incoming' | 'unrelated' {
+  if (link.source === viewingNodeId) return 'outgoing'
+  if (link.target === viewingNodeId) return 'incoming'
+  return 'unrelated'
+}
+
+/** Direction-aware verb describing what the viewing node does in this link. */
+export function getLinkRoleLabel(link: Link, viewingNodeId: string): string {
+  const role = getLinkRole(link, viewingNodeId)
+  if (role === 'unrelated') return LINK_LABELS[link.type]
+  return LINK_ROLE_LABELS[link.type][role]
 }
 
 // Initial camera focus target (center of empire)
