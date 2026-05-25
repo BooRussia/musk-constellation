@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://musk-constellation.dev/sitemap.xml
+Sitemap: https://boorussia.github.io/musk-constellation/sitemap.xml

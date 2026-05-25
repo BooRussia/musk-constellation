@@ -35,6 +35,12 @@ npm run dev
 
 Open http://localhost:5173
 
+## Live demo
+
+**https://boorussia.github.io/musk-constellation/**
+
+(GitHub Pages deploys the built `dist/` folder via GitHub Actions on every push to `main`.)
+
 ## Controls
 
 | Action              | How |

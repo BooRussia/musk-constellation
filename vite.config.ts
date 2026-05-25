@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // GitHub Pages project sites live at /repo-name/ — set VITE_BASE_PATH in CI
+  base: process.env.VITE_BASE_PATH || '/',
   plugins: [react()],
   build: {
     target: 'es2020',
