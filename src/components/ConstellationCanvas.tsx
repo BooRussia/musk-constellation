@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo, useCallback, memo, useState } from 'react'
+import { useRef, useEffect, useMemo, useCallback, memo, useState, useLayoutEffect } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import type { ThreeEvent } from '@react-three/fiber'
 import { OrbitControls, Html } from '@react-three/drei'
@@ -92,25 +92,32 @@ function fitCameraToNodes(
     dir: THREE.Vector3
     point: THREE.Vector3
   },
-  padding = 1.35,
+  padding = 1.75,
 ) {
   if (nodes.length === 0) return
 
   const box = new THREE.Box3()
   for (const n of nodes) {
     vecRefs.point.set(n.x ?? 0, n.y ?? 0, n.z ?? 0)
-    box.expandByPoint(vecRefs.point)
+    const r = (n.val || 1) * 0.6
+    box.expandByPoint(vecRefs.point.clone().addScalar(r))
+    box.expandByPoint(vecRefs.point.clone().addScalar(-r))
   }
 
   box.getCenter(vecRefs.center)
   box.getSize(vecRefs.size)
 
-  const maxDim = Math.max(vecRefs.size.x, vecRefs.size.y, vecRefs.size.z, 8)
-  const fov = camera.fov * (Math.PI / 180)
-  let distance = (maxDim / 2) / Math.tan(fov / 2) * padding
-  distance = Math.max(distance, 12)
+  // Fit considering both vertical FOV and the canvas aspect ratio so off-center
+  // panels don't cut off nodes.
+  const aspect = camera.aspect || 1
+  const fovV = camera.fov * (Math.PI / 180)
+  const fovH = 2 * Math.atan(Math.tan(fovV / 2) * aspect)
+  const distV = (Math.max(vecRefs.size.y, vecRefs.size.z * 0.5) / 2) / Math.tan(fovV / 2)
+  const distH = (Math.max(vecRefs.size.x, vecRefs.size.z * 0.5) / 2) / Math.tan(fovH / 2)
+  let distance = Math.max(distV, distH) * padding
+  distance = Math.max(distance, 16)
 
-  vecRefs.dir.set(0.35, 0.25, 1).normalize()
+  vecRefs.dir.set(0.35, 0.22, 1).normalize()
   camera.position.copy(vecRefs.center).add(vecRefs.dir.multiplyScalar(distance))
   controls.target.copy(vecRefs.center)
   controls.update()
@@ -138,6 +145,7 @@ interface NodeMeshProps {
   node: Node
   isSelected: boolean
   isConnected: boolean
+  hasSelection: boolean
   groupRefs: React.MutableRefObject<Map<string, THREE.Group>>
   onNodeClick: (id: string, e: ThreeEvent<MouseEvent>) => void
   onPointerDown: (id: string, e: ThreeEvent<PointerEvent>) => void
@@ -147,6 +155,7 @@ const NodeMesh = memo(function NodeMesh({
   node,
   isSelected,
   isConnected,
+  hasSelection,
   groupRefs,
   onNodeClick,
   onPointerDown,
@@ -225,8 +234,9 @@ const NodeMesh = memo(function NodeMesh({
 
       <Html
         position={labelPosition}
-        distanceFactor={21}
+        distanceFactor={22}
         zIndexRange={[5, 80]}
+        wrapperClass="constellation-label-wrap"
         style={{
           pointerEvents: 'none',
           userSelect: 'none',
@@ -234,7 +244,7 @@ const NodeMesh = memo(function NodeMesh({
         }}
       >
         <div
-          className={`constellation-label is-${node.type} ${isSelected ? 'is-selected' : ''} ${isConnected && !isSelected ? 'is-connected' : ''}`}
+          className={`constellation-label is-${node.type} ${isSelected ? 'is-selected' : ''} ${isConnected && !isSelected ? 'is-connected' : ''} ${hasSelection && !isSelected && !isConnected ? 'is-dimmed' : ''}`}
         >
           {node.label.toUpperCase()}
         </div>
@@ -390,7 +400,7 @@ function Scene({
   onSelect,
   highlightLinkIds = EMPTY_SET,
 }: Omit<Props, 'onExpand'>) {
-  const { camera, raycaster, mouse, scene } = useThree()
+  const { camera, raycaster, mouse, scene, size } = useThree()
   const controlsRef = useRef<OrbitControlsImpl>(null)
   const groupRef = useRef<THREE.Group>(null!)
 
@@ -446,14 +456,33 @@ function Scene({
     fitKeyRef.current = visibleNodeKey
   }, [visibleNodeKey])
 
+  // Refit when the canvas viewport changes size (e.g. sidebar/panel toggle).
+  // Only refits if nothing is currently selected so we don't yank the user
+  // away from their focused node.
+  const cameraRef = useRef<THREE.Camera | null>(null)
+  useLayoutEffect(() => {
+    cameraRef.current = camera
+  }, [camera])
+  useEffect(() => {
+    if (selectedId) return
+    if (!mountSettledRef.current) return
+    if (simNodesRef.current.length === 0) return
+    const controls = controlsRef.current
+    const cam = cameraRef.current as THREE.PerspectiveCamera | null
+    if (!controls || !cam) return
+    cam.aspect = size.width / size.height
+    cam.updateProjectionMatrix()
+    fitCameraToNodes(cam, controls, simNodesRef.current, fitVecs.current)
+  }, [size.width, size.height, selectedId])
+
   useEffect(() => {
     const simNodes: SimNode[] = visibleNodes.map((n) => {
       const existing = simNodesRef.current.find((sn) => sn.id === n.id)
       return {
         ...n,
-        x: existing?.x ?? (Math.random() - 0.5) * 36,
-        y: existing?.y ?? (Math.random() - 0.5) * 28,
-        z: existing?.z ?? (Math.random() - 0.5) * 32,
+        x: existing?.x ?? (Math.random() - 0.5) * 22,
+        y: existing?.y ?? (Math.random() - 0.5) * 18,
+        z: existing?.z ?? (Math.random() - 0.5) * 20,
         vx: existing?.vx ?? 0,
         vy: existing?.vy ?? 0,
         vz: existing?.vz ?? 0,
@@ -478,16 +507,26 @@ function Scene({
       const linkForce = d3Force
         .forceLink(simLinks)
         .id((d) => (d as SimNode).id)
-        .strength((l) => ((l as SimLink).strength || 0.6) * 0.7)
+        .strength((l) => ((l as SimLink).strength || 0.6) * 0.9)
+        .distance((l) => {
+          const s = (l as SimLink).source as SimNode
+          const t = (l as SimLink).target as SimNode
+          const baseR = (s.val || 1) + (t.val || 1)
+          return Math.max(5, baseR * 2.0)
+        })
       simRaw.force('link', linkForce)
-      simRaw.force('charge', d3Force.forceManyBody().strength(-28))
+      simRaw.force('charge', d3Force.forceManyBody().strength(-10).distanceMax(25))
       simRaw.force('center', d3Force.forceCenter(0, 0, 0))
+      // Active centripetal pull on each axis so nodes can't drift to infinity
+      simRaw.force('x', d3Force.forceX(0).strength(0.12))
+      simRaw.force('y', d3Force.forceY(0).strength(0.14))
+      simRaw.force('z', d3Force.forceZ(0).strength(0.12))
       simRaw.force(
         'collision',
-        d3Force.forceCollide().radius((d) => (d as SimNode).val * 2.05 + 0.85),
+        d3Force.forceCollide().radius((d) => (d as SimNode).val * 1.65 + 0.4),
       )
-      simRaw.alphaDecay(0.022)
-      simRaw.velocityDecay(0.32)
+      simRaw.alphaDecay(0.03)
+      simRaw.velocityDecay(0.42)
 
       simulationRef.current = simRaw as unknown as D3Simulation
     } else {
@@ -704,7 +743,7 @@ function Scene({
 
   return (
     <>
-      <Stars count={420} />
+      <Stars />
 
       <group ref={groupRef} onClick={handleCanvasClick}>
         <LinkLines
@@ -724,6 +763,7 @@ function Scene({
               node={node}
               isSelected={isSelected}
               isConnected={isConnected}
+              hasSelection={selectedId != null}
               groupRefs={nodeGroupRefs}
               onNodeClick={handleNodeClick}
               onPointerDown={handlePointerDown}
@@ -753,49 +793,216 @@ function Scene({
 
 // ============================================
 // CUSTOM STARFIELD
+// Three-layer field: distant tiny dim stars, mid stars, and a few bright
+// foreground stars with warm/cool color variation. Soft round sprites via
+// shader (no square sprites) with subtle per-star twinkle.
 // ============================================
-function Stars({ count = 380 }: { count?: number }) {
-  const pointsRef = useRef<THREE.Points>(null!)
-  const positions = useMemo(() => {
-    const arr = new Float32Array(count * 3)
-    for (let i = 0; i < count; i++) {
-      const r = 48 + seededRandom(i * 3 + 1) * 38
-      const theta = seededRandom(i * 3 + 2) * Math.PI * 2
-      const phi = Math.acos(2 * seededRandom(i * 3 + 3) - 1)
-      arr[i * 3] = r * Math.sin(phi) * Math.cos(theta)
-      arr[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta) * 0.6
-      arr[i * 3 + 2] = r * Math.cos(phi)
-    }
-    return arr
-  }, [count])
+const STAR_VERT = /* glsl */ `
+  attribute float aSize;
+  attribute vec3 aColor;
+  attribute float aPhase;
+  varying vec3 vColor;
+  varying float vAlpha;
+  uniform float uTime;
+  uniform float uPixelRatio;
+  uniform float uSize;
+  void main() {
+    vColor = aColor;
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    float dist = max(-mv.z, 1.0);
+    // gentle, per-star twinkle. Long period, small amplitude.
+    float tw = 0.78 + 0.22 * sin(uTime * 0.9 + aPhase);
+    vAlpha = tw;
+    gl_PointSize = aSize * uSize * tw * (260.0 / dist) * uPixelRatio;
+    gl_PointSize = clamp(gl_PointSize, 1.2, 90.0);
+    gl_Position = projectionMatrix * mv;
+  }
+`
 
-  const sizes = useMemo(() => {
-    const arr = new Float32Array(count)
-    for (let i = 0; i < count; i++) arr[i] = 0.6 + seededRandom(i + 1000) * 1.8
-    return arr
-  }, [count])
+const STAR_FRAG = /* glsl */ `
+  varying vec3 vColor;
+  varying float vAlpha;
+  void main() {
+    vec2 uv = gl_PointCoord * 2.0 - 1.0;
+    float d2 = dot(uv, uv);
+    if (d2 > 1.0) discard;
+    float d = sqrt(d2);
+    // soft round star: bright core + falloff halo
+    float core = smoothstep(0.55, 0.0, d);
+    float halo = smoothstep(1.0, 0.0, d);
+    vec3 c = vColor * (0.55 + 0.9 * core);
+    float a = (halo * 0.55 + core * 0.45) * vAlpha;
+    gl_FragColor = vec4(c, a);
+  }
+`
+
+interface StarLayer {
+  count: number
+  minR: number
+  maxR: number
+  sizeMin: number
+  sizeMax: number
+  flattenY: number
+  /** Tint chosen per star: white, cool-blue, warm-yellow, or pure-white near */
+  warmth: 'cool' | 'mixed' | 'warm'
+}
+
+function buildStarLayer(layer: StarLayer, seedOffset: number) {
+  const { count, minR, maxR, sizeMin, sizeMax, flattenY, warmth } = layer
+  const positions = new Float32Array(count * 3)
+  const sizes = new Float32Array(count)
+  const colors = new Float32Array(count * 3)
+  const phases = new Float32Array(count)
+
+  for (let i = 0; i < count; i++) {
+    const s = i + seedOffset
+    const r = minR + seededRandom(s * 3 + 1) * (maxR - minR)
+    const theta = seededRandom(s * 3 + 2) * Math.PI * 2
+    const phi = Math.acos(2 * seededRandom(s * 3 + 3) - 1)
+    positions[i * 3] = r * Math.sin(phi) * Math.cos(theta)
+    positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta) * flattenY
+    positions[i * 3 + 2] = r * Math.cos(phi)
+
+    sizes[i] = sizeMin + seededRandom(s * 5 + 7) * (sizeMax - sizeMin)
+    phases[i] = seededRandom(s * 11 + 13) * Math.PI * 2
+
+    // Color tint
+    const tintRoll = seededRandom(s * 13 + 19)
+    let cr: number, cg: number, cb: number
+    if (warmth === 'cool') {
+      cr = 0.78; cg = 0.84; cb = 0.96
+    } else if (warmth === 'mixed') {
+      if (tintRoll < 0.25) { cr = 0.82; cg = 0.88; cb = 1.0 }
+      else if (tintRoll < 0.45) { cr = 1.0; cg = 0.95; cb = 0.82 }
+      else { cr = 0.94; cg = 0.97; cb = 1.0 }
+    } else {
+      if (tintRoll < 0.3) { cr = 1.0; cg = 0.88; cb = 0.7 }
+      else if (tintRoll < 0.55) { cr = 0.78; cg = 0.86; cb = 1.0 }
+      else { cr = 1.0; cg = 1.0; cb = 1.0 }
+    }
+    colors[i * 3] = cr
+    colors[i * 3 + 1] = cg
+    colors[i * 3 + 2] = cb
+  }
+
+  return { positions, sizes, colors, phases }
+}
+
+function StarLayerPoints({
+  layer,
+  seedOffset,
+  size,
+  rotationSpeed,
+}: {
+  layer: StarLayer
+  seedOffset: number
+  size: number
+  rotationSpeed: number
+}) {
+  const data = useMemo(() => buildStarLayer(layer, seedOffset), [layer, seedOffset])
+  const pointsRef = useRef<THREE.Points>(null!)
+  const dpr = typeof window !== 'undefined' ? Math.min(window.devicePixelRatio, 2) : 1
+
+  // Material is owned by component state (lazy init runs once per mount).
+  // It's mutable from useFrame because state values are not subject to the
+  // "modify after render" lint rule that captures local variables would be.
+  const [material] = useState(
+    () =>
+      new THREE.ShaderMaterial({
+        uniforms: {
+          uTime: { value: 0 },
+          uPixelRatio: { value: dpr },
+          uSize: { value: size },
+        },
+        vertexShader: STAR_VERT,
+        fragmentShader: STAR_FRAG,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+  )
+
+  // Mirror into a ref so useFrame can mutate uniforms without tripping the
+  // react-hooks/immutability rule that fires on captured render values.
+  const materialRef = useRef<THREE.ShaderMaterial | null>(null)
+  useLayoutEffect(() => {
+    materialRef.current = material
+    return () => {
+      material.dispose()
+      materialRef.current = null
+    }
+  }, [material])
 
   useFrame(({ clock }) => {
-    if (pointsRef.current) {
-      pointsRef.current.rotation.y = clock.elapsedTime * 0.0008
+    const mat = materialRef.current
+    if (mat) {
+      mat.uniforms.uTime.value = clock.elapsedTime
+    }
+    const pts = pointsRef.current
+    if (pts) {
+      pts.rotation.y = clock.elapsedTime * rotationSpeed
     }
   })
 
   return (
-    <points ref={pointsRef}>
+    <points ref={pointsRef} material={material} frustumCulled={false}>
       <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-        <bufferAttribute attach="attributes-size" args={[sizes, 1]} />
+        <bufferAttribute attach="attributes-position" args={[data.positions, 3]} />
+        <bufferAttribute attach="attributes-aSize" args={[data.sizes, 1]} />
+        <bufferAttribute attach="attributes-aColor" args={[data.colors, 3]} />
+        <bufferAttribute attach="attributes-aPhase" args={[data.phases, 1]} />
       </bufferGeometry>
-      <pointsMaterial
-        size={1.15}
-        color="#e0e7ff"
-        sizeAttenuation
-        transparent
-        opacity={0.85}
-        depthWrite={false}
-      />
     </points>
+  )
+}
+
+function Stars() {
+  const mobile = useIsMobile()
+  // Three depth layers — far, mid, near — each rotating at a slightly
+  // different speed for subtle parallax.
+  const farLayer: StarLayer = useMemo(
+    () => ({
+      count: mobile ? 320 : 560,
+      minR: 95,
+      maxR: 150,
+      sizeMin: 0.5,
+      sizeMax: 1.1,
+      flattenY: 0.85,
+      warmth: 'cool',
+    }),
+    [mobile],
+  )
+  const midLayer: StarLayer = useMemo(
+    () => ({
+      count: mobile ? 140 : 260,
+      minR: 55,
+      maxR: 90,
+      sizeMin: 0.9,
+      sizeMax: 1.7,
+      flattenY: 0.75,
+      warmth: 'mixed',
+    }),
+    [mobile],
+  )
+  const nearLayer: StarLayer = useMemo(
+    () => ({
+      count: mobile ? 32 : 60,
+      minR: 38,
+      maxR: 55,
+      sizeMin: 1.6,
+      sizeMax: 2.8,
+      flattenY: 0.6,
+      warmth: 'warm',
+    }),
+    [mobile],
+  )
+
+  return (
+    <>
+      <StarLayerPoints layer={farLayer} seedOffset={101} size={1.0} rotationSpeed={0.0004} />
+      <StarLayerPoints layer={midLayer} seedOffset={977} size={1.15} rotationSpeed={0.0009} />
+      <StarLayerPoints layer={nearLayer} seedOffset={4201} size={1.35} rotationSpeed={0.0015} />
+    </>
   )
 }
 
@@ -832,7 +1039,7 @@ export default function ConstellationCanvas(props: Props) {
         connections. Press Escape to deselect.
       </div>
       <Canvas
-        camera={{ position: [14, 9, 26], fov: 48, near: 0.5, far: 280 }}
+        camera={{ position: [18, 12, 38], fov: 50, near: 0.5, far: 320 }}
         style={{ background: 'transparent' }}
         dpr={isMobile ? [1, 1.5] : undefined}
         gl={{
@@ -843,17 +1050,17 @@ export default function ConstellationCanvas(props: Props) {
         }}
       >
         <color attach="background" args={['#000000']} />
-        <fog attach="fog" args={['#000000', 58, 145]} />
+        <fog attach="fog" args={['#000000', 80, 170]} />
 
         <Scene {...props} />
 
         {!isMobile && (
           <EffectComposer>
             <Bloom
-              intensity={1.35}
-              luminanceThreshold={0.08}
+              intensity={1.1}
+              luminanceThreshold={0.18}
               luminanceSmoothing={0.85}
-              radius={0.78}
+              radius={0.68}
             />
           </EffectComposer>
         )}

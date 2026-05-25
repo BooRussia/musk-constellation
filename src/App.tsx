@@ -143,8 +143,10 @@ export default function MuskConstellation() {
   // ============================================
   const panelOpen = showDesktopPanel
   const layoutVars = {
+    '--panel-w': panelOpen ? '440px' : '0px',
+    '--sidebar-w': showLeftSidebar ? '294px' : '0px',
     '--panel-width': panelOpen ? '440px' : '0px',
-    '--sidebar-width': showLeftSidebar ? '280px' : '0px',
+    '--sidebar-width': showLeftSidebar ? '294px' : '0px',
   } as React.CSSProperties
 
   return (
@@ -161,7 +163,7 @@ export default function MuskConstellation() {
           {liveAnnouncement}
         </div>
 
-        <div className="canvas-viewport">
+        <div className={`canvas-viewport ${showMobilePanel ? 'canvas-viewport--mobile-panel-open' : ''}`}>
           <Suspense fallback={<CanvasLoader />}>
             <WebGLErrorBoundary onSelect={flyToNode}>
               <ConstellationCanvas
@@ -176,22 +178,20 @@ export default function MuskConstellation() {
         </div>
 
         <header className="topnav ui-layer">
-          <div className="topnav-zone topnav-brand">
-            <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/30">
-                <Globe className="h-4 w-4" aria-hidden="true" />
-              </div>
-              <div className="min-w-0">
-                <p className="font-mono text-[11px] tracking-[4px] text-white/50 md:text-[13px]">THE LIVING WEB</p>
-                <h1 className="truncate text-xl font-semibold tracking-[-1.5px] text-white md:text-2xl">CONSTELLATION</h1>
-              </div>
+          <div className="topnav-brand">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/25">
+              <Globe className="h-3.5 w-3.5" aria-hidden="true" />
             </div>
-            <p className="topnav-tagline hidden text-[11px] text-white/40 xl:block">
+            <div className="brand-text">
+              <p className="brand-eyebrow">THE LIVING WEB</p>
+              <h1>CONSTELLATION</h1>
+            </div>
+            <span className="topnav-tagline">
               ELON MUSK&apos;S INTERCONNECTED EMPIRE
-            </p>
+            </span>
           </div>
 
-          <div className="topnav-zone topnav-search">
+          <div className="topnav-search">
             <SearchBar
               query={searchQuery}
               onQueryChange={setSearchQuery}
@@ -201,21 +201,21 @@ export default function MuskConstellation() {
             />
           </div>
 
-          <nav aria-label="Constellation controls" className="topnav-zone topnav-actions">
-            <div className="topnav-actions-desktop hidden items-center gap-2 md:flex">
-              <button type="button" onClick={resetView} className="btn flex items-center gap-1.5">
+          <nav aria-label="Constellation controls" className="topnav-actions">
+            <div className="topnav-actions-desktop hidden md:flex">
+              <button type="button" onClick={resetView} className="btn" title="Reset view (R)">
                 <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> RESET
               </button>
-              <button type="button" onClick={expandAll} className="btn flex items-center gap-1.5">
-                <Layers className="h-3.5 w-3.5" aria-hidden="true" /> EXPAND ALL
+              <button type="button" onClick={expandAll} className="btn">
+                <Layers className="h-3.5 w-3.5" aria-hidden="true" /> EXPAND
               </button>
-              <button type="button" onClick={collapseAll} className="btn btn-ghost flex items-center gap-1.5">
+              <button type="button" onClick={collapseAll} className="btn btn-ghost">
                 COLLAPSE
               </button>
               <button
                 type="button"
                 onClick={() => setShowLegend(v => !v)}
-                className={`btn flex items-center gap-1.5 ${showLegend ? 'border-white/40' : ''}`}
+                className={`btn ${showLegend ? 'border-white/40' : ''}`}
                 aria-expanded={showLegend}
               >
                 <Info className="h-3.5 w-3.5" aria-hidden="true" /> LEGEND
@@ -223,33 +223,30 @@ export default function MuskConstellation() {
               <button
                 type="button"
                 onClick={() => setShowDesktopPanel(v => !v)}
-                className="btn btn-ghost hidden items-center gap-1.5 lg:flex"
+                className="btn btn-ghost hidden lg:inline-flex"
                 aria-expanded={showDesktopPanel}
                 aria-controls="main-content"
+                title={showDesktopPanel ? 'Hide details panel' : 'Show details panel'}
               >
                 {showDesktopPanel ? (
-                  <>
-                    <PanelRightClose className="h-3.5 w-3.5" aria-hidden="true" /> HIDE PANEL
-                  </>
+                  <PanelRightClose className="h-3.5 w-3.5" aria-hidden="true" />
                 ) : (
-                  <>
-                    <PanelRightOpen className="h-3.5 w-3.5" aria-hidden="true" /> SHOW PANEL
-                  </>
+                  <PanelRightOpen className="h-3.5 w-3.5" aria-hidden="true" />
                 )}
               </button>
               <a
                 href={GITHUB_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn btn-ghost tracking-widest"
+                className="btn btn-ghost"
               >
                 GITHUB
               </a>
             </div>
 
-            <div className="topnav-actions-mobile flex items-center gap-2 md:hidden">
+            <div className="topnav-actions-mobile flex items-center gap-2 md:!hidden">
               <details className="relative">
-                <summary className="btn flex cursor-pointer list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden">
+                <summary className="btn cursor-pointer list-none [&::-webkit-details-marker]:hidden">
                   <Menu className="h-3.5 w-3.5" aria-hidden="true" /> MENU
                 </summary>
                 <div className="absolute right-0 z-50 mt-2 min-w-[200px] rounded-xl border border-white/10 bg-black/95 p-2 shadow-2xl backdrop-blur-xl">
@@ -334,7 +331,7 @@ export default function MuskConstellation() {
         <button
           type="button"
           onClick={() => setShowMobilePanel(v => !v)}
-          className="ui-layer bottom-[calc(58vh+12px)] left-1/2 z-40 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-white/15 bg-black/80 px-4 py-2 text-xs uppercase tracking-widest text-white/70 backdrop-blur-md md:hidden"
+          className={`mobile-panel-toggle md:hidden ${showMobilePanel ? '' : 'mobile-panel-toggle--collapsed'}`}
           aria-expanded={showMobilePanel}
           aria-controls="main-content"
         >

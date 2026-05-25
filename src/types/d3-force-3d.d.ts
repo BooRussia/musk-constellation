@@ -19,6 +19,18 @@ declare module 'd3-force-3d' {
     radius?: number | ((node: NodeDatum, i: number, nodes: NodeDatum[]) => number)
   ): ForceCollide<NodeDatum>
 
+  export function forceX<NodeDatum extends SimulationNodeDatum = SimulationNodeDatum>(
+    x?: number | ((node: NodeDatum, i: number, nodes: NodeDatum[]) => number)
+  ): ForceAxis<NodeDatum>
+
+  export function forceY<NodeDatum extends SimulationNodeDatum = SimulationNodeDatum>(
+    y?: number | ((node: NodeDatum, i: number, nodes: NodeDatum[]) => number)
+  ): ForceAxis<NodeDatum>
+
+  export function forceZ<NodeDatum extends SimulationNodeDatum = SimulationNodeDatum>(
+    z?: number | ((node: NodeDatum, i: number, nodes: NodeDatum[]) => number)
+  ): ForceAxis<NodeDatum>
+
   export interface SimulationNodeDatum {
     index?: number
     x?: number
@@ -74,6 +86,16 @@ declare module 'd3-force-3d' {
 
   export interface ForceManyBody<NodeDatum extends SimulationNodeDatum> extends Force<NodeDatum, undefined> {
     strength(strength: number | ((node: NodeDatum, i: number, nodes: NodeDatum[]) => number)): this
+    distanceMin(distance: number): this
+    distanceMax(distance: number): this
+    theta(theta: number): this
+  }
+
+  export interface ForceAxis<NodeDatum extends SimulationNodeDatum> extends Force<NodeDatum, undefined> {
+    strength(strength: number | ((node: NodeDatum, i: number, nodes: NodeDatum[]) => number)): this
+    x?(x: number | ((node: NodeDatum, i: number, nodes: NodeDatum[]) => number)): this
+    y?(y: number | ((node: NodeDatum, i: number, nodes: NodeDatum[]) => number)): this
+    z?(z: number | ((node: NodeDatum, i: number, nodes: NodeDatum[]) => number)): this
   }
 
   export interface ForceCenter<NodeDatum extends SimulationNodeDatum> extends Force<NodeDatum, undefined> {
