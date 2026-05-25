@@ -3,6 +3,7 @@ import { motion, AnimatePresence, MotionConfig } from 'framer-motion'
 import {
   X, RotateCcw, Layers, ZoomIn, Info,
   Globe, ChevronUp, ChevronDown, Menu,
+  PanelRightClose, PanelRightOpen, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import SearchBar from './components/SearchBar'
@@ -29,11 +30,13 @@ function formatLinkDescription(link: Link): string {
 // MAIN APP
 // ============================================
 export default function MuskConstellation() {
-  const [selectedId, setSelectedId] = useState<string | null>(INITIAL_FOCUS)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set(['tesla', 'spacex', 'xai']))
   const [searchQuery, setSearchQuery] = useState('')
   const [showLegend, setShowLegend] = useState(false)
-  const [showMobilePanel, setShowMobilePanel] = useState(true)
+  const [showMobilePanel, setShowMobilePanel] = useState(false)
+  const [showDesktopPanel, setShowDesktopPanel] = useState(true)
+  const [showLeftSidebar, setShowLeftSidebar] = useState(true)
 
   const selectedNode = selectedId ? getNodeById(selectedId) : null
 
@@ -88,7 +91,10 @@ export default function MuskConstellation() {
   const handleSelect = useCallback((id: string | null) => {
     setSelectedId(id)
     setSearchQuery('')
-    if (id) setShowMobilePanel(true)
+    if (id) {
+      setShowMobilePanel(true)
+      setShowDesktopPanel(true)
+    }
   }, [])
 
   const resetView = useCallback(() => {
@@ -135,9 +141,18 @@ export default function MuskConstellation() {
   // ============================================
   // RENDER
   // ============================================
+  const panelOpen = showDesktopPanel
+  const layoutVars = {
+    '--panel-width': panelOpen ? '440px' : '0px',
+    '--sidebar-width': showLeftSidebar ? '280px' : '0px',
+  } as React.CSSProperties
+
   return (
     <MotionConfig reducedMotion="user">
-      <div className="relative h-full w-full overflow-hidden bg-black text-[#e5e5e5]">
+      <div
+        className="relative h-full w-full overflow-hidden bg-black text-[#e5e5e5]"
+        style={layoutVars}
+      >
         <a href="#main-content" className="skip-link">
           Skip to main content
         </a>
@@ -146,45 +161,48 @@ export default function MuskConstellation() {
           {liveAnnouncement}
         </div>
 
-        <Suspense fallback={<CanvasLoader />}>
-          <WebGLErrorBoundary onSelect={flyToNode}>
-            <ConstellationCanvas
-              selectedId={selectedId}
-              expandedIds={expandedIds}
-              onSelect={handleSelect}
-              onExpand={handleExpand}
-              highlightLinkIds={highlightLinkIds}
-            />
-          </WebGLErrorBoundary>
-        </Suspense>
+        <div className="canvas-viewport">
+          <Suspense fallback={<CanvasLoader />}>
+            <WebGLErrorBoundary onSelect={flyToNode}>
+              <ConstellationCanvas
+                selectedId={selectedId}
+                expandedIds={expandedIds}
+                onSelect={handleSelect}
+                onExpand={handleExpand}
+                highlightLinkIds={highlightLinkIds}
+              />
+            </WebGLErrorBoundary>
+          </Suspense>
+        </div>
 
-        <header className="topnav ui-layer flex flex-wrap items-center justify-between gap-3 px-4 py-3 md:gap-4 md:px-6 md:py-4">
-          <div className="flex min-w-0 items-center gap-3 md:gap-4">
+        <header className="topnav ui-layer">
+          <div className="topnav-zone topnav-brand">
             <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full border border-white/30">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/30">
                 <Globe className="h-4 w-4" aria-hidden="true" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="font-mono text-[11px] tracking-[4px] text-white/50 md:text-[13px]">THE LIVING WEB</p>
-                <h1 className="text-xl font-semibold tracking-[-1.5px] text-white md:text-2xl">CONSTELLATION</h1>
+                <h1 className="truncate text-xl font-semibold tracking-[-1.5px] text-white md:text-2xl">CONSTELLATION</h1>
               </div>
             </div>
-            <p className="ml-2 hidden text-[11px] text-white/40 lg:block">
+            <p className="topnav-tagline hidden text-[11px] text-white/40 xl:block">
               ELON MUSK&apos;S INTERCONNECTED EMPIRE
             </p>
           </div>
 
-          <SearchBar
-            query={searchQuery}
-            onQueryChange={setSearchQuery}
-            results={searchResults}
-            onSelect={flyToNode}
-            compact
-            className="order-last w-full md:order-none md:w-auto"
-          />
+          <div className="topnav-zone topnav-search">
+            <SearchBar
+              query={searchQuery}
+              onQueryChange={setSearchQuery}
+              results={searchResults}
+              onSelect={flyToNode}
+              compact
+            />
+          </div>
 
-          <nav aria-label="Constellation controls" className="flex items-center gap-2">
-            <div className="hidden items-center gap-2 md:flex">
+          <nav aria-label="Constellation controls" className="topnav-zone topnav-actions">
+            <div className="topnav-actions-desktop hidden items-center gap-2 md:flex">
               <button type="button" onClick={resetView} className="btn flex items-center gap-1.5">
                 <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> RESET
               </button>
@@ -202,6 +220,23 @@ export default function MuskConstellation() {
               >
                 <Info className="h-3.5 w-3.5" aria-hidden="true" /> LEGEND
               </button>
+              <button
+                type="button"
+                onClick={() => setShowDesktopPanel(v => !v)}
+                className="btn btn-ghost hidden items-center gap-1.5 lg:flex"
+                aria-expanded={showDesktopPanel}
+                aria-controls="main-content"
+              >
+                {showDesktopPanel ? (
+                  <>
+                    <PanelRightClose className="h-3.5 w-3.5" aria-hidden="true" /> HIDE PANEL
+                  </>
+                ) : (
+                  <>
+                    <PanelRightOpen className="h-3.5 w-3.5" aria-hidden="true" /> SHOW PANEL
+                  </>
+                )}
+              </button>
               <a
                 href={GITHUB_URL}
                 target="_blank"
@@ -212,43 +247,46 @@ export default function MuskConstellation() {
               </a>
             </div>
 
-            <details className="relative md:hidden">
-              <summary className="btn flex cursor-pointer list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden">
-                <Menu className="h-3.5 w-3.5" aria-hidden="true" /> MENU
-              </summary>
-              <div className="absolute right-0 z-50 mt-2 min-w-[200px] rounded-xl border border-white/10 bg-black/95 p-2 shadow-2xl backdrop-blur-xl">
-                <button type="button" onClick={resetView} className="btn mb-1 w-full justify-start gap-1.5">
-                  <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> RESET
-                </button>
-                <button type="button" onClick={expandAll} className="btn mb-1 w-full justify-start gap-1.5">
-                  <Layers className="h-3.5 w-3.5" aria-hidden="true" /> EXPAND ALL
-                </button>
-                <button type="button" onClick={collapseAll} className="btn btn-ghost mb-1 w-full justify-start">
-                  COLLAPSE
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowLegend(v => !v)}
-                  className={`btn w-full justify-start gap-1.5 ${showLegend ? 'border-white/40' : ''}`}
-                  aria-expanded={showLegend}
-                >
-                  <Info className="h-3.5 w-3.5" aria-hidden="true" /> LEGEND
-                </button>
-              </div>
-            </details>
-
-            <a
-              href={GITHUB_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-ghost tracking-widest md:hidden"
-            >
-              GITHUB
-            </a>
+            <div className="topnav-actions-mobile flex items-center gap-2 md:hidden">
+              <details className="relative">
+                <summary className="btn flex cursor-pointer list-none items-center gap-1.5 [&::-webkit-details-marker]:hidden">
+                  <Menu className="h-3.5 w-3.5" aria-hidden="true" /> MENU
+                </summary>
+                <div className="absolute right-0 z-50 mt-2 min-w-[200px] rounded-xl border border-white/10 bg-black/95 p-2 shadow-2xl backdrop-blur-xl">
+                  <button type="button" onClick={resetView} className="btn mb-1 w-full justify-start gap-1.5">
+                    <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> RESET
+                  </button>
+                  <button type="button" onClick={expandAll} className="btn mb-1 w-full justify-start gap-1.5">
+                    <Layers className="h-3.5 w-3.5" aria-hidden="true" /> EXPAND ALL
+                  </button>
+                  <button type="button" onClick={collapseAll} className="btn btn-ghost mb-1 w-full justify-start">
+                    COLLAPSE
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowLegend(v => !v)}
+                    className={`btn w-full justify-start gap-1.5 ${showLegend ? 'border-white/40' : ''}`}
+                    aria-expanded={showLegend}
+                  >
+                    <Info className="h-3.5 w-3.5" aria-hidden="true" /> LEGEND
+                  </button>
+                  <a
+                    href={GITHUB_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-ghost mb-1 w-full justify-start tracking-widest"
+                  >
+                    GITHUB
+                  </a>
+                </div>
+              </details>
+            </div>
           </nav>
         </header>
 
-        <aside className="ui-layer left-4 top-[5.5rem] hidden w-64 lg:block xl:left-6 xl:top-20">
+        <aside
+          className={`ui-layer left-sidebar ${showLeftSidebar ? '' : 'left-sidebar--collapsed'}`}
+        >
           <div className="glass panel rounded-2xl p-5 text-sm">
             <div className="mb-3 flex items-center justify-between text-xs uppercase tracking-[2px] text-white/50">
               <h2 className="text-xs font-normal uppercase tracking-[2px]">THE EMPIRE</h2>
@@ -281,6 +319,20 @@ export default function MuskConstellation() {
 
         <button
           type="button"
+          onClick={() => setShowLeftSidebar(v => !v)}
+          className={`ui-layer left-sidebar-toggle hidden lg:flex ${showLeftSidebar ? 'left-sidebar-toggle--open' : ''}`}
+          aria-expanded={showLeftSidebar}
+          aria-label={showLeftSidebar ? 'Hide empire sidebar' : 'Show empire sidebar'}
+        >
+          {showLeftSidebar ? (
+            <PanelLeftClose className="h-4 w-4" aria-hidden="true" />
+          ) : (
+            <PanelLeftOpen className="h-4 w-4" aria-hidden="true" />
+          )}
+        </button>
+
+        <button
+          type="button"
           onClick={() => setShowMobilePanel(v => !v)}
           className="ui-layer bottom-[calc(58vh+12px)] left-1/2 z-40 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-white/15 bg-black/80 px-4 py-2 text-xs uppercase tracking-widest text-white/70 backdrop-blur-md md:hidden"
           aria-expanded={showMobilePanel}
@@ -306,10 +358,10 @@ export default function MuskConstellation() {
                 animate={{ x: 0, opacity: 1 }}
                 exit={{ x: 40, opacity: 0 }}
                 transition={{ type: 'spring', stiffness: 140, damping: 22 }}
-                className={`details-panel glass panel border-l border-white/10 bg-black/90 text-sm ${!showMobilePanel ? 'max-md:hidden' : ''}`}
+                className={`details-panel glass panel border-l border-white/10 bg-black/90 text-sm ${!showMobilePanel ? 'max-md:hidden' : ''} ${!showDesktopPanel ? 'details-panel--desktop-collapsed' : ''}`}
               >
-                <div className="mb-6 flex items-start justify-between">
-                  <div>
+                <div className="details-panel-header mb-6 flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
                     <div
                       className="mb-1 inline-block rounded px-2 py-px text-[12px] font-medium tracking-[1.5px]"
                       style={{ backgroundColor: GROUP_COLORS[selectedNode.group] + '22', color: GROUP_COLORS[selectedNode.group] }}
@@ -321,7 +373,7 @@ export default function MuskConstellation() {
                   <button
                     type="button"
                     onClick={() => handleSelect(null)}
-                    className="btn btn-ghost -mr-2 p-2"
+                    className="btn btn-ghost shrink-0 p-2"
                     aria-label="Close details panel"
                   >
                     <X className="h-4 w-4" aria-hidden="true" />
@@ -404,14 +456,14 @@ export default function MuskConstellation() {
                           onClick={() => handleSelect(otherId)}
                           className="w-full rounded-xl border border-white/10 bg-white/3 px-3.5 py-3 text-left transition hover:border-white/30 hover:bg-white/5"
                         >
-                          <div className="flex items-center gap-2">
+                          <div className="connection-row flex flex-wrap items-center gap-2">
                             <span
-                              className="conn-pill"
+                              className="conn-pill shrink-0"
                               style={{ borderColor: LINK_COLORS[link.type] + '55', color: LINK_COLORS[link.type] }}
                             >
                               {LINK_LABELS[link.type]}
                             </span>
-                            <span className="font-medium text-white/90">{other.label}</span>
+                            <span className="connection-label font-medium text-white/90">{other.label}</span>
                           </div>
                           <div className="mt-1.5 text-sm leading-tight text-white/70">
                             {formatLinkDescription(link)}
@@ -459,11 +511,21 @@ export default function MuskConstellation() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className={`details-panel glass panel border-l border-white/10 bg-black/90 ${!showMobilePanel ? 'max-md:hidden' : ''}`}
+                className={`details-panel glass panel border-l border-white/10 bg-black/90 ${!showMobilePanel ? 'max-md:hidden' : ''} ${!showDesktopPanel ? 'details-panel--desktop-collapsed' : ''}`}
               >
-                <div className="mb-5">
-                  <p className="text-xs uppercase tracking-[3px] text-white/50">THE DEEP WEB</p>
-                  <h2 className="text-[26px] font-semibold tracking-[-1.2px] text-white">Elon Musk&apos;s Empire</h2>
+                <div className="details-panel-header mb-5 flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs uppercase tracking-[3px] text-white/50">THE DEEP WEB</p>
+                    <h2 className="company-title text-[26px] font-semibold tracking-[-1.2px] text-white">Elon Musk&apos;s Empire</h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowDesktopPanel(false)}
+                    className="btn btn-ghost hidden shrink-0 p-2 lg:flex"
+                    aria-label="Dismiss overview panel"
+                  >
+                    <X className="h-4 w-4" aria-hidden="true" />
+                  </button>
                 </div>
 
                 <div className="prose prose-invert text-sm leading-relaxed text-white/75">
@@ -507,6 +569,16 @@ export default function MuskConstellation() {
             )}
         </AnimatePresence>
 
+        <button
+          type="button"
+          onClick={() => setShowDesktopPanel(true)}
+          className={`ui-layer desktop-panel-toggle hidden lg:flex ${showDesktopPanel ? 'desktop-panel-toggle--hidden' : ''}`}
+          aria-controls="main-content"
+          aria-label="Show details panel"
+        >
+          <PanelRightOpen className="h-4 w-4" aria-hidden="true" />
+        </button>
+
         <AnimatePresence>
           {showLegend && (
             <motion.aside
@@ -514,7 +586,7 @@ export default function MuskConstellation() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 8 }}
               aria-label="Legend"
-              className="ui-layer bottom-6 left-6 glass panel max-w-[460px] rounded-2xl p-4 text-sm"
+              className={`ui-layer legend-panel glass panel max-w-[460px] rounded-2xl p-4 text-sm ${panelOpen ? 'legend-panel--offset' : ''}`}
             >
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="font-mono text-xs font-normal tracking-[1.5px] text-white/60">LEGEND</h2>
@@ -557,7 +629,7 @@ export default function MuskConstellation() {
           )}
         </AnimatePresence>
 
-        <div className="ui-layer bottom-5 right-5 hidden text-xs text-white/40 md:block">
+        <div className={`ui-layer keyboard-hints hidden text-xs text-white/40 md:block ${panelOpen ? 'keyboard-hints--offset' : ''}`}>
           R — reset &nbsp;•&nbsp; ESC — close legend / clear search / deselect &nbsp;•&nbsp; Drag nodes to rearrange
         </div>
 

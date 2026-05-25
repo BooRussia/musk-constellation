@@ -60,16 +60,60 @@ function seededRandom(seed: number): number {
 
 const EMPTY_SET = new Set<string>()
 
-function hashRotation(id: string): [number, number, number] {
+function hashFromId(id: string): number {
   let h = 0
   for (let i = 0; i < id.length; i++) {
     h = (h * 31 + id.charCodeAt(i)) | 0
   }
+  return h
+}
+
+function hashRotation(id: string): [number, number, number] {
+  const h = hashFromId(id)
   return [
     ((h & 0xff) / 255) * 0.6,
     (((h >> 8) & 0xff) / 255) * 1.2,
     0,
   ]
+}
+
+function hashLabelOffset(id: string): [number, number] {
+  const angle = ((hashFromId(id) >>> 0) / 4294967296) * Math.PI * 2
+  return [Math.cos(angle), Math.sin(angle)]
+}
+
+function fitCameraToNodes(
+  camera: THREE.PerspectiveCamera,
+  controls: OrbitControlsImpl,
+  nodes: SimNode[],
+  vecRefs: {
+    center: THREE.Vector3
+    size: THREE.Vector3
+    dir: THREE.Vector3
+    point: THREE.Vector3
+  },
+  padding = 1.35,
+) {
+  if (nodes.length === 0) return
+
+  const box = new THREE.Box3()
+  for (const n of nodes) {
+    vecRefs.point.set(n.x ?? 0, n.y ?? 0, n.z ?? 0)
+    box.expandByPoint(vecRefs.point)
+  }
+
+  box.getCenter(vecRefs.center)
+  box.getSize(vecRefs.size)
+
+  const maxDim = Math.max(vecRefs.size.x, vecRefs.size.y, vecRefs.size.z, 8)
+  const fov = camera.fov * (Math.PI / 180)
+  let distance = (maxDim / 2) / Math.tan(fov / 2) * padding
+  distance = Math.max(distance, 12)
+
+  vecRefs.dir.set(0.35, 0.25, 1).normalize()
+  camera.position.copy(vecRefs.center).add(vecRefs.dir.multiplyScalar(distance))
+  controls.target.copy(vecRefs.center)
+  controls.update()
 }
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -94,7 +138,6 @@ interface NodeMeshProps {
   node: Node
   isSelected: boolean
   isConnected: boolean
-  showLabel: boolean
   groupRefs: React.MutableRefObject<Map<string, THREE.Group>>
   onNodeClick: (id: string, e: ThreeEvent<MouseEvent>) => void
   onPointerDown: (id: string, e: ThreeEvent<PointerEvent>) => void
@@ -104,7 +147,6 @@ const NodeMesh = memo(function NodeMesh({
   node,
   isSelected,
   isConnected,
-  showLabel,
   groupRefs,
   onNodeClick,
   onPointerDown,
@@ -124,6 +166,16 @@ const NodeMesh = memo(function NodeMesh({
   const color = GROUP_COLORS[node.group]
   const radius = node.val * 0.55
   const ringRotation = useMemo(() => hashRotation(node.id), [node.id])
+  const labelOffset = useMemo(() => hashLabelOffset(node.id), [node.id])
+  const labelSpread = radius * (2.65 + (node.val > 2 ? 0.45 : node.val > 1.6 ? 0.25 : 0))
+  const labelPosition = useMemo(
+    (): [number, number, number] => [
+      labelOffset[0] * labelSpread * 0.9,
+      radius * 1.15 + labelOffset[1] * labelSpread * 0.55,
+      labelOffset[1] * labelSpread * 0.4 + 0.6,
+    ],
+    [labelOffset, labelSpread, radius],
+  )
 
   return (
     <group ref={groupRef}>
@@ -171,33 +223,22 @@ const NodeMesh = memo(function NodeMesh({
         </mesh>
       )}
 
-      {showLabel && (
-        <Html
-          position={[
-            0,
-            radius * (2.45 + (node.val > 2 ? 0.55 : node.val > 1.6 ? 0.3 : 0)),
-            0.75,
-          ]}
-          distanceFactor={16.5}
-          zIndexRange={[5, 80]}
-          style={{
-            pointerEvents: 'none',
-            userSelect: 'none',
-            transform: 'translate(-50%, -50%)',
-          }}
+      <Html
+        position={labelPosition}
+        distanceFactor={21}
+        zIndexRange={[5, 80]}
+        style={{
+          pointerEvents: 'none',
+          userSelect: 'none',
+          transform: 'translate(-50%, -50%)',
+        }}
+      >
+        <div
+          className={`constellation-label is-${node.type} ${isSelected ? 'is-selected' : ''} ${isConnected && !isSelected ? 'is-connected' : ''}`}
         >
-          <div
-            className={`constellation-label ${isSelected ? 'is-selected' : ''} ${isConnected && !isSelected ? 'is-connected' : ''}`}
-            style={{
-              fontSize: isSelected ? '22px' : '16.5px',
-              color: isSelected || isConnected ? '#f5f5f7' : '#d1d1d8',
-              opacity: isSelected ? 1 : isConnected ? 0.95 : 0.82,
-            }}
-          >
-            {node.label.toUpperCase()}
-          </div>
-        </Html>
-      )}
+          {node.label.toUpperCase()}
+        </div>
+      </Html>
     </group>
   )
 })
@@ -362,12 +403,22 @@ function Scene({
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const draggingIdRef = useRef<string | null>(null)
   const flyToRafRef = useRef<number | null>(null)
+  const hasInitialFitRef = useRef(false)
+  const mountSettledRef = useRef(false)
+  const fitKeyRef = useRef('')
 
   const dragVecs = useRef({
     nodePos: new THREE.Vector3(),
     mouseNDC: new THREE.Vector2(),
     dir: new THREE.Vector3(),
     newPos: new THREE.Vector3(),
+  })
+
+  const fitVecs = useRef({
+    center: new THREE.Vector3(),
+    size: new THREE.Vector3(),
+    dir: new THREE.Vector3(),
+    point: new THREE.Vector3(),
   })
 
   const visibleNodes = useMemo(
@@ -390,16 +441,19 @@ function Scene({
     [selectedId],
   )
 
-  const showAllLabels = visibleNodes.length <= 10
+  useEffect(() => {
+    hasInitialFitRef.current = false
+    fitKeyRef.current = visibleNodeKey
+  }, [visibleNodeKey])
 
   useEffect(() => {
     const simNodes: SimNode[] = visibleNodes.map((n) => {
       const existing = simNodesRef.current.find((sn) => sn.id === n.id)
       return {
         ...n,
-        x: existing?.x ?? (Math.random() - 0.5) * 28,
-        y: existing?.y ?? (Math.random() - 0.5) * 18,
-        z: existing?.z ?? (Math.random() - 0.5) * 22,
+        x: existing?.x ?? (Math.random() - 0.5) * 36,
+        y: existing?.y ?? (Math.random() - 0.5) * 28,
+        z: existing?.z ?? (Math.random() - 0.5) * 32,
         vx: existing?.vx ?? 0,
         vy: existing?.vy ?? 0,
         vz: existing?.vz ?? 0,
@@ -430,7 +484,7 @@ function Scene({
       simRaw.force('center', d3Force.forceCenter(0, 0, 0))
       simRaw.force(
         'collision',
-        d3Force.forceCollide().radius((d) => (d as SimNode).val * 1.8 + 0.6),
+        d3Force.forceCollide().radius((d) => (d as SimNode).val * 2.05 + 0.85),
       )
       simRaw.alphaDecay(0.022)
       simRaw.velocityDecay(0.32)
@@ -473,6 +527,26 @@ function Scene({
         if (g) {
           g.position.set(n.x ?? 0, n.y ?? 0, n.z ?? 0)
         }
+      }
+    }
+
+    if (
+      !selectedId &&
+      !hasInitialFitRef.current &&
+      fitKeyRef.current === visibleNodeKey &&
+      alpha < 0.05 &&
+      simNodesRef.current.length > 0
+    ) {
+      const controls = controlsRef.current
+      if (controls) {
+        fitCameraToNodes(
+          camera as THREE.PerspectiveCamera,
+          controls,
+          simNodesRef.current,
+          fitVecs.current,
+        )
+        hasInitialFitRef.current = true
+        mountSettledRef.current = true
       }
     }
   })
@@ -575,11 +649,16 @@ function Scene({
       if (controlsRef.current) controlsRef.current.enabled = true
     }
 
-    if (!selectedId || selectedId === prevSelected.current) {
-      prevSelected.current = selectedId
+    if (!selectedId) {
+      prevSelected.current = null
       return
     }
+
+    if (selectedId === prevSelected.current) return
+
     prevSelected.current = selectedId
+
+    if (!mountSettledRef.current) return
 
     const node = simNodesRef.current.find((n) => n.id === selectedId)
     const controls = controlsRef.current
@@ -645,7 +724,6 @@ function Scene({
               node={node}
               isSelected={isSelected}
               isConnected={isConnected}
-              showLabel={isSelected || isConnected || showAllLabels}
               groupRefs={nodeGroupRefs}
               onNodeClick={handleNodeClick}
               onPointerDown={handlePointerDown}
@@ -662,7 +740,7 @@ function Scene({
         enableZoom
         enableRotate
         minDistance={4}
-        maxDistance={68}
+        maxDistance={100}
         zoomSpeed={0.7}
         rotateSpeed={0.55}
         panSpeed={0.8}
@@ -765,7 +843,7 @@ export default function ConstellationCanvas(props: Props) {
         }}
       >
         <color attach="background" args={['#000000']} />
-        <fog attach="fog" args={['#000000', 42, 95]} />
+        <fog attach="fog" args={['#000000', 58, 145]} />
 
         <Scene {...props} />
 

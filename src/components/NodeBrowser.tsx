@@ -66,7 +66,7 @@ export default function NodeBrowser({
         aria-label={label}
         aria-activedescendant={selectedId ? `node-option-${selectedId}` : undefined}
         onKeyDown={handleKeyDown}
-        className="max-h-48 space-y-1 overflow-y-auto"
+        className="node-browser max-h-44 space-y-0.5 overflow-y-auto"
         tabIndex={0}
       >
         {nodes.map(node => {
@@ -80,7 +80,7 @@ export default function NodeBrowser({
                 data-node-id={node.id}
                 aria-selected={isSelected}
                 onClick={() => onSelect(node.id)}
-                className={`flex w-full items-center gap-2.5 rounded-lg border px-3 py-2 text-left text-sm transition ${
+                className={`node-browser-item flex w-full items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-[13px] transition ${
                   isSelected
                     ? 'border-white/30 bg-white/8 text-white'
                     : 'border-white/10 bg-white/3 text-white/80 hover:border-white/20 hover:bg-white/5'

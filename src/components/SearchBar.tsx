@@ -84,9 +84,7 @@ export default function SearchBar({
         }}
         onKeyDown={handleKeyDown}
         placeholder={compact ? 'Search…' : 'Search companies, subs, partners...'}
-        className={`search-input rounded-full pl-10 font-mono text-sm placeholder:text-white/30 focus:outline-none ${
-          compact ? 'max-w-[160px] md:max-w-none' : ''
-        }`}
+        className="search-input w-full rounded-full pl-10 font-mono text-sm placeholder:text-white/30 focus:outline-none"
       />
 
       <AnimatePresence>
