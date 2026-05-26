@@ -22,6 +22,14 @@ export interface Props {
   onSelect: (id: string | null) => void
   onExpand: (parentId: string) => void
   highlightLinkIds?: Set<string>
+  /**
+   * Fraction of canvas-bottom currently covered by an overlay (e.g. the
+   * mobile bottom sheet). 0 = canvas fully visible. 0.55 = bottom 55%
+   * covered. Drives a camera framing offset so the focused orb is
+   * centered in the *visible* portion of the canvas rather than the
+   * geometric center, and smoothly recomposes when the sheet animates.
+   */
+  bottomOverlayFraction?: number
 }
 
 interface SimNode extends Node {
@@ -723,6 +731,7 @@ function Scene({
   expandedIds,
   onSelect,
   highlightLinkIds = EMPTY_SET,
+  bottomOverlayFraction = 0,
 }: Omit<Props, 'onExpand'>) {
   const { camera, raycaster, mouse, scene, size } = useThree()
   const controlsRef = useRef<OrbitControlsImpl>(null)
@@ -1097,6 +1106,67 @@ function Scene({
       releasePinned()
     }
   }, [releasePinned])
+
+  // Smooth camera reframe whenever the bottom overlay (mobile sheet)
+  // covers part of the canvas — shifts the controls.target down so the
+  // focused orb stays centered in the *visible* canvas instead of the
+  // geometric center. Also reads the live --sheet-drag CSS variable
+  // each frame so the camera animates in lockstep with a finger drag.
+  const liveOverlayRef = useRef(bottomOverlayFraction)
+  useLayoutEffect(() => {
+    liveOverlayRef.current = bottomOverlayFraction
+  }, [bottomOverlayFraction])
+  const lastTargetYOffset = useRef(0)
+
+  useFrame(() => {
+    const controls = controlsRef.current
+    const cam = cameraRef.current as THREE.PerspectiveCamera | null
+    if (!controls || !cam) return
+    // Don't fight the fly-to animation while it's running.
+    if (flyToRafRef.current !== null) {
+      lastTargetYOffset.current = controls.target.y - (
+        selectedId
+          ? simNodesRef.current.find((n) => n.id === selectedId)?.y ?? controls.target.y
+          : controls.target.y
+      )
+      return
+    }
+
+    // Drag-aware effective overlay. As user drags the sheet down, its
+    // --sheet-drag CSS var goes 0→1 and the effective overlay shrinks
+    // toward 0 — the camera smoothly re-centers in real time.
+    let dragProgress = 0
+    if (typeof document !== 'undefined') {
+      const panel = document.querySelector<HTMLElement>('.details-panel')
+      if (panel) {
+        const v = parseFloat(panel.style.getPropertyValue('--sheet-drag') || '0')
+        if (!Number.isNaN(v)) dragProgress = Math.min(1, Math.max(0, v))
+      }
+    }
+    const effectiveOverlay = liveOverlayRef.current * (1 - dragProgress)
+
+    const node = selectedId
+      ? simNodesRef.current.find((n) => n.id === selectedId)
+      : null
+    const baseY = node ? node.y ?? 0 : 0
+
+    // Visible world height at the current camera-to-target distance.
+    const dist = cam.position.distanceTo(controls.target)
+    const fovRad = (cam.fov * Math.PI) / 180
+    const visibleWorldHeight = 2 * dist * Math.tan(fovRad / 2)
+    // Push the look-point DOWN so the focused orb floats UP into the
+    // visible (un-overlaid) canvas area.
+    const desiredOffset = -effectiveOverlay * 0.5 * visibleWorldHeight
+
+    // Critically-damped ease toward desiredOffset (~150ms time constant
+    // at 60fps with k=0.18). Feels snappy but never overshoots.
+    lastTargetYOffset.current += (desiredOffset - lastTargetYOffset.current) * 0.18
+
+    if (Math.abs(lastTargetYOffset.current - (controls.target.y - baseY)) > 0.001) {
+      controls.target.y = baseY + lastTargetYOffset.current
+      controls.update()
+    }
+  })
 
   return (
     <>

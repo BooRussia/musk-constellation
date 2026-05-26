@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspens
 import { motion, AnimatePresence, MotionConfig } from 'framer-motion'
 import {
   X, RotateCcw, Layers, ZoomIn, Info,
-  Globe, ChevronUp, Menu,
+  Globe, ChevronUp, ChevronDown, Menu,
   PanelRightClose, PanelRightOpen, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -25,6 +25,122 @@ function formatLinkDescription(link: Link): string {
   return link.note || `${LINK_LABELS[link.type]} connection`
 }
 
+/**
+ * Mobile bottom-sheet drag handle. Tap to collapse; swipe down past a
+ * threshold (or with high velocity) to dismiss. Uses inline transforms
+ * for buttery-smooth tracking during the drag, then either snaps back
+ * to open or hands off to the CSS slide-off animation on dismiss.
+ *
+ * Also drives a `--sheet-drag` CSS variable on the panel so the camera
+ * (and anything else that wants to track drag progress) can read where
+ * the sheet currently is between fully-open (0) and fully-closed (1).
+ */
+function SheetHandle({ onDismiss }: { onDismiss: () => void }) {
+  const dragStartY = useRef<number | null>(null)
+  const dragStartTime = useRef(0)
+  const dragOffset = useRef(0)
+  const panelRef = useRef<HTMLElement | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+
+  const setSheetProgress = (panel: HTMLElement, progress: number) => {
+    // progress: 0 = fully open, 1 = fully dismissed
+    panel.style.setProperty('--sheet-drag', progress.toFixed(4))
+  }
+
+  const onTouchStart = (e: React.TouchEvent<HTMLButtonElement>) => {
+    const panel = e.currentTarget.closest('.details-panel') as HTMLElement | null
+    if (!panel) return
+    panelRef.current = panel
+    dragStartY.current = e.touches[0].clientY
+    dragStartTime.current = Date.now()
+    dragOffset.current = 0
+    setIsDragging(true)
+    // Suspend the CSS transform transition so the drag follows the finger
+    // 1:1 without easing lag.
+    panel.style.transition = 'none'
+  }
+
+  const onTouchMove = (e: React.TouchEvent<HTMLButtonElement>) => {
+    if (dragStartY.current === null || !panelRef.current) return
+    const delta = e.touches[0].clientY - dragStartY.current
+    if (delta < 0) {
+      // Don't allow dragging the sheet above its fully-open resting position.
+      panelRef.current.style.transform = 'translateY(0)'
+      dragOffset.current = 0
+      setSheetProgress(panelRef.current, 0)
+      return
+    }
+    dragOffset.current = delta
+    panelRef.current.style.transform = `translateY(${delta}px)`
+    const panelH = panelRef.current.getBoundingClientRect().height || 1
+    setSheetProgress(panelRef.current, Math.min(1, delta / panelH))
+  }
+
+  const onTouchEnd = () => {
+    const panel = panelRef.current
+    if (!panel) {
+      dragStartY.current = null
+      setIsDragging(false)
+      return
+    }
+    const panelH = panel.getBoundingClientRect().height || 1
+    const elapsed = Date.now() - dragStartTime.current
+    const velocity = dragOffset.current / Math.max(elapsed, 1) // px/ms
+    const distanceClose = dragOffset.current > panelH * 0.28
+    const flickClose = velocity > 0.6 && dragOffset.current > 24
+
+    panel.style.transition = '' // restore the CSS transition
+
+    if (distanceClose || flickClose) {
+      // Hand off to React state — CSS class slides the panel the rest of
+      // the way off and pinning the inline transform null lets the
+      // .details-panel--mobile-hidden rule take effect.
+      panel.style.transform = ''
+      setSheetProgress(panel, 1)
+      onDismiss()
+    } else {
+      // Snap back open.
+      panel.style.transform = 'translateY(0)'
+      setSheetProgress(panel, 0)
+    }
+    dragStartY.current = null
+    dragOffset.current = 0
+    setIsDragging(false)
+  }
+
+  const onTouchCancel = () => {
+    const panel = panelRef.current
+    if (panel) {
+      panel.style.transition = ''
+      panel.style.transform = ''
+      setSheetProgress(panel, 0)
+    }
+    dragStartY.current = null
+    dragOffset.current = 0
+    setIsDragging(false)
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onDismiss}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchCancel}
+      className={`details-panel-handle md:hidden ${isDragging ? 'is-dragging' : ''}`}
+      aria-label="Collapse details panel — tap or swipe down"
+      aria-controls="main-content"
+    >
+      <span className="handle-grip" aria-hidden="true" />
+      <span className="handle-hint">
+        <ChevronDown className="h-3 w-3" aria-hidden="true" />
+        Tap or swipe down
+      </span>
+    </button>
+  )
+}
+
 // ============================================
 // MAIN APP
 // ============================================
@@ -35,7 +151,20 @@ export default function MuskConstellation() {
   const [showLegend, setShowLegend] = useState(false)
   const [showMobilePanel, setShowMobilePanel] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [isNarrowViewport, setIsNarrowViewport] = useState(false)
   const mobileMenuRef = useRef<HTMLDivElement | null>(null)
+
+  // Track whether the bottom-sheet layout is active so the canvas knows
+  // when to apply the upward camera reframe (only on mobile, only when
+  // the sheet is overlaying part of the canvas).
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mql = window.matchMedia('(max-width: 767px)')
+    const update = () => setIsNarrowViewport(mql.matches)
+    update()
+    mql.addEventListener('change', update)
+    return () => mql.removeEventListener('change', update)
+  }, [])
 
   // Close mobile menu when tapping anywhere outside it.
   useEffect(() => {
@@ -221,6 +350,7 @@ export default function MuskConstellation() {
                 onSelect={handleSelect}
                 onExpand={handleExpand}
                 highlightLinkIds={highlightLinkIds}
+                bottomOverlayFraction={isNarrowViewport && showMobilePanel ? 0.55 : 0}
               />
             </WebGLErrorBoundary>
           </Suspense>
@@ -408,13 +538,7 @@ export default function MuskConstellation() {
                 transition={{ duration: 0.18 }}
                 className={`details-panel glass panel border-l border-white/10 bg-black/90 text-sm ${!showMobilePanel ? 'details-panel--mobile-hidden' : ''} ${!showDesktopPanel ? 'details-panel--desktop-collapsed' : ''}`}
               >
-                <button
-                  type="button"
-                  onClick={() => setShowMobilePanel(false)}
-                  className="details-panel-handle md:hidden"
-                  aria-label="Collapse details panel"
-                  aria-controls="main-content"
-                />
+                <SheetHandle onDismiss={() => setShowMobilePanel(false)} />
                 <div className="details-panel-header mb-6 flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div
@@ -579,13 +703,7 @@ export default function MuskConstellation() {
                 exit={{ opacity: 0 }}
                 className={`details-panel glass panel border-l border-white/10 bg-black/90 ${!showMobilePanel ? 'details-panel--mobile-hidden' : ''} ${!showDesktopPanel ? 'details-panel--desktop-collapsed' : ''}`}
               >
-                <button
-                  type="button"
-                  onClick={() => setShowMobilePanel(false)}
-                  className="details-panel-handle md:hidden"
-                  aria-label="Collapse details panel"
-                  aria-controls="main-content"
-                />
+                <SheetHandle onDismiss={() => setShowMobilePanel(false)} />
                 <div className="details-panel-header mb-5 flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="text-xs uppercase tracking-[3px] text-white/50">THE DEEP WEB</p>

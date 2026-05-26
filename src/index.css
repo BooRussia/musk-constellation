@@ -668,40 +668,61 @@ body {
   transform: translateY(calc(100% - 48px));
 }
 
-/* Drag-handle at the top of the mobile bottom-sheet panel. Tap to
-   collapse the sheet. Wide tap target with a 36×4 pill indicator that
-   matches iOS / Material bottom-sheet conventions. */
+/* Drag-handle at the top of the mobile bottom-sheet panel. Wide tap
+   target containing a grab pill, a downward chevron, and a "swipe down
+   to close" label so users immediately understand both gestures. */
 .details-panel-handle {
   display: none;
   width: 100%;
-  height: 28px;
   flex-shrink: 0;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   cursor: pointer;
   border: none;
   background: transparent;
-  padding: 0;
-  /* Pull up into the panel's top padding so the grab pill sits flush
-     with the panel's top edge, and absorb the visual budget that would
-     otherwise sit unused between top padding and the header content. */
-  margin: -18px -20px 6px -20px;
+  padding: 6px 0 10px;
+  margin: -18px -20px 8px -20px;
+  /* Disable iOS default touch behaviors so the drag gesture stays smooth
+     and doesn't accidentally scroll the page or select text. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.details-panel-handle::before {
-  content: '';
+.details-panel-handle .handle-grip {
   display: block;
-  width: 44px;
-  height: 4px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.3);
-  transition: background 0.15s ease, width 0.15s ease;
+  width: 48px;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.4);
+  transition: background 0.15s ease, width 0.15s ease, transform 0.15s ease;
 }
 
-.details-panel-handle:hover::before,
-.details-panel-handle:active::before {
-  background: rgba(255, 255, 255, 0.55);
-  width: 52px;
+.details-panel-handle .handle-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+  transition: color 0.15s ease;
+}
+
+.details-panel-handle:hover .handle-grip,
+.details-panel-handle:active .handle-grip,
+.details-panel-handle.is-dragging .handle-grip {
+  background: rgba(255, 255, 255, 0.7);
+  width: 56px;
+}
+
+.details-panel-handle:hover .handle-hint,
+.details-panel-handle:active .handle-hint {
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .details-panel-handle:focus-visible {
@@ -1015,7 +1036,9 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: 10px 18px 14px;
+  /* Bottom padding includes iPhone home-indicator safe area so the tab
+     content stays above the gesture bar on notched / dynamic-island devices. */
+  padding: 10px 18px calc(14px + env(safe-area-inset-bottom, 0px));
   border-top-left-radius: 18px;
   border-top-right-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.14);
