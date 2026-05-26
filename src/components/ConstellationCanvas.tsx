@@ -124,6 +124,17 @@ function hexToRgb(hex: string): [number, number, number] {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
 }
 
+/** Linear-interpolate two hex colors. Used to derive sub-orb surface shades
+ *  from their parent group color (slightly desaturated toward neutral grey). */
+function mixHex(a: string, b: string, t: number): string {
+  const [ar, ag, ab] = hexToRgb(a)
+  const [br, bg, bb] = hexToRgb(b)
+  const r = Math.round(ar + (br - ar) * t)
+  const g = Math.round(ag + (bg - ag) * t)
+  const bl = Math.round(ab + (bb - ab) * t)
+  return `#${[r, g, bl].map((v) => v.toString(16).padStart(2, '0')).join('')}`
+}
+
 function useIsMobile(): boolean {
   return useMemo(() => {
     if (typeof window === 'undefined') return false
@@ -170,9 +181,16 @@ const NodeMesh = memo(function NodeMesh({
     }
   }, [node.id, groupRefs])
 
-  const color = GROUP_COLORS[node.group]
+  // Per-node color override (used for externals) falls back to the group color.
+  const color = node.color ?? GROUP_COLORS[node.group]
   const radius = node.val * 0.55
   const ringRotation = useMemo(() => hashRotation(node.id), [node.id])
+  // For subs, lightly desaturate the parent color so they read as a calmer
+  // shade of the group — same family, clearly subordinate.
+  const surfaceColor = useMemo(
+    () => (node.type === 'sub' ? mixHex(color, '#9aa3b2', 0.22) : color),
+    [color, node.type],
+  )
   // Label sits directly below the sphere for predictable positioning at
   // any camera angle. The radius offset keeps the label clear of the
   // glowing core while leaving the connection lines visible above it.
@@ -232,14 +250,47 @@ const NodeMesh = memo(function NodeMesh({
         }}
         userData={{ nodeId: node.id }}
       >
-        <sphereGeometry args={[radius]} />
-        <meshBasicMaterial color={color} />
+        {/* Type-specific outer geometry:
+             - core   → smooth sphere ("star")
+             - sub    → slightly faceted sphere ("moon")
+             - external → octahedron ("gem")  */}
+        {node.type === 'external' ? (
+          <octahedronGeometry args={[radius * 1.05, 0]} />
+        ) : (
+          <sphereGeometry args={[radius]} />
+        )}
+        <meshBasicMaterial color={surfaceColor} />
       </mesh>
 
-      <mesh>
-        <sphereGeometry args={[radius * 0.42]} />
-        <meshBasicMaterial color="#ffffff" />
-      </mesh>
+      {/* Only cores get the bright white inner — they're the "stars" of
+          the constellation. Subs are solid colored "moons". Externals get
+          a small tinted inner that picks up bloom subtly. */}
+      {node.type === 'core' && (
+        <mesh>
+          <sphereGeometry args={[radius * 0.45]} />
+          <meshBasicMaterial color="#ffffff" />
+        </mesh>
+      )}
+      {node.type === 'external' && (
+        <mesh>
+          <sphereGeometry args={[radius * 0.32]} />
+          <meshBasicMaterial color={mixHex(color, '#ffffff', 0.55)} />
+        </mesh>
+      )}
+
+      {/* Persistent halo on cores so they read as "stars" even in home
+          state — three concentric thin rings, double-sided. */}
+      {node.type === 'core' && (
+        <mesh rotation={ringRotation}>
+          <ringGeometry args={[radius * 1.18, radius * 1.22, 64]} />
+          <meshBasicMaterial
+            color={color}
+            side={THREE.DoubleSide}
+            transparent
+            opacity={hasSelection && !isSelected && !isConnected ? 0.18 : 0.45}
+          />
+        </mesh>
+      )}
 
       {isSelected && (
         <mesh>

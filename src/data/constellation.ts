@@ -43,6 +43,10 @@ export interface Node {
     target: string
     description: string
   }>
+  /** Optional per-node color override (hex). Used to give individual
+   *  external orbs their own thematic color instead of the shared
+   *  external grey. Ignored for cores and subs (they always use group). */
+  color?: string
 }
 
 export interface Link {
@@ -529,6 +533,7 @@ export const NODES: Node[] = [
     label: 'NASA',
     type: 'external',
     group: 'external',
+    color: '#3b82f6', // NASA blue
     val: 1.55,
     short: 'Human spaceflight & exploration',
     mission: 'Explore the unknown and inspire the world.',
@@ -541,6 +546,7 @@ export const NODES: Node[] = [
     label: 'Anthropic',
     type: 'external',
     group: 'external',
+    color: '#fb7185', // warm coral
     valuationB: 380,
     val: 2.61, // cbrt(380)*0.36
     short: 'Frontier AI safety-focused lab (Claude)',
@@ -554,6 +560,7 @@ export const NODES: Node[] = [
     label: 'Global Starlink Customers',
     type: 'external',
     group: 'external',
+    color: '#94a3b8', // generic slate
     val: 1.10,
     short: 'Enterprise, maritime, aviation, disaster response worldwide',
     mission: 'Connectivity everywhere on Earth.',
@@ -566,6 +573,7 @@ export const NODES: Node[] = [
     label: 'Cursor',
     type: 'external',
     group: 'external',
+    color: '#0ea5e9', // sky / dev-tool blue
     valuationB: 50, // in talks Apr 2026 at $50B; SpaceX acq option struck at $60B
     val: 1.33, // cbrt(50)*0.36
     short: 'AI coding IDE • Anysphere • $60B SpaceX acquisition option',
@@ -579,6 +587,7 @@ export const NODES: Node[] = [
     label: 'US Space Force / DoD',
     type: 'external',
     group: 'external',
+    color: '#cbd5e1', // brushed silver
     val: 1.45,
     short: 'NSSL launches • Starshield • MILNET • Golden Dome',
     mission: 'Secure US national security operations in space.',
@@ -591,6 +600,7 @@ export const NODES: Node[] = [
     label: 'T-Mobile',
     type: 'external',
     group: 'external',
+    color: '#ec4899', // T-Mobile magenta
     valuationB: 280,
     val: 2.36, // cbrt(280)*0.36
     short: 'T-Satellite Direct-to-Cell partner with Starlink',
@@ -604,6 +614,7 @@ export const NODES: Node[] = [
     label: 'Miami Project / Barrow',
     type: 'external',
     group: 'external',
+    color: '#14b8a6', // medical teal
     val: 0.85,
     short: 'PRIME clinical trial sites (Univ. of Miami + Barrow Neurological)',
     mission: 'Translate Neuralink technology into clinical care.',
@@ -715,15 +726,31 @@ export function getConnectedIds(nodeId: string): string[] {
   return getNodeLinks(nodeId).map(l => l.source === nodeId ? l.target : l.source)
 }
 
-// Color helpers for groups (used in 3D + UI)
+// Color helpers for groups (used in 3D + UI). Refined to maximize
+// at-a-glance separation between cores — Tesla red and SpaceX orange
+// are now clearly distinct, X is cyan (was pure white, which blended
+// with the bright inner cores of every other orb), and externals share
+// a slate base that individual external nodes can override via Node.color.
 export const GROUP_COLORS: Record<Node['group'], string> = {
-  tesla: '#e82127',
-  spacex: '#ff4500',
-  xai: '#a855f7',
-  neuralink: '#22c55e',
-  boring: '#eab308',
-  x: '#ffffff',
-  external: '#64748b'
+  tesla:     '#ef4444', // pure red — Tesla
+  spacex:    '#f97316', // amber-orange — SpaceX
+  xai:       '#a855f7', // vivid violet — xAI
+  neuralink: '#22c55e', // electric green — Neuralink
+  boring:    '#facc15', // warm gold — Boring Company
+  x:         '#06b6d4', // cool cyan — X (was #ffffff, indistinguishable from inner cores)
+  external:  '#94a3b8'  // slate — default external fallback
+}
+
+/** Per-external thematic colors so the externals stop reading as a
+ *  generic grey blob — each gets a color tied to its domain. */
+export const EXTERNAL_COLORS: Record<string, string> = {
+  nasa:             '#3b82f6', // NASA blue
+  anthropic:        '#fb7185', // warm coral (distinct from xAI violet)
+  cursor:           '#0ea5e9', // sky / dev-tool blue
+  't-mobile':       '#ec4899', // T-Mobile magenta
+  'us-space-force': '#cbd5e1', // brushed-silver
+  'miami-project':  '#14b8a6', // medical teal
+  'global-customers': '#94a3b8', // generic slate
 }
 
 export const LINK_COLORS: Record<LinkType, string> = {

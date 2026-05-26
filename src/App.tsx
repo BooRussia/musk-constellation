@@ -594,10 +594,25 @@ export default function MuskConstellation() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-x-8 gap-y-2.5">
+              <div className="grid grid-cols-3 gap-x-5 gap-y-2.5">
+                <div>
+                  <div className="mb-1.5 text-xs text-white/50">SHAPES</div>
+                  <div className="legend-item">
+                    <span className="legend-shape legend-shape--core" />
+                    <span>Core company</span>
+                  </div>
+                  <div className="legend-item">
+                    <span className="legend-shape legend-shape--sub" />
+                    <span>Sub-web / division</span>
+                  </div>
+                  <div className="legend-item">
+                    <span className="legend-shape legend-shape--external" />
+                    <span>External partner</span>
+                  </div>
+                </div>
                 <div>
                   <div className="mb-1.5 text-xs text-white/50">COMPANIES</div>
-                  {Object.entries(GROUP_COLORS).slice(0, 7).map(([key, color]) => (
+                  {Object.entries(GROUP_COLORS).slice(0, 6).map(([key, color]) => (
                     <div key={key} className="legend-item">
                       <div className="dot" style={{ backgroundColor: color }} />
                       <span className="capitalize">{key}</span>
@@ -616,7 +631,7 @@ export default function MuskConstellation() {
               </div>
 
               <div className="mt-3 border-t border-white/10 pt-3 text-xs text-white/40">
-                Lines = relationships (ownership, power, contracts, data, sales, infrastructure).<br />
+                Orb size scales with valuation. Core companies glow white at the center; sub-webs are solid colored; external partners are faceted gems.<br />
                 Drag nodes to manually reposition. Simulation continues in real time.
               </div>
             </motion.aside>

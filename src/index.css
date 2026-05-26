@@ -248,6 +248,46 @@ body {
   flex-shrink: 0;
 }
 
+/* Legend shape swatches mirror the 3D geometry: glowing star (core),
+   solid moon (sub), faceted gem (external). */
+.legend-shape {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.legend-shape--core {
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, #fff 0%, #fff 30%, #94a3b8 32%, #475569 70%);
+  box-shadow: 0 0 6px rgba(148, 163, 184, 0.55);
+}
+
+.legend-shape--sub {
+  border-radius: 50%;
+  background: #64748b;
+  opacity: 0.85;
+}
+
+.legend-shape--external {
+  width: 0;
+  height: 0;
+  background: transparent;
+  border: 6px solid transparent;
+  border-bottom-color: #cbd5e1;
+  position: relative;
+  transform: translateY(-2px);
+}
+
+.legend-shape--external::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: -6px;
+  border: 6px solid transparent;
+  border-top-color: #cbd5e1;
+}
+
 /* ============================================
    3D CONSTELLATION LABELS — PERFECT LEGIBILITY
    High-contrast, billboarded, space-aesthetic
