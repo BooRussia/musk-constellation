@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, lazy, Suspense } from 'react'
+import React, { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspense } from 'react'
 import { motion, AnimatePresence, MotionConfig } from 'framer-motion'
 import {
   X, RotateCcw, Layers, ZoomIn, Info,
@@ -34,6 +34,24 @@ export default function MuskConstellation() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showLegend, setShowLegend] = useState(false)
   const [showMobilePanel, setShowMobilePanel] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const mobileMenuRef = useRef<HTMLDivElement | null>(null)
+
+  // Close mobile menu when tapping anywhere outside it.
+  useEffect(() => {
+    if (!mobileMenuOpen) return
+    const onDocClick = (e: MouseEvent) => {
+      if (!mobileMenuRef.current?.contains(e.target as Node)) {
+        setMobileMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onDocClick)
+    document.addEventListener('touchstart', onDocClick as unknown as EventListener)
+    return () => {
+      document.removeEventListener('mousedown', onDocClick)
+      document.removeEventListener('touchstart', onDocClick as unknown as EventListener)
+    }
+  }, [mobileMenuOpen])
   const [showDesktopPanel, setShowDesktopPanel] = useState(true)
   const [showLeftSidebar, setShowLeftSidebar] = useState(true)
 
@@ -253,31 +271,61 @@ export default function MuskConstellation() {
               </button>
             </div>
 
-            <div className="topnav-actions-mobile flex items-center gap-2 md:!hidden">
-              <details className="relative">
-                <summary className="btn cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-                  <Menu className="h-3.5 w-3.5" aria-hidden="true" /> MENU
-                </summary>
-                <div className="absolute right-0 z-50 mt-2 min-w-[200px] rounded-xl border border-white/10 bg-black/95 p-2 shadow-2xl backdrop-blur-xl">
-                  <button type="button" onClick={resetView} className="btn mb-1 w-full justify-start gap-1.5">
+            <div ref={mobileMenuRef} className="topnav-actions-mobile relative flex items-center gap-2 md:!hidden">
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(v => !v)}
+                aria-expanded={mobileMenuOpen}
+                aria-haspopup="menu"
+                className={`btn ${mobileMenuOpen ? 'border-white/40' : ''}`}
+              >
+                {mobileMenuOpen ? (
+                  <X className="h-3.5 w-3.5" aria-hidden="true" />
+                ) : (
+                  <Menu className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
+                <span className="ml-1">{mobileMenuOpen ? 'CLOSE' : 'MENU'}</span>
+              </button>
+              {mobileMenuOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 top-full z-50 mt-2 min-w-[200px] rounded-xl border border-white/10 bg-black/95 p-2 shadow-2xl backdrop-blur-xl"
+                >
+                  <button
+                    type="button"
+                    onClick={() => { resetView(); setMobileMenuOpen(false) }}
+                    role="menuitem"
+                    className="btn mb-1 w-full justify-start gap-1.5"
+                  >
                     <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> RESET
                   </button>
-                  <button type="button" onClick={expandAll} className="btn mb-1 w-full justify-start gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => { expandAll(); setMobileMenuOpen(false) }}
+                    role="menuitem"
+                    className="btn mb-1 w-full justify-start gap-1.5"
+                  >
                     <Layers className="h-3.5 w-3.5" aria-hidden="true" /> EXPAND ALL
                   </button>
-                  <button type="button" onClick={collapseAll} className="btn btn-ghost mb-1 w-full justify-start">
+                  <button
+                    type="button"
+                    onClick={() => { collapseAll(); setMobileMenuOpen(false) }}
+                    role="menuitem"
+                    className="btn btn-ghost mb-1 w-full justify-start"
+                  >
                     COLLAPSE
                   </button>
                   <button
                     type="button"
-                    onClick={() => setShowLegend(v => !v)}
+                    onClick={() => { setShowLegend(v => !v); setMobileMenuOpen(false) }}
+                    role="menuitem"
                     className={`btn w-full justify-start gap-1.5 ${showLegend ? 'border-white/40' : ''}`}
                     aria-expanded={showLegend}
                   >
                     <Info className="h-3.5 w-3.5" aria-hidden="true" /> LEGEND
                   </button>
                 </div>
-              </details>
+              )}
             </div>
           </nav>
         </header>
@@ -356,7 +404,7 @@ export default function MuskConstellation() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.18 }}
-                className={`details-panel glass panel border-l border-white/10 bg-black/90 text-sm ${!showMobilePanel ? 'max-md:hidden' : ''} ${!showDesktopPanel ? 'details-panel--desktop-collapsed' : ''}`}
+                className={`details-panel glass panel border-l border-white/10 bg-black/90 text-sm ${!showMobilePanel ? 'details-panel--mobile-hidden' : ''} ${!showDesktopPanel ? 'details-panel--desktop-collapsed' : ''}`}
               >
                 <div className="details-panel-header mb-6 flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
@@ -520,7 +568,7 @@ export default function MuskConstellation() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className={`details-panel glass panel border-l border-white/10 bg-black/90 ${!showMobilePanel ? 'max-md:hidden' : ''} ${!showDesktopPanel ? 'details-panel--desktop-collapsed' : ''}`}
+                className={`details-panel glass panel border-l border-white/10 bg-black/90 ${!showMobilePanel ? 'details-panel--mobile-hidden' : ''} ${!showDesktopPanel ? 'details-panel--desktop-collapsed' : ''}`}
               >
                 <div className="details-panel-header mb-5 flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
@@ -647,11 +695,11 @@ export default function MuskConstellation() {
 
                 <div>
                   <div className="mb-1 text-[9px] uppercase tracking-[1.5px] text-white/45">Link types</div>
-                  <div className="grid grid-cols-2 gap-x-2">
+                  <div className="grid grid-cols-1 gap-x-2 lg:grid-cols-2">
                     {Object.entries(LINK_COLORS).map(([type, color]) => (
                       <div key={type} className="legend-item">
-                        <div className="h-px w-4" style={{ backgroundColor: color }} />
-                        <span>{LINK_LABELS[type as keyof typeof LINK_LABELS]}</span>
+                        <div className="h-px w-4 flex-shrink-0" style={{ backgroundColor: color }} />
+                        <span className="truncate">{LINK_LABELS[type as keyof typeof LINK_LABELS]}</span>
                       </div>
                     ))}
                   </div>
