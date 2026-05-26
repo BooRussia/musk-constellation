@@ -141,6 +141,107 @@ function SheetHandle({ onDismiss }: { onDismiss: () => void }) {
   )
 }
 
+/**
+ * Peek tab at the bottom of the screen when the sheet is collapsed.
+ * Tap to open, or drag UPWARD to slide the sheet up in lockstep with
+ * the finger. Mirrors SheetHandle so the bottom sheet has matching
+ * tactile gestures in both directions. Writes the same `--sheet-drag`
+ * CSS var (0 = open, 1 = dismissed) so the camera reframe in the 3D
+ * canvas tracks the partial-open state smoothly.
+ */
+function PeekTab({ label, onExpand }: { label: string; onExpand: () => void }) {
+  const dragStartY = useRef<number | null>(null)
+  const dragStartTime = useRef(0)
+  const dragOffset = useRef(0) // positive = dragged up (toward open)
+  const panelRef = useRef<HTMLElement | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+
+  const findPanel = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('.details-panel')
+
+  const onTouchStart = (e: React.TouchEvent<HTMLButtonElement>) => {
+    dragStartY.current = e.touches[0].clientY
+    dragStartTime.current = Date.now()
+    dragOffset.current = 0
+    panelRef.current = findPanel()
+    if (panelRef.current) {
+      // Freeze CSS transitions so the drag tracks the finger 1:1.
+      panelRef.current.style.transition = 'none'
+      // Start position = fully dismissed; we'll lift it as the user drags up.
+      panelRef.current.style.transform = 'translateY(100%)'
+      panelRef.current.style.setProperty('--sheet-drag', '1')
+    }
+    setIsDragging(true)
+  }
+
+  const onTouchMove = (e: React.TouchEvent<HTMLButtonElement>) => {
+    if (dragStartY.current === null || !panelRef.current) return
+    const delta = dragStartY.current - e.touches[0].clientY // positive = up
+    if (delta <= 0) {
+      panelRef.current.style.transform = 'translateY(100%)'
+      panelRef.current.style.setProperty('--sheet-drag', '1')
+      dragOffset.current = 0
+      return
+    }
+    const panelH = panelRef.current.getBoundingClientRect().height || 1
+    const clamped = Math.min(delta, panelH)
+    dragOffset.current = clamped
+    // panelH px when fully dismissed, 0 when fully open
+    const translateY = panelH - clamped
+    panelRef.current.style.transform = `translateY(${translateY}px)`
+    panelRef.current.style.setProperty('--sheet-drag', (1 - clamped / panelH).toFixed(4))
+  }
+
+  const finishDrag = (commitOpen: boolean) => {
+    const panel = panelRef.current
+    if (panel) {
+      panel.style.transition = ''
+      panel.style.transform = ''
+      if (commitOpen) {
+        panel.style.setProperty('--sheet-drag', '0')
+        onExpand()
+      } else {
+        panel.style.setProperty('--sheet-drag', '1')
+      }
+    }
+    dragStartY.current = null
+    dragOffset.current = 0
+    setIsDragging(false)
+  }
+
+  const onTouchEnd = () => {
+    const panel = panelRef.current
+    if (!panel) return finishDrag(false)
+    const panelH = panel.getBoundingClientRect().height || 1
+    const elapsed = Date.now() - dragStartTime.current
+    const velocity = dragOffset.current / Math.max(elapsed, 1) // px/ms upward
+    const distanceOpen = dragOffset.current > panelH * 0.28
+    const flickOpen = velocity > 0.6 && dragOffset.current > 24
+    finishDrag(distanceOpen || flickOpen)
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onExpand}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={() => finishDrag(false)}
+      className={`mobile-panel-peek md:hidden ${isDragging ? 'is-dragging' : ''}`}
+      aria-expanded={false}
+      aria-controls="main-content"
+      aria-label="Expand details panel — tap or swipe up"
+    >
+      <span className="mobile-panel-peek-grip" aria-hidden="true" />
+      <span className="mobile-panel-peek-label">
+        {label}
+        <ChevronUp className="h-3.5 w-3.5 ml-1" aria-hidden="true" />
+      </span>
+    </button>
+  )
+}
+
 // ============================================
 // MAIN APP
 // ============================================
@@ -507,24 +608,15 @@ export default function MuskConstellation() {
           )}
         </button>
 
-        {/* Mobile peek tab — appears at the bottom edge of the screen when
-            the details sheet is collapsed. Tap to expand. When the sheet
-            is open, the drag-handle inside its header takes over as the
-            close affordance, so this tab hides itself. */}
+        {/* Mobile peek tab — visible only while the sheet is collapsed.
+            Tap or drag UP to expand. Mirrors the SheetHandle drag-down
+            gesture so the bottom sheet feels fully tactile in both
+            directions. */}
         {!showMobilePanel && (
-          <button
-            type="button"
-            onClick={() => setShowMobilePanel(true)}
-            className="mobile-panel-peek md:hidden"
-            aria-expanded={false}
-            aria-controls="main-content"
-          >
-            <span className="mobile-panel-peek-grip" aria-hidden="true" />
-            <span className="mobile-panel-peek-label">
-              {selectedNode ? selectedNode.label : 'Tap for details'}
-              <ChevronUp className="h-3.5 w-3.5 ml-1" aria-hidden="true" />
-            </span>
-          </button>
+          <PeekTab
+            label={selectedNode ? selectedNode.label : 'Tap for details'}
+            onExpand={() => setShowMobilePanel(true)}
+          />
         )}
 
         <AnimatePresence mode="wait">

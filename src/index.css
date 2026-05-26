@@ -1051,6 +1051,17 @@ body {
   text-transform: uppercase;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
+  /* Don't let iOS interpret the upward drag as a scroll / pull-to-refresh
+     gesture. Same treatment the SheetHandle uses. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-panel-peek.is-dragging .mobile-panel-peek-grip {
+  background: rgba(255, 255, 255, 0.6);
+  width: 52px;
 }
 
 .mobile-panel-peek:hover {
