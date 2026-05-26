@@ -1593,12 +1593,58 @@ export default function ConstellationCanvas(props: Props) {
       <Canvas
         camera={{ position: [18, 12, 38], fov: 50, near: 0.5, far: 320 }}
         style={{ background: 'transparent' }}
-        dpr={isMobile ? [1, 1.5] : undefined}
+        // Cap DPR at 2 even on 3x retina / 4K displays. With ~30 unique
+        // ShaderMaterials in flight, rendering at 3x DPR triples the
+        // fragment-shader work and can push privacy-hardened browsers
+        // into texture corruption or context loss.
+        dpr={isMobile ? [1, 1.5] : [1, 2]}
         gl={{
           alpha: true,
           antialias: true,
-          powerPreference: 'high-performance',
+          // 'default' (was 'high-performance') — on hybrid-GPU laptops and
+          // privacy-hardened browsers (Brave shields, Arc, some Edge
+          // configs) 'high-performance' can trigger driver swaps that
+          // either fail outright or hand back a degraded context, causing
+          // the texture-glitch-then-black behaviour. 'default' lets the
+          // browser pick whatever it can deliver reliably.
+          powerPreference: 'default',
+          // Don't refuse to render on systems flagged as low-performance —
+          // we'd rather render slowly than show a black canvas.
+          failIfMajorPerformanceCaveat: false,
           toneMapping: THREE.NoToneMapping,
+        }}
+        onCreated={({ gl }) => {
+          const canvas = gl.domElement
+          // Surface renderer details so we can diagnose user reports of
+          // "all black" / glitching textures. Most often this points at a
+          // privacy shield, hardware blocklist, or fallback software
+          // renderer.
+          try {
+            const rendererCtx = gl.getContext()
+            const debugInfo = rendererCtx.getExtension('WEBGL_debug_renderer_info')
+            const vendor = debugInfo
+              ? rendererCtx.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL)
+              : rendererCtx.getParameter(rendererCtx.VENDOR)
+            const renderer = debugInfo
+              ? rendererCtx.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL)
+              : rendererCtx.getParameter(rendererCtx.RENDERER)
+            console.info('[Constellation] WebGL:', vendor, '·', renderer)
+          } catch {
+            /* ignore — some browsers block this info entirely */
+          }
+
+          // Listen for context loss (driver crash, GPU pressure, Chrome
+          // throttling). preventDefault tells the browser we want a chance
+          // to recover; without it the canvas stays black permanently.
+          const onLost = (e: Event) => {
+            e.preventDefault()
+            console.warn('[Constellation] WebGL context lost — attempting recovery.')
+          }
+          const onRestored = () => {
+            console.info('[Constellation] WebGL context restored.')
+          }
+          canvas.addEventListener('webglcontextlost', onLost, false)
+          canvas.addEventListener('webglcontextrestored', onRestored, false)
         }}
       >
         <color attach="background" args={['#000000']} />
