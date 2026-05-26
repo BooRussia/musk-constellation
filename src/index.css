@@ -616,14 +616,12 @@ body {
   width: 100%;
 }
 
-/* On phones, the details panel sits at the bottom of the screen. Reserve
-   the same height in the canvas viewport so the 3D scene (and its labels)
-   never render behind the panel. */
-@media (max-width: 767px) {
-  .canvas-viewport--mobile-panel-open {
-    padding-bottom: var(--mobile-panel-h);
-  }
-}
+/* On phones the canvas stays full-screen even while the bottom sheet is
+   open — the sheet simply overlays the canvas. Camera target offset
+   (driven by bottomOverlayFraction + --sheet-drag) shifts the focused
+   orb up into the visible portion, and this approach lets the camera
+   reframe smoothly during a finger drag instead of snapping when the
+   sheet's React state flips. */
 
 @media (min-width: 1024px) {
   .canvas-viewport {

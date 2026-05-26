@@ -279,8 +279,17 @@ const NodeMesh = memo(function NodeMesh({
     let target: number
 
     if (!hasSelection) {
-      // Home state — labels hidden by default, revealed by hovering the orb.
-      target = isHovered ? 1 : 0
+      // Home state. Core company orbs always show their name so a first-
+      // time viewer can identify Tesla / SpaceX / xAI / etc. at a glance.
+      // Sub-orbs and externals stay hidden until hover so the field
+      // doesn't read as label-soup. Hover always wins.
+      if (isHovered) {
+        target = 1
+      } else if (node.type === 'core') {
+        target = 0.8
+      } else {
+        target = 0
+      }
     } else {
       // Selection state — distance-aware fade with focus highlight.
       group.getWorldPosition(worldPos.current)
