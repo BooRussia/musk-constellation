@@ -988,7 +988,7 @@ export default function MuskConstellation() {
         </AnimatePresence>
 
         <div className={`ui-layer keyboard-hints hidden text-xs text-white/40 md:block ${panelOpen ? 'keyboard-hints--offset' : ''}`}>
-          R — reset &nbsp;•&nbsp; ESC — close legend / clear search / deselect &nbsp;•&nbsp; Drag nodes to rearrange
+          WASD — orbit &nbsp;•&nbsp; Q/E — tilt &nbsp;•&nbsp; Arrows — pan &nbsp;•&nbsp; R — reset &nbsp;•&nbsp; ESC — deselect / clear &nbsp;•&nbsp; Drag nodes to rearrange
         </div>
 
         <GlobalKeys onReset={resetView} onEscape={handleEscape} />
