@@ -157,6 +157,7 @@ const NodeMesh = memo(function NodeMesh({
   onPointerDown,
 }: NodeMeshProps) {
   const groupRef = useRef<THREE.Group>(null)
+  const [isHovered, setIsHovered] = useState(false)
   const labelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -180,28 +181,37 @@ const NodeMesh = memo(function NodeMesh({
     [radius, node.val],
   )
 
-  // Per-frame distance fade — labels stay readable up close and gently
-  // dim as they move past a "comfortable read" distance. This replaces
-  // distanceFactor scaling, which made the focused node's label balloon
-  // while the rest collapsed to unreadable specks.
+  // Per-frame opacity calc — home state hides labels until hovered so the
+  // constellation reads as pure colored orbs; selection state uses a
+  // distance-aware fade with focus highlighting; hover always wins so the
+  // user can browse names freely.
   const worldPos = useRef(new THREE.Vector3())
   useFrame(({ camera }) => {
     const el = labelRef.current
     const group = groupRef.current
     if (!el || !group) return
-    group.getWorldPosition(worldPos.current)
-    const dist = camera.position.distanceTo(worldPos.current)
-    // Visibility curve: full opacity 0-32 units, fade 32-70, hidden past 80.
+
     let target: number
-    if (dist < 32) target = 1
-    else if (dist > 80) target = 0
-    else if (dist > 70) target = (80 - dist) / 10 * 0.35
-    else target = 1 - (dist - 32) / 38 * 0.65
-    // Selected / connected labels always read at full strength.
-    if (isSelected || isConnected) target = 1
-    // When something is selected and this isn't part of the focused web,
-    // bias toward the dimmed end so the focus reads cleanly.
-    if (hasSelection && !isSelected && !isConnected) target = Math.min(target, 0.22)
+
+    if (!hasSelection) {
+      // Home state — labels hidden by default, revealed by hovering the orb.
+      target = isHovered ? 1 : 0
+    } else {
+      // Selection state — distance-aware fade with focus highlight.
+      group.getWorldPosition(worldPos.current)
+      const dist = camera.position.distanceTo(worldPos.current)
+      if (dist < 32) target = 1
+      else if (dist > 80) target = 0
+      else if (dist > 70) target = (80 - dist) / 10 * 0.35
+      else target = 1 - (dist - 32) / 38 * 0.65
+
+      if (isSelected || isConnected) target = 1
+      else target = Math.min(target, 0.22)
+      // Hover always wins — lets the user browse names even when something
+      // else is selected.
+      if (isHovered) target = 1
+    }
+
     el.style.opacity = target.toFixed(3)
   })
 
@@ -210,11 +220,15 @@ const NodeMesh = memo(function NodeMesh({
       <mesh
         onClick={(e) => onNodeClick(node.id, e)}
         onPointerDown={(e) => onPointerDown(node.id, e)}
-        onPointerOver={() => {
+        onPointerOver={(e) => {
+          e.stopPropagation()
           document.body.style.cursor = 'pointer'
+          setIsHovered(true)
         }}
-        onPointerOut={() => {
+        onPointerOut={(e) => {
+          e.stopPropagation()
           document.body.style.cursor = 'default'
+          setIsHovered(false)
         }}
         userData={{ nodeId: node.id }}
       >

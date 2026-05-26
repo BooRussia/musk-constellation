@@ -278,9 +278,12 @@ body {
     0 0 6px rgba(0, 0, 0, 0.8);
   pointer-events: none;
   user-select: none;
-  /* Opacity is driven per-frame in JS for distance fade, so don't transition
-     it (would lag the fade). Keep other transitions snappy. */
-  transition: transform 0.12s cubic-bezier(0.23, 1, 0.32, 1),
+  /* Opacity is driven per-frame in JS. A short transition smooths the
+     hover-reveal in home state (0 → 1 toggle) and the selection-mode dim
+     change, while staying short enough that per-frame distance fade reads
+     as continuous motion rather than a lagging interpolation. */
+  transition: opacity 0.14s ease-out,
+              transform 0.12s cubic-bezier(0.23, 1, 0.32, 1),
               background 0.15s ease,
               border-color 0.15s ease,
               color 0.15s ease;
