@@ -716,6 +716,16 @@ export function getChildren(nodeId: string): Node[] {
   return NODES.filter(n => node.children!.includes(n.id))
 }
 
+// Helper: find the parent that lists this node in its children. Used by the
+// search → select flow so that picking a sub-orb auto-expands its parent
+// (otherwise the sub would be hidden and the camera fly-to would no-op).
+export function getParentId(nodeId: string): string | null {
+  for (const node of NODES) {
+    if (node.children?.includes(nodeId)) return node.id
+  }
+  return null
+}
+
 // Helper: get direct links for a node (both directions)
 export function getNodeLinks(nodeId: string): Link[] {
   return LINKS.filter(l => l.source === nodeId || l.target === nodeId)

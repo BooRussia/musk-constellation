@@ -12,7 +12,7 @@ import WebGLErrorBoundary from './components/WebGLErrorBoundary'
 import CanvasLoader from './components/CanvasLoader'
 import {
   NODES, LINKS,
-  getChildren, getNodeLinks, getNodeById, getVisibleNodes,
+  getChildren, getNodeLinks, getNodeById, getParentId, getVisibleNodes,
   getLinkRole, getLinkRoleLabel,
   GROUP_COLORS, LINK_COLORS, LINK_LABELS,
   INITIAL_FOCUS,
@@ -115,9 +115,31 @@ export default function MuskConstellation() {
     toast('All collapsed', { description: 'Showing only core nodes' })
   }, [])
 
+  // Selecting a sub-node from search (or anywhere else) when its parent
+  // isn't expanded would previously open the side panel but skip the
+  // camera fly-to because the sub orb wasn't in the live simNodes set.
+  // Auto-expand the parent first, give the simulation a tick to place
+  // the new orb near its real spot, THEN trigger the select so the
+  // fly-to animation lands on something visible.
   const flyToNode = useCallback((id: string) => {
+    const target = getNodeById(id)
+    if (target?.type === 'sub') {
+      const parentId = getParentId(id)
+      if (parentId && !expandedIds.has(parentId)) {
+        setExpandedIds(prev => {
+          if (prev.has(parentId)) return prev
+          const next = new Set(prev)
+          next.add(parentId)
+          return next
+        })
+        // Delay matches the d3-force tick rate enough to let the new
+        // orb settle near its connected position before the camera flies.
+        window.setTimeout(() => handleSelect(id), 320)
+        return
+      }
+    }
     handleSelect(id)
-  }, [handleSelect])
+  }, [handleSelect, expandedIds])
 
   const handleEscape = useCallback(() => {
     if (showLegend) {
@@ -580,23 +602,23 @@ export default function MuskConstellation() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 8 }}
               aria-label="Legend"
-              className={`ui-layer legend-panel glass panel max-w-[460px] rounded-2xl p-4 text-sm ${panelOpen ? 'legend-panel--offset' : ''}`}
+              className="ui-layer legend-panel glass panel rounded-xl p-3"
             >
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="font-mono text-xs font-normal tracking-[1.5px] text-white/60">LEGEND</h2>
+              <div className="mb-2 flex items-center justify-between">
+                <h2 className="font-mono text-[10px] font-normal tracking-[1.5px] text-white/60">LEGEND</h2>
                 <button
                   type="button"
                   onClick={() => setShowLegend(false)}
                   className="text-white/40 hover:text-white"
                   aria-label="Close legend"
                 >
-                  <X size={14} aria-hidden="true" />
+                  <X size={12} aria-hidden="true" />
                 </button>
               </div>
 
-              <div className="grid grid-cols-3 gap-x-5 gap-y-2.5">
+              <div className="space-y-3">
                 <div>
-                  <div className="mb-1.5 text-xs text-white/50">SHAPES</div>
+                  <div className="mb-1 text-[9px] uppercase tracking-[1.5px] text-white/45">Shapes</div>
                   <div className="legend-item">
                     <span className="legend-shape legend-shape--core" />
                     <span>Core company</span>
@@ -610,29 +632,34 @@ export default function MuskConstellation() {
                     <span>External partner</span>
                   </div>
                 </div>
+
                 <div>
-                  <div className="mb-1.5 text-xs text-white/50">COMPANIES</div>
-                  {Object.entries(GROUP_COLORS).slice(0, 6).map(([key, color]) => (
-                    <div key={key} className="legend-item">
-                      <div className="dot" style={{ backgroundColor: color }} />
-                      <span className="capitalize">{key}</span>
-                    </div>
-                  ))}
+                  <div className="mb-1 text-[9px] uppercase tracking-[1.5px] text-white/45">Companies</div>
+                  <div className="grid grid-cols-2 gap-x-2">
+                    {Object.entries(GROUP_COLORS).slice(0, 6).map(([key, color]) => (
+                      <div key={key} className="legend-item">
+                        <div className="dot" style={{ backgroundColor: color }} />
+                        <span className="capitalize">{key}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
+
                 <div>
-                  <div className="mb-1.5 text-xs text-white/50">LINK TYPES</div>
-                  {Object.entries(LINK_COLORS).map(([type, color]) => (
-                    <div key={type} className="legend-item">
-                      <div className="h-px w-5" style={{ backgroundColor: color }} />
-                      <span>{LINK_LABELS[type as keyof typeof LINK_LABELS]}</span>
-                    </div>
-                  ))}
+                  <div className="mb-1 text-[9px] uppercase tracking-[1.5px] text-white/45">Link types</div>
+                  <div className="grid grid-cols-2 gap-x-2">
+                    {Object.entries(LINK_COLORS).map(([type, color]) => (
+                      <div key={type} className="legend-item">
+                        <div className="h-px w-4" style={{ backgroundColor: color }} />
+                        <span>{LINK_LABELS[type as keyof typeof LINK_LABELS]}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              <div className="mt-3 border-t border-white/10 pt-3 text-xs text-white/40">
-                Orb size scales with valuation. Core companies glow white at the center; sub-webs are solid colored; external partners are faceted gems.<br />
-                Drag nodes to manually reposition. Simulation continues in real time.
+              <div className="mt-2 border-t border-white/10 pt-2 text-[10px] leading-snug text-white/45">
+                Orb size scales with valuation. Cores glow; subs are solid moons; externals are faceted gems.
               </div>
             </motion.aside>
           )}

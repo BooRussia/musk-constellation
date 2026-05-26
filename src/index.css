@@ -928,24 +928,28 @@ body {
   right: calc(14px + 440px + 8px);
 }
 
-/* Legend + keyboard hints positioning */
+/* Legend — compact card nestled in the bottom-left so it never covers
+   the orbs. On lg+ it offsets past the open sidebar to avoid overlap. */
 .legend-panel {
-  bottom: 16px;
-  left: 16px;
+  bottom: 14px;
+  left: 14px;
   z-index: 35;
-  max-height: calc(100vh - var(--topnav-h) - 48px);
+  width: 230px;
+  max-width: 230px;
+  max-height: calc(100vh - var(--topnav-h) - 36px);
   overflow-y: auto;
+  font-size: 11px;
 }
 
 @media (min-width: 1024px) {
   .legend-panel {
-    left: calc(var(--sidebar-width, 0px) + 16px);
+    left: calc(var(--sidebar-width, 0px) + 14px);
   }
 }
 
-.legend-panel--offset {
-  right: calc(var(--panel-width, 0px) + 16px);
-}
+/* Don't shift right when the right panel opens — the legend lives in the
+   opposite corner. (legend-panel--offset class is now a no-op kept for
+   API stability.) */
 
 .keyboard-hints {
   position: absolute;
