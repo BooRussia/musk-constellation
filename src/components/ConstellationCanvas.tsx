@@ -1126,6 +1126,12 @@ function Scene({
     liveOverlayRef.current = bottomOverlayFraction
   }, [bottomOverlayFraction])
   const lastTargetYOffset = useRef(0)
+  // Cache the panel DOM ref so we don't run document.querySelector 60
+  // times a second. On Mac Chromium/Arc that per-frame DOM walk has
+  // been observed to thrash style invalidation when the panel has CSS
+  // variables that change.
+  const panelDomRef = useRef<HTMLElement | null>(null)
+  const panelLookupAttempts = useRef(0)
 
   useFrame(() => {
     const controls = controlsRef.current
@@ -1141,12 +1147,29 @@ function Scene({
       return
     }
 
+    // Skip the overlay reframe entirely on desktop (where bottomOverlayFraction
+    // is permanently 0). This cuts the per-frame DOM read + math out of
+    // the hot path for everyone except mobile users with the sheet open.
+    if (liveOverlayRef.current === 0 && lastTargetYOffset.current === 0) {
+      return
+    }
+
     // Drag-aware effective overlay. As user drags the sheet down, its
     // --sheet-drag CSS var goes 0→1 and the effective overlay shrinks
-    // toward 0 — the camera smoothly re-centers in real time.
+    // toward 0 — the camera smoothly re-centers in real time. Resolve
+    // the panel element once, then re-resolve if our cached ref drops
+    // out of the DOM (e.g. AnimatePresence remount).
     let dragProgress = 0
     if (typeof document !== 'undefined') {
-      const panel = document.querySelector<HTMLElement>('.details-panel')
+      let panel = panelDomRef.current
+      if (!panel || !panel.isConnected) {
+        // Throttle lookups so we don't spam querySelector when there's
+        // genuinely no panel mounted.
+        if ((panelLookupAttempts.current++ & 0x1f) === 0) {
+          panel = document.querySelector<HTMLElement>('.details-panel')
+          panelDomRef.current = panel
+        }
+      }
       if (panel) {
         const v = parseFloat(panel.style.getPropertyValue('--sheet-drag') || '0')
         if (!Number.isNaN(v)) dragProgress = Math.min(1, Math.max(0, v))
@@ -1278,7 +1301,14 @@ const STAR_FRAG = /* glsl */ `
 // and a fragment shader; uIntensity controls whether the surface reads
 // as a glowing star/nebula (cores) or a calmer planet (subs).
 // ============================================
+// Explicit `precision mediump float;` in the fragment shaders. WebGL2's
+// default for fragments is highp, which on macOS Chromium → ANGLE →
+// Metal can corrupt textures or fall back to software paths when many
+// materials run simultaneously. mediump renders identically to highp
+// for this dynamic range while staying inside Metal's fast path.
+
 const NEBULA_VERT = /* glsl */ `
+  precision mediump float;
   varying vec3 vNormal;
   varying vec3 vView;
   varying vec3 vLocal;
@@ -1292,6 +1322,7 @@ const NEBULA_VERT = /* glsl */ `
 `
 
 const NEBULA_FRAG = /* glsl */ `
+  precision mediump float;
   varying vec3 vNormal;
   varying vec3 vView;
   varying vec3 vLocal;
@@ -1301,7 +1332,10 @@ const NEBULA_FRAG = /* glsl */ `
   uniform float uNoiseScale;
   uniform float uSpeed;
 
-  // Compact 3D hash + value noise + 4-octave fbm.
+  // Compact 3D hash + value noise. 2 octaves of fbm (was 4) — the visual
+  // difference at orb scale is tiny but it halves the fragment-shader
+  // workload, which is the difference between "renders" and "Metal
+  // crashes the context" on some macOS hybrid-GPU setups.
   float hash(vec3 p) {
     p = fract(p * vec3(0.1031, 0.1030, 0.0973));
     p += dot(p, p.yxz + 33.33);
@@ -1320,48 +1354,37 @@ const NEBULA_FRAG = /* glsl */ `
     );
   }
   float fbm(vec3 p) {
-    float v = 0.0;
-    float a = 0.55;
-    for (int i = 0; i < 4; i++) {
-      v += a * noise(p);
-      p *= 2.05;
-      a *= 0.5;
-    }
+    float v = noise(p) * 0.65;
+    v += noise(p * 2.1) * 0.35;
     return v;
   }
 
   void main() {
-    // Fresnel — bright atmosphere rim at the silhouette.
     float fres = pow(1.0 - max(dot(vNormal, vView), 0.0), 2.2);
 
-    // Animated swirling clouds. Sampled in local space so they rotate
-    // with the orb (we slowly spin the mesh in useFrame).
     vec3 np = vLocal * uNoiseScale + vec3(uTime * uSpeed, uTime * uSpeed * 0.6, uTime * uSpeed * 1.3);
-    float n = fbm(np);
-    n = smoothstep(0.25, 0.78, n);
+    float n = smoothstep(0.25, 0.78, fbm(np));
 
-    // Surface mix between a darker "cold" tone and a brighter "hot" tone
-    // of the same group color.
     vec3 cold = uColor * 0.32;
     vec3 hot  = uColor * (1.35 + uIntensity * 0.8);
     vec3 surface = mix(cold, hot, n);
 
-    // Atmosphere rim glow.
     vec3 rim = uColor * fres * (1.3 + uIntensity * 1.6);
 
-    // Bright inner emissive core — strong on cores, almost absent on subs.
     float core = pow(max(dot(vNormal, vView), 0.0), 1.6);
     vec3 inner = vec3(1.0, 0.96, 0.9) * (core * uIntensity * 0.55);
 
-    vec3 finalColor = surface + rim + inner;
+    // Clamp to a safe range before output — keeps Bloom thresholds
+    // stable and prevents NaN/Inf propagation from accumulating noise.
+    vec3 finalColor = clamp(surface + rim + inner, 0.0, 4.0);
     gl_FragColor = vec4(finalColor, 1.0);
   }
 `
 
 // Crystalline gem material for external orbs — fresnel-driven shimmer
-// across the octahedron's facets, no swirling noise. Reads as polished
-// crystal rather than gas/plasma.
+// across the octahedron's facets, no swirling noise.
 const GEM_FRAG = /* glsl */ `
+  precision mediump float;
   varying vec3 vNormal;
   varying vec3 vView;
   varying vec3 vLocal;
@@ -1376,15 +1399,13 @@ const GEM_FRAG = /* glsl */ `
     vec3 bright = uColor * 1.55;
     vec3 surface = mix(deep, bright, core);
 
-    // Pulsing inner glow so the gem feels alive rather than dead crystal.
     float pulse = 0.85 + 0.15 * sin(uTime * 1.4);
     vec3 rim = uColor * fres * 1.8 * pulse;
 
-    // Tiny chromatic shimmer along facet edges using local position.
     float facet = pow(abs(vLocal.x + vLocal.y + vLocal.z) * 0.3, 1.2);
     vec3 shimmer = mix(uColor, vec3(1.0), 0.6) * fres * 0.25 * facet;
 
-    gl_FragColor = vec4(surface + rim + shimmer, 1.0);
+    gl_FragColor = vec4(clamp(surface + rim + shimmer, 0.0, 4.0), 1.0);
   }
 `
 
