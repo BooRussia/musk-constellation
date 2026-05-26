@@ -283,7 +283,7 @@ export default function MuskConstellation() {
         </header>
 
         <aside
-          className={`ui-layer left-sidebar ${showLeftSidebar ? '' : 'left-sidebar--collapsed'}`}
+          className={`ui-layer left-sidebar ${showLeftSidebar ? '' : 'left-sidebar--collapsed'} ${showLegend ? 'left-sidebar--legend-open' : ''}`}
         >
           <div className="glass panel rounded-2xl p-5 text-sm">
             <div className="mb-3 flex items-center justify-between text-xs uppercase tracking-[2px] text-white/50">

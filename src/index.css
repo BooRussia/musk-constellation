@@ -44,6 +44,7 @@
   --topnav-h: 56px;
   --panel-w: 0px;
   --sidebar-w: 0px;
+  --legend-h: 280px;
   --mobile-panel-h: 55vh;
 }
 
@@ -849,7 +850,10 @@ body {
   }
 }
 
-/* Left sidebar */
+/* Left sidebar.
+   When the legend is open the sidebar's bottom edge stops above the legend
+   so they read as one continuous left rail (matching widths + same left
+   edge). When the legend is closed the sidebar reclaims the full column. */
 .left-sidebar {
   display: none;
   left: 14px;
@@ -858,7 +862,13 @@ body {
   width: 280px;
   max-width: calc(100vw - 28px);
   overflow-y: auto;
-  transition: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1), opacity 0.25s ease;
+  transition: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1),
+              opacity 0.25s ease,
+              bottom 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.left-sidebar--legend-open {
+  bottom: calc(var(--legend-h) + 28px); /* legend height + 14px gap above + 14px below */
 }
 
 @media (min-width: 1024px) {
@@ -928,8 +938,10 @@ body {
   right: calc(14px + 440px + 8px);
 }
 
-/* Legend — compact card nestled in the bottom-left so it never covers
-   the orbs. On lg+ it offsets past the open sidebar to avoid overlap. */
+/* Legend — bottom of the left rail. On desktop (lg+) it matches the
+   sidebar's width and left edge so they stack as one continuous column.
+   On mobile / tablet it shrinks to a small bottom-left card so it
+   doesn't compete with the bottom sheet panel. */
 .legend-panel {
   bottom: 14px;
   left: 14px;
@@ -943,13 +955,12 @@ body {
 
 @media (min-width: 1024px) {
   .legend-panel {
-    left: calc(var(--sidebar-width, 0px) + 14px);
+    width: 280px;
+    max-width: 280px;
+    height: var(--legend-h);
+    max-height: var(--legend-h);
   }
 }
-
-/* Don't shift right when the right panel opens — the legend lives in the
-   opposite corner. (legend-panel--offset class is now a no-op kept for
-   API stability.) */
 
 .keyboard-hints {
   position: absolute;
