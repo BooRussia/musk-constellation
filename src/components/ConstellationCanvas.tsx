@@ -168,8 +168,62 @@ const NodeMesh = memo(function NodeMesh({
   onPointerDown,
 }: NodeMeshProps) {
   const groupRef = useRef<THREE.Group>(null)
+  const orbMeshRef = useRef<THREE.Mesh>(null)
   const [isHovered, setIsHovered] = useState(false)
   const labelRef = useRef<HTMLDivElement>(null)
+
+  // Per-orb shader material — created once via useState lazy init so it
+  // survives re-renders. cores/subs share the nebula shader (intensity
+  // differs); externals get the gem shader.
+  const [orbMaterial] = useState<THREE.ShaderMaterial>(() => {
+    const baseColor = node.color ?? GROUP_COLORS[node.group]
+    const surface = node.type === 'sub' ? mixHex(baseColor, '#9aa3b2', 0.22) : baseColor
+    if (node.type === 'external') {
+      return new THREE.ShaderMaterial({
+        uniforms: {
+          uColor: { value: new THREE.Color(surface) },
+          uTime: { value: 0 },
+        },
+        vertexShader: NEBULA_VERT,
+        fragmentShader: GEM_FRAG,
+      })
+    }
+    const intensity = node.type === 'core' ? 1.0 : 0.55
+    const noiseScale = node.type === 'core' ? 1.75 : 2.4
+    const speed = node.type === 'core' ? 0.045 : 0.025
+    return new THREE.ShaderMaterial({
+      uniforms: {
+        uColor: { value: new THREE.Color(surface) },
+        uTime: { value: 0 },
+        uIntensity: { value: intensity },
+        uNoiseScale: { value: noiseScale },
+        uSpeed: { value: speed },
+      },
+      vertexShader: NEBULA_VERT,
+      fragmentShader: NEBULA_FRAG,
+    })
+  })
+
+  // Mirror material into a ref so useFrame can write uniforms without
+  // tripping the react-hooks/immutability rule that fires on captured
+  // render values.
+  const materialRef = useRef<THREE.ShaderMaterial | null>(null)
+  useLayoutEffect(() => {
+    materialRef.current = orbMaterial
+    return () => {
+      orbMaterial.dispose()
+      materialRef.current = null
+    }
+  }, [orbMaterial])
+
+  // Each orb gets a stable self-rotation speed derived from its id hash
+  // so they spin independently (Tesla's surface clouds and SpaceX's
+  // don't move in lockstep).
+  const rotationSpeed = useMemo(() => {
+    const h = hashFromId(node.id)
+    const sign = (h & 1) === 0 ? 1 : -1
+    return sign * (0.04 + ((h >>> 4) & 0xff) / 255 * 0.06)
+  }, [node.id])
 
   useEffect(() => {
     const group = groupRef.current
@@ -185,12 +239,9 @@ const NodeMesh = memo(function NodeMesh({
   const color = node.color ?? GROUP_COLORS[node.group]
   const radius = node.val * 0.55
   const ringRotation = useMemo(() => hashRotation(node.id), [node.id])
-  // For subs, lightly desaturate the parent color so they read as a calmer
-  // shade of the group — same family, clearly subordinate.
-  const surfaceColor = useMemo(
-    () => (node.type === 'sub' ? mixHex(color, '#9aa3b2', 0.22) : color),
-    [color, node.type],
-  )
+  // Surface color is computed inside the per-instance orb material below
+  // (subs get desaturated toward neutral, externals/cores stay at full
+  // group color).
   // Label sits directly below the sphere for predictable positioning at
   // any camera angle. The radius offset keeps the label clear of the
   // glowing core while leaving the connection lines visible above it.
@@ -202,9 +253,17 @@ const NodeMesh = memo(function NodeMesh({
   // Per-frame opacity calc — home state hides labels until hovered so the
   // constellation reads as pure colored orbs; selection state uses a
   // distance-aware fade with focus highlighting; hover always wins so the
-  // user can browse names freely.
+  // user can browse names freely. Also drives the shader uTime + slow
+  // self-rotation so the orb surfaces feel alive.
   const worldPos = useRef(new THREE.Vector3())
-  useFrame(({ camera }) => {
+  useFrame(({ camera, clock }) => {
+    // Surface animation + slow spin so the orb looks like a planet/nebula
+    // rather than a flat blob.
+    const mat = materialRef.current
+    if (mat) mat.uniforms.uTime.value = clock.elapsedTime
+    const orb = orbMeshRef.current
+    if (orb) orb.rotation.y += rotationSpeed * 0.012
+
     const el = labelRef.current
     const group = groupRef.current
     if (!el || !group) return
@@ -236,6 +295,7 @@ const NodeMesh = memo(function NodeMesh({
   return (
     <group ref={groupRef}>
       <mesh
+        ref={orbMeshRef}
         onClick={(e) => onNodeClick(node.id, e)}
         onPointerDown={(e) => onPointerDown(node.id, e)}
         onPointerOver={(e) => {
@@ -249,32 +309,27 @@ const NodeMesh = memo(function NodeMesh({
           setIsHovered(false)
         }}
         userData={{ nodeId: node.id }}
+        material={orbMaterial}
       >
-        {/* Type-specific outer geometry:
-             - core   → smooth sphere ("star")
-             - sub    → slightly faceted sphere ("moon")
-             - external → octahedron ("gem")  */}
+        {/* Type-specific geometry:
+             - core/sub → smooth sphere with enough subdivisions for the
+               shader's noise to read as continuous surface
+             - external → octahedron — faceted gem shape  */}
         {node.type === 'external' ? (
           <octahedronGeometry args={[radius * 1.05, 0]} />
         ) : (
-          <sphereGeometry args={[radius]} />
+          <sphereGeometry args={[radius, 48, 32]} />
         )}
-        <meshBasicMaterial color={surfaceColor} />
       </mesh>
 
-      {/* Only cores get the bright white inner — they're the "stars" of
-          the constellation. Subs are solid colored "moons". Externals get
-          a small tinted inner that picks up bloom subtly. */}
+      {/* Cores get a tiny bright pinpoint at the center to seed the bloom
+          effect — the surface shader handles the broader glow. Subs have
+          a calmer center to read as solid moons. Externals get no inner;
+          the gem shader carries them. */}
       {node.type === 'core' && (
         <mesh>
-          <sphereGeometry args={[radius * 0.45]} />
+          <sphereGeometry args={[radius * 0.18, 16, 12]} />
           <meshBasicMaterial color="#ffffff" />
-        </mesh>
-      )}
-      {node.type === 'external' && (
-        <mesh>
-          <sphereGeometry args={[radius * 0.32]} />
-          <meshBasicMaterial color={mixHex(color, '#ffffff', 0.55)} />
         </mesh>
       )}
 
@@ -1102,6 +1157,122 @@ const STAR_FRAG = /* glsl */ `
     vec3 c = vColor * (0.55 + 0.9 * core);
     float a = (halo * 0.55 + core * 0.45) * vAlpha;
     gl_FragColor = vec4(c, a);
+  }
+`
+
+// ============================================
+// ORB SHADERS — give cores/subs a planet-nebula look instead of flat
+// MeshBasicMaterial blobs. Both sphere variants share a vertex shader
+// and a fragment shader; uIntensity controls whether the surface reads
+// as a glowing star/nebula (cores) or a calmer planet (subs).
+// ============================================
+const NEBULA_VERT = /* glsl */ `
+  varying vec3 vNormal;
+  varying vec3 vView;
+  varying vec3 vLocal;
+  void main() {
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    vNormal = normalize(normalMatrix * normal);
+    vView = normalize(-mv.xyz);
+    vLocal = position;
+    gl_Position = projectionMatrix * mv;
+  }
+`
+
+const NEBULA_FRAG = /* glsl */ `
+  varying vec3 vNormal;
+  varying vec3 vView;
+  varying vec3 vLocal;
+  uniform vec3 uColor;
+  uniform float uTime;
+  uniform float uIntensity;   // 1.0 = star/nebula, 0.55 = planet
+  uniform float uNoiseScale;
+  uniform float uSpeed;
+
+  // Compact 3D hash + value noise + 4-octave fbm.
+  float hash(vec3 p) {
+    p = fract(p * vec3(0.1031, 0.1030, 0.0973));
+    p += dot(p, p.yxz + 33.33);
+    return fract((p.x + p.y) * p.z);
+  }
+  float noise(vec3 p) {
+    vec3 i = floor(p);
+    vec3 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(
+      mix(mix(hash(i),                hash(i + vec3(1,0,0)), f.x),
+          mix(hash(i + vec3(0,1,0)),  hash(i + vec3(1,1,0)), f.x), f.y),
+      mix(mix(hash(i + vec3(0,0,1)),  hash(i + vec3(1,0,1)), f.x),
+          mix(hash(i + vec3(0,1,1)),  hash(i + vec3(1,1,1)), f.x), f.y),
+      f.z
+    );
+  }
+  float fbm(vec3 p) {
+    float v = 0.0;
+    float a = 0.55;
+    for (int i = 0; i < 4; i++) {
+      v += a * noise(p);
+      p *= 2.05;
+      a *= 0.5;
+    }
+    return v;
+  }
+
+  void main() {
+    // Fresnel — bright atmosphere rim at the silhouette.
+    float fres = pow(1.0 - max(dot(vNormal, vView), 0.0), 2.2);
+
+    // Animated swirling clouds. Sampled in local space so they rotate
+    // with the orb (we slowly spin the mesh in useFrame).
+    vec3 np = vLocal * uNoiseScale + vec3(uTime * uSpeed, uTime * uSpeed * 0.6, uTime * uSpeed * 1.3);
+    float n = fbm(np);
+    n = smoothstep(0.25, 0.78, n);
+
+    // Surface mix between a darker "cold" tone and a brighter "hot" tone
+    // of the same group color.
+    vec3 cold = uColor * 0.32;
+    vec3 hot  = uColor * (1.35 + uIntensity * 0.8);
+    vec3 surface = mix(cold, hot, n);
+
+    // Atmosphere rim glow.
+    vec3 rim = uColor * fres * (1.3 + uIntensity * 1.6);
+
+    // Bright inner emissive core — strong on cores, almost absent on subs.
+    float core = pow(max(dot(vNormal, vView), 0.0), 1.6);
+    vec3 inner = vec3(1.0, 0.96, 0.9) * (core * uIntensity * 0.55);
+
+    vec3 finalColor = surface + rim + inner;
+    gl_FragColor = vec4(finalColor, 1.0);
+  }
+`
+
+// Crystalline gem material for external orbs — fresnel-driven shimmer
+// across the octahedron's facets, no swirling noise. Reads as polished
+// crystal rather than gas/plasma.
+const GEM_FRAG = /* glsl */ `
+  varying vec3 vNormal;
+  varying vec3 vView;
+  varying vec3 vLocal;
+  uniform vec3 uColor;
+  uniform float uTime;
+
+  void main() {
+    float fres = pow(1.0 - max(dot(vNormal, vView), 0.0), 1.7);
+    float core = pow(max(dot(vNormal, vView), 0.0), 2.0);
+
+    vec3 deep = uColor * 0.42;
+    vec3 bright = uColor * 1.55;
+    vec3 surface = mix(deep, bright, core);
+
+    // Pulsing inner glow so the gem feels alive rather than dead crystal.
+    float pulse = 0.85 + 0.15 * sin(uTime * 1.4);
+    vec3 rim = uColor * fres * 1.8 * pulse;
+
+    // Tiny chromatic shimmer along facet edges using local position.
+    float facet = pow(abs(vLocal.x + vLocal.y + vLocal.z) * 0.3, 1.2);
+    vec3 shimmer = mix(uColor, vec3(1.0), 0.6) * fres * 0.25 * facet;
+
+    gl_FragColor = vec4(surface + rim + shimmer, 1.0);
   }
 `
 
