@@ -76,7 +76,31 @@ function SheetHandle({ onDismiss }: { onDismiss: () => void }) {
     setSheetProgress(panelRef.current, Math.min(1, delta / panelH))
   }
 
-  const onTouchEnd = () => {
+  // Commit a close: drive React state, then drop the inline transform on
+  // the next frame so the CSS class (.details-panel--mobile-hidden) wins
+  // the cascade and the CSS transition animates from the finger's last
+  // position down to translateY(100%). If we cleared the inline transform
+  // first the panel would snap to 0 before transitioning, producing a
+  // visible jump.
+  const commitClose = (panel: HTMLElement) => {
+    panel.style.transition = ''
+    setSheetProgress(panel, 1)
+    onDismiss()
+    requestAnimationFrame(() => {
+      if (panel) panel.style.transform = ''
+    })
+  }
+
+  // Snap back to fully open: clear inline transform with the CSS
+  // transition restored so the panel eases from the drag offset back
+  // to translateY(0).
+  const snapBackOpen = (panel: HTMLElement) => {
+    panel.style.transition = ''
+    setSheetProgress(panel, 0)
+    panel.style.transform = ''
+  }
+
+  const onTouchEnd = (e: React.TouchEvent<HTMLButtonElement>) => {
     const panel = panelRef.current
     if (!panel) {
       dragStartY.current = null
@@ -88,20 +112,19 @@ function SheetHandle({ onDismiss }: { onDismiss: () => void }) {
     const velocity = dragOffset.current / Math.max(elapsed, 1) // px/ms
     const distanceClose = dragOffset.current > panelH * 0.28
     const flickClose = velocity > 0.6 && dragOffset.current > 24
+    const isTap = dragOffset.current === 0 && elapsed < 350
 
-    panel.style.transition = '' // restore the CSS transition
+    // Suppress the iOS-synthesized click so it can't fire onDismiss a
+    // second time (with the panel already gone) and create the "ghost
+    // tap that falls through to the canvas and deselects the node" bug.
+    if (isTap || distanceClose || flickClose) {
+      e.preventDefault()
+    }
 
-    if (distanceClose || flickClose) {
-      // Hand off to React state — CSS class slides the panel the rest of
-      // the way off and pinning the inline transform null lets the
-      // .details-panel--mobile-hidden rule take effect.
-      panel.style.transform = ''
-      setSheetProgress(panel, 1)
-      onDismiss()
+    if (isTap || distanceClose || flickClose) {
+      commitClose(panel)
     } else {
-      // Snap back open.
-      panel.style.transform = 'translateY(0)'
-      setSheetProgress(panel, 0)
+      snapBackOpen(panel)
     }
     dragStartY.current = null
     dragOffset.current = 0
@@ -110,11 +133,7 @@ function SheetHandle({ onDismiss }: { onDismiss: () => void }) {
 
   const onTouchCancel = () => {
     const panel = panelRef.current
-    if (panel) {
-      panel.style.transition = ''
-      panel.style.transform = ''
-      setSheetProgress(panel, 0)
-    }
+    if (panel) snapBackOpen(panel)
     dragStartY.current = null
     dragOffset.current = 0
     setIsDragging(false)
@@ -192,32 +211,61 @@ function PeekTab({ label, onExpand }: { label: string; onExpand: () => void }) {
     panelRef.current.style.setProperty('--sheet-drag', (1 - clamped / panelH).toFixed(4))
   }
 
-  const finishDrag = (commitOpen: boolean) => {
+  // Commit open: drive React state, drop the inline transform on the
+  // next frame so the absence of the .details-panel--mobile-hidden class
+  // (transform: translateY(0)) wins via CSS transition from the finger's
+  // last position up to fully open. Avoids the snap-back-to-100% bug.
+  const commitOpen = (panel: HTMLElement) => {
+    panel.style.transition = ''
+    panel.style.setProperty('--sheet-drag', '0')
+    onExpand()
+    requestAnimationFrame(() => {
+      if (panel) panel.style.transform = ''
+    })
+  }
+
+  // Snap back to dismissed: restore the CSS transition + clear the
+  // inline transform so the panel eases from drag offset back to
+  // translateY(100%) (the --mobile-hidden CSS rule).
+  const snapBackClosed = (panel: HTMLElement) => {
+    panel.style.transition = ''
+    panel.style.transform = ''
+    panel.style.setProperty('--sheet-drag', '1')
+  }
+
+  const onTouchEnd = (e: React.TouchEvent<HTMLButtonElement>) => {
     const panel = panelRef.current
-    if (panel) {
-      panel.style.transition = ''
-      panel.style.transform = ''
-      if (commitOpen) {
-        panel.style.setProperty('--sheet-drag', '0')
-        onExpand()
-      } else {
-        panel.style.setProperty('--sheet-drag', '1')
-      }
+    if (!panel) {
+      dragStartY.current = null
+      dragOffset.current = 0
+      setIsDragging(false)
+      return
+    }
+    const panelH = panel.getBoundingClientRect().height || 1
+    const elapsed = Date.now() - dragStartTime.current
+    const velocity = dragOffset.current / Math.max(elapsed, 1) // px/ms upward
+    const distanceOpen = dragOffset.current > panelH * 0.28
+    const flickOpen = velocity > 0.6 && dragOffset.current > 24
+    const isTap = dragOffset.current === 0 && elapsed < 350
+
+    if (isTap || distanceOpen || flickOpen) {
+      // Suppress the iOS-synthesized click so onExpand isn't fired twice.
+      e.preventDefault()
+      commitOpen(panel)
+    } else {
+      snapBackClosed(panel)
     }
     dragStartY.current = null
     dragOffset.current = 0
     setIsDragging(false)
   }
 
-  const onTouchEnd = () => {
+  const onTouchCancel = () => {
     const panel = panelRef.current
-    if (!panel) return finishDrag(false)
-    const panelH = panel.getBoundingClientRect().height || 1
-    const elapsed = Date.now() - dragStartTime.current
-    const velocity = dragOffset.current / Math.max(elapsed, 1) // px/ms upward
-    const distanceOpen = dragOffset.current > panelH * 0.28
-    const flickOpen = velocity > 0.6 && dragOffset.current > 24
-    finishDrag(distanceOpen || flickOpen)
+    if (panel) snapBackClosed(panel)
+    dragStartY.current = null
+    dragOffset.current = 0
+    setIsDragging(false)
   }
 
   return (
@@ -227,7 +275,7 @@ function PeekTab({ label, onExpand }: { label: string; onExpand: () => void }) {
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
-      onTouchCancel={() => finishDrag(false)}
+      onTouchCancel={onTouchCancel}
       className={`mobile-panel-peek md:hidden ${isDragging ? 'is-dragging' : ''}`}
       aria-expanded={false}
       aria-controls="main-content"
