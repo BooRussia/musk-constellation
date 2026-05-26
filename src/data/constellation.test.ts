@@ -25,13 +25,29 @@ describe('constellation data', () => {
     it('returns child nodes for a parent with children', () => {
       const children = getChildren('tesla')
       expect(children.map(c => c.id)).toEqual(
-        expect.arrayContaining(['tesla-energy', 'tesla-autonomy', 'tesla-optimus']),
+        expect.arrayContaining([
+          'tesla-energy',
+          'tesla-autonomy',
+          'tesla-optimus',
+          'tesla-semi',
+          'tesla-lithium',
+          'tesla-ai-chips',
+        ]),
       )
-      expect(children).toHaveLength(3)
+      expect(children).toHaveLength(6)
     })
 
-    it('returns empty array for nodes without children', () => {
-      expect(getChildren('neuralink')).toEqual([])
+    it('returns child nodes for Neuralink (Telepathy, VOICE, Blindsight, R1)', () => {
+      const children = getChildren('neuralink')
+      expect(children.map(c => c.id)).toEqual(
+        expect.arrayContaining([
+          'nlink-telepathy',
+          'nlink-voice',
+          'nlink-blindsight',
+          'nlink-r1',
+        ]),
+      )
+      expect(children).toHaveLength(4)
     })
 
     it('returns empty array for unknown id', () => {

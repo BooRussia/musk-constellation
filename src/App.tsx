@@ -272,8 +272,8 @@ export default function MuskConstellation() {
             </div>
 
             <div className="space-y-2.5 text-base">
-              <div className="flex justify-between"><span className="text-white/60">Combined valuation</span> <span className="font-mono text-white/90">~$2.8T+</span></div>
-              <div className="flex justify-between"><span className="text-white/60">Cores + sub-webs</span> <span className="font-mono text-white/90">{NODES.length}</span></div>
+              <div className="flex justify-between"><span className="text-white/60">Combined valuation</span> <span className="font-mono text-white/90">~$3.5T+</span></div>
+              <div className="flex justify-between"><span className="text-white/60">Nodes (cores + subs + ext)</span> <span className="font-mono text-white/90">{NODES.length}</span></div>
               <div className="flex justify-between"><span className="text-white/60">Documented links</span> <span className="font-mono text-white/90">{LINKS.length}</span></div>
             </div>
 
@@ -530,11 +530,11 @@ export default function MuskConstellation() {
                   </div>
                   <div>
                     <div className="label mb-1">KEY SUB-WEBS</div>
-                    <div className="text-white/80">Optimus • Robotaxi/FSD • Megapack Energy • Starlink • Colossus • Grok • Music City Loop</div>
+                    <div className="text-white/80">Robotaxi/FSD • Optimus • Tesla Energy • Tesla Semi • AI5/AI6 silicon • Starlink • Starship • Starshield • Project Celestia (orbital DCs) • Colossus 1 + 2 • Grok 4.3 • Grok Imagine + Voice • Vegas / Music City / Dubai Loops • Neuralink Telepathy + Blindsight + VOICE + R1 • X Ads + Premium + Money + TV</div>
                   </div>
                   <div>
                     <div className="label mb-1">NOTABLE EXTERNAL WEAVES</div>
-                    <div className="text-white/80">NASA (ISS + Artemis) • Anthropic (Colossus compute) • Cursor ($60B acq option) • Global Starlink customers</div>
+                    <div className="text-white/80">NASA (Dragon + Artemis HLS) • Anthropic ($1.25B/mo Colossus lease) • US Space Force (NSSL + Starshield + MILNET) • T-Mobile (Starlink D2C) • Cursor ($60B acq option) • Miami Project / Barrow (Neuralink PRIME sites) • Global Starlink customers</div>
                   </div>
                 </div>
 
