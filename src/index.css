@@ -668,10 +668,13 @@ body {
   transform: translateY(calc(100% - 48px));
 }
 
+/* Drag-handle at the top of the mobile bottom-sheet panel. Tap to
+   collapse the sheet. Wide tap target with a 36×4 pill indicator that
+   matches iOS / Material bottom-sheet conventions. */
 .details-panel-handle {
   display: none;
   width: 100%;
-  height: 48px;
+  height: 28px;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
@@ -679,21 +682,32 @@ body {
   border: none;
   background: transparent;
   padding: 0;
-  margin: -28px -22px 12px -20px;
+  /* Pull up into the panel's top padding so the grab pill sits flush
+     with the panel's top edge, and absorb the visual budget that would
+     otherwise sit unused between top padding and the header content. */
+  margin: -18px -20px 6px -20px;
 }
 
 .details-panel-handle::before {
   content: '';
   display: block;
-  width: 36px;
+  width: 44px;
   height: 4px;
   border-radius: 2px;
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.3);
+  transition: background 0.15s ease, width 0.15s ease;
+}
+
+.details-panel-handle:hover::before,
+.details-panel-handle:active::before {
+  background: rgba(255, 255, 255, 0.55);
+  width: 52px;
 }
 
 .details-panel-handle:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+  border-radius: 6px;
 }
 
 /* Top nav — fixed-height bar, solid bg so canvas/panel text never bleeds
@@ -987,32 +1001,65 @@ body {
   right: calc(var(--panel-width, 0px) + 16px);
 }
 
-/* Mobile bottom panel pull-up handle */
-.mobile-panel-toggle {
+/* Mobile peek tab — full-width slim bar pinned to the bottom of the
+   viewport when the details sheet is collapsed. Tapping it expands the
+   sheet. Looks like a tab attached to the bottom edge (no floating
+   pill), so it reads as a docked control rather than a stray button. */
+.mobile-panel-peek {
   position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: calc(var(--mobile-panel-h) + 10px);
+  left: 12px;
+  right: 12px;
+  bottom: 0;
   z-index: 40;
+  display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: 7px 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(10px);
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 11px;
-  letter-spacing: 1.5px;
+  padding: 10px 18px 14px;
+  border-top-left-radius: 18px;
+  border-top-right-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-bottom: none;
+  background: rgba(8, 8, 14, 0.92);
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 1.3px;
   text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
-.mobile-panel-toggle--collapsed {
-  bottom: 16px;
+.mobile-panel-peek:hover {
+  background: rgba(14, 14, 24, 0.95);
+  color: #ffffff;
+}
+
+.mobile-panel-peek:active {
+  background: rgba(20, 20, 32, 0.98);
+}
+
+.mobile-panel-peek-grip {
+  display: block;
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.mobile-panel-peek-label {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (min-width: 768px) {
-  .mobile-panel-toggle {
+  .mobile-panel-peek {
     display: none !important;
   }
 }

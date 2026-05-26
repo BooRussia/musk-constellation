@@ -780,24 +780,21 @@ function Scene({
     fitKeyRef.current = visibleNodeKey
   }, [visibleNodeKey])
 
-  // Refit when the canvas viewport changes size (e.g. sidebar/panel toggle).
-  // Only refits if nothing is currently selected so we don't yank the user
-  // away from their focused node.
+  // On canvas resize: keep camera aspect ratio in sync, but DON'T refit
+  // the camera position. Re-fitting on every sidebar/panel toggle made
+  // the view jump around violently. The user's chosen camera position
+  // (whether from initial fit, manual orbit, or a node fly-to) should
+  // survive layout shifts; only the projection matrix updates.
   const cameraRef = useRef<THREE.Camera | null>(null)
   useLayoutEffect(() => {
     cameraRef.current = camera
   }, [camera])
   useEffect(() => {
-    if (selectedId) return
-    if (!mountSettledRef.current) return
-    if (simNodesRef.current.length === 0) return
-    const controls = controlsRef.current
     const cam = cameraRef.current as THREE.PerspectiveCamera | null
-    if (!controls || !cam) return
+    if (!cam) return
     cam.aspect = size.width / size.height
     cam.updateProjectionMatrix()
-    fitCameraToNodes(cam, controls, simNodesRef.current, fitVecs.current)
-  }, [size.width, size.height, selectedId])
+  }, [size.width, size.height])
 
   useEffect(() => {
     const simNodes: SimNode[] = visibleNodes.map((n) => {
@@ -1005,6 +1002,24 @@ function Scene({
   }, [draggingId, camera, handlePointerUp])
 
   const prevSelected = useRef<string | null>(null)
+  // Track which node is currently pinned so we can release it on
+  // deselect / when a different node becomes the focus. Pinning a node's
+  // fx/fy/fz freezes it in place against the d3 simulation, so the
+  // camera fly-to lands on a stable target and the node doesn't drift
+  // out from under the cursor afterwards.
+  const pinnedNodeRef = useRef<string | null>(null)
+  const releasePinned = useCallback(() => {
+    const id = pinnedNodeRef.current
+    if (!id) return
+    const node = simNodesRef.current.find((n) => n.id === id)
+    if (node) {
+      node.fx = null
+      node.fy = null
+      node.fz = null
+    }
+    pinnedNodeRef.current = null
+  }, [])
+
   useEffect(() => {
     if (flyToRafRef.current !== null) {
       cancelAnimationFrame(flyToRafRef.current)
@@ -1014,11 +1029,14 @@ function Scene({
 
     if (!selectedId) {
       prevSelected.current = null
+      releasePinned()
       return
     }
 
     if (selectedId === prevSelected.current) return
 
+    // New focus — release any previously pinned node before pinning this one.
+    releasePinned()
     prevSelected.current = selectedId
 
     if (!mountSettledRef.current) return
@@ -1026,6 +1044,13 @@ function Scene({
     const node = simNodesRef.current.find((n) => n.id === selectedId)
     const controls = controlsRef.current
     if (!node || !controls) return
+
+    // Pin the node so the d3 sim stops nudging it. Camera fly-to lands
+    // on a stable target, and the node stays put under cursor + label.
+    node.fx = node.x ?? 0
+    node.fy = node.y ?? 0
+    node.fz = node.z ?? 0
+    pinnedNodeRef.current = selectedId
 
     const targetPos = new THREE.Vector3(node.x ?? 0, node.y ?? 0, node.z ?? 0)
     const startPos = camera.position.clone()
@@ -1063,7 +1088,15 @@ function Scene({
       }
       controls.enabled = true
     }
-  }, [selectedId, camera])
+  }, [selectedId, camera, releasePinned])
+
+  // Unmount cleanup — release any node we pinned so it can re-enter the
+  // simulation if the component remounts.
+  useEffect(() => {
+    return () => {
+      releasePinned()
+    }
+  }, [releasePinned])
 
   return (
     <>

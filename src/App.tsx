@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspens
 import { motion, AnimatePresence, MotionConfig } from 'framer-motion'
 import {
   X, RotateCcw, Layers, ZoomIn, Info,
-  Globe, ChevronUp, ChevronDown, Menu,
+  Globe, ChevronUp, Menu,
   PanelRightClose, PanelRightOpen, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -377,23 +377,25 @@ export default function MuskConstellation() {
           )}
         </button>
 
-        <button
-          type="button"
-          onClick={() => setShowMobilePanel(v => !v)}
-          className={`mobile-panel-toggle md:hidden ${showMobilePanel ? '' : 'mobile-panel-toggle--collapsed'}`}
-          aria-expanded={showMobilePanel}
-          aria-controls="main-content"
-        >
-          {showMobilePanel ? (
-            <>
-              <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" /> Hide panel
-            </>
-          ) : (
-            <>
-              <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" /> Show panel
-            </>
-          )}
-        </button>
+        {/* Mobile peek tab — appears at the bottom edge of the screen when
+            the details sheet is collapsed. Tap to expand. When the sheet
+            is open, the drag-handle inside its header takes over as the
+            close affordance, so this tab hides itself. */}
+        {!showMobilePanel && (
+          <button
+            type="button"
+            onClick={() => setShowMobilePanel(true)}
+            className="mobile-panel-peek md:hidden"
+            aria-expanded={false}
+            aria-controls="main-content"
+          >
+            <span className="mobile-panel-peek-grip" aria-hidden="true" />
+            <span className="mobile-panel-peek-label">
+              {selectedNode ? selectedNode.label : 'Tap for details'}
+              <ChevronUp className="h-3.5 w-3.5 ml-1" aria-hidden="true" />
+            </span>
+          </button>
+        )}
 
         <AnimatePresence mode="wait">
           {selectedNode ? (
@@ -406,6 +408,13 @@ export default function MuskConstellation() {
                 transition={{ duration: 0.18 }}
                 className={`details-panel glass panel border-l border-white/10 bg-black/90 text-sm ${!showMobilePanel ? 'details-panel--mobile-hidden' : ''} ${!showDesktopPanel ? 'details-panel--desktop-collapsed' : ''}`}
               >
+                <button
+                  type="button"
+                  onClick={() => setShowMobilePanel(false)}
+                  className="details-panel-handle md:hidden"
+                  aria-label="Collapse details panel"
+                  aria-controls="main-content"
+                />
                 <div className="details-panel-header mb-6 flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div
@@ -570,6 +579,13 @@ export default function MuskConstellation() {
                 exit={{ opacity: 0 }}
                 className={`details-panel glass panel border-l border-white/10 bg-black/90 ${!showMobilePanel ? 'details-panel--mobile-hidden' : ''} ${!showDesktopPanel ? 'details-panel--desktop-collapsed' : ''}`}
               >
+                <button
+                  type="button"
+                  onClick={() => setShowMobilePanel(false)}
+                  className="details-panel-handle md:hidden"
+                  aria-label="Collapse details panel"
+                  aria-controls="main-content"
+                />
                 <div className="details-panel-header mb-5 flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="text-xs uppercase tracking-[3px] text-white/50">THE DEEP WEB</p>
