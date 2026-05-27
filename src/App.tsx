@@ -303,6 +303,10 @@ export default function MuskConstellation() {
   const [isNarrowViewport, setIsNarrowViewport] = useState(false)
   const [showAllWeb, setShowAllWeb] = useState(false)
   const [showAllPulse, setShowAllPulse] = useState(false)
+  // Incremented every time RESET is pressed. ConstellationCanvas
+  // listens for changes and animates the camera back to the initial
+  // fitted home view.
+  const [resetSignal, setResetSignal] = useState(0)
   const mobileMenuRef = useRef<HTMLDivElement | null>(null)
 
   // Track whether the bottom-sheet layout is active so the canvas knows
@@ -396,7 +400,8 @@ export default function MuskConstellation() {
 
   const resetView = useCallback(() => {
     // True home state — matches what the page looks like on first load.
-    // No selected node, default expanded set, panels closed, search cleared.
+    // No selected node, default expanded set, panels closed, search cleared,
+    // camera animated back to the initial fitted position.
     // Display preferences (legend, sidebar visibility, WEB/PULSE toggles)
     // are intentionally preserved so the user's view settings survive a
     // reset.
@@ -404,6 +409,7 @@ export default function MuskConstellation() {
     setExpandedIds(new Set(['tesla', 'spacex', 'xai']))
     setSearchQuery('')
     setShowMobilePanel(false)
+    setResetSignal(n => n + 1)
     toast('Constellation reset', { description: 'Back to the home view' })
   }, [])
 
@@ -510,6 +516,7 @@ export default function MuskConstellation() {
                 bottomOverlayFraction={isNarrowViewport && showMobilePanel ? 0.55 : 0}
                 showAllWeb={showAllWeb}
                 showAllPulse={showAllPulse}
+                resetSignal={resetSignal}
               />
             </WebGLErrorBoundary>
           </Suspense>

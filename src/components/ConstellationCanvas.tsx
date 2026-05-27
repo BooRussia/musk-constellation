@@ -36,6 +36,9 @@ export interface Props {
   /** PULSE toggle — when true, the animated flow particles run on
    *  every link, not just the focused node's web. */
   showAllPulse?: boolean
+  /** Monotonically-increasing counter. Each increment triggers a
+   *  smooth camera animation back to the initial fitted "home" view. */
+  resetSignal?: number
 }
 
 interface SimNode extends Node {
@@ -461,13 +464,15 @@ const LinkLines = memo(function LinkLines({
       const tgtRgb = hexToRgb(tgtNode ? GROUP_COLORS[tgtNode.group] : (LINK_COLORS[link.type] || '#888888'))
 
       // Opacity priority:
-      //   1. focus-highlighted (selected node's web)  → 0.95 (loudest)
-      //   2. WEB toggle on                            → 0.78 (persistent bright)
-      //   3. selection active but this link unrelated → 0.18 (dimmed away)
-      //   4. default home state                       → 0.5
+      //   1. focus-highlighted (selected node's web)    → 0.95 (loudest)
+      //   2. WEB toggle on                              → 0.78 (persistent bright)
+      //   3. PULSE on (without WEB)                     → 0 (particles do the talking)
+      //   4. selection active but this link unrelated   → 0.18 (dimmed away)
+      //   5. default home state                         → 0.5
       let opacity: number
       if (isFocusHighlight) opacity = 0.95
       else if (showAllWeb) opacity = 0.78
+      else if (showAllPulse) opacity = 0
       else if (selectedId) opacity = 0.18
       else opacity = 0.5
 
@@ -787,6 +792,7 @@ function Scene({
   bottomOverlayFraction = 0,
   showAllWeb = false,
   showAllPulse = false,
+  resetSignal = 0,
 }: Omit<Props, 'onExpand'>) {
   const { camera, raycaster, mouse, scene, size } = useThree()
   const controlsRef = useRef<OrbitControlsImpl>(null)
@@ -1162,6 +1168,75 @@ function Scene({
     }
   }, [releasePinned])
 
+  // RESET button: animate the camera back to the initial fitted "home"
+  // view. Each increment of resetSignal triggers a fresh ~700ms lerp
+  // from wherever the user has dragged the camera to the position that
+  // fitCameraToNodes would place it at on first load.
+  const resetRafRef = useRef<number | null>(null)
+  useEffect(() => {
+    if (resetSignal === 0) return // initial mount — skip
+    const controls = controlsRef.current
+    const cam = cameraRef.current as THREE.PerspectiveCamera | null
+    if (!controls || !cam) return
+    if (simNodesRef.current.length === 0) return
+
+    // Cancel any in-flight fly-to or reset animation so we don't fight.
+    if (flyToRafRef.current !== null) {
+      cancelAnimationFrame(flyToRafRef.current)
+      flyToRafRef.current = null
+    }
+    if (resetRafRef.current !== null) {
+      cancelAnimationFrame(resetRafRef.current)
+      resetRafRef.current = null
+    }
+    releasePinned()
+
+    // Compute the destination by running fitCameraToNodes against
+    // throwaway camera + controls clones, then animating the real ones
+    // to that destination.
+    const tmpCam = cam.clone() as THREE.PerspectiveCamera
+    tmpCam.aspect = cam.aspect
+    tmpCam.updateProjectionMatrix()
+    const tmpControls = {
+      target: new THREE.Vector3(),
+      update: () => {},
+    } as unknown as OrbitControlsImpl
+    fitCameraToNodes(tmpCam, tmpControls, simNodesRef.current, fitVecs.current)
+
+    const startPos = cam.position.clone()
+    const startTarget = controls.target.clone()
+    const endPos = tmpCam.position.clone()
+    const endTarget = tmpControls.target.clone()
+
+    controls.enabled = false
+    const duration = 720
+    const startTime = Date.now()
+    const step = () => {
+      const t = Math.min(1, (Date.now() - startTime) / duration)
+      const ease = 1 - Math.pow(1 - t, 3)
+      cam.position.lerpVectors(startPos, endPos, ease)
+      controls.target.lerpVectors(startTarget, endTarget, ease)
+      controls.update()
+      if (t < 1) {
+        resetRafRef.current = requestAnimationFrame(step)
+      } else {
+        resetRafRef.current = null
+        controls.enabled = true
+        // The camera-reframe useFrame will smoothly re-converge on its
+        // next tick — no manual offset reset needed.
+      }
+    }
+    resetRafRef.current = requestAnimationFrame(step)
+
+    return () => {
+      if (resetRafRef.current !== null) {
+        cancelAnimationFrame(resetRafRef.current)
+        resetRafRef.current = null
+      }
+      controls.enabled = true
+    }
+  }, [resetSignal, releasePinned])
+
   // Smooth camera reframe whenever the bottom overlay (mobile sheet)
   // covers part of the canvas — shifts the controls.target down so the
   // focused orb stays centered in the *visible* canvas instead of the
@@ -1183,15 +1258,11 @@ function Scene({
     const controls = controlsRef.current
     const cam = cameraRef.current as THREE.PerspectiveCamera | null
     if (!controls || !cam) return
-    // Don't fight the fly-to animation while it's running.
-    if (flyToRafRef.current !== null) {
-      lastTargetYOffset.current = controls.target.y - (
-        selectedId
-          ? simNodesRef.current.find((n) => n.id === selectedId)?.y ?? controls.target.y
-          : controls.target.y
-      )
-      return
-    }
+    // Don't fight the fly-to or reset animations while they're running —
+    // the camera-reframe useFrame will resume easing toward the right
+    // offset once those finish.
+    if (flyToRafRef.current !== null) return
+    if (resetRafRef.current !== null) return
 
     // Skip the overlay reframe entirely on desktop (where bottomOverlayFraction
     // is permanently 0). This cuts the per-frame DOM read + math out of
