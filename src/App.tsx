@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspens
 import { motion, AnimatePresence, MotionConfig } from 'framer-motion'
 import {
   X, RotateCcw, Layers, ZoomIn, Info,
-  Globe, ChevronUp, ChevronDown, Menu,
+  Globe, ChevronUp, ChevronDown, Menu, Network, Activity,
   PanelRightClose, PanelRightOpen, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -301,6 +301,8 @@ export default function MuskConstellation() {
   const [showMobilePanel, setShowMobilePanel] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isNarrowViewport, setIsNarrowViewport] = useState(false)
+  const [showAllWeb, setShowAllWeb] = useState(false)
+  const [showAllPulse, setShowAllPulse] = useState(false)
   const mobileMenuRef = useRef<HTMLDivElement | null>(null)
 
   // Track whether the bottom-sheet layout is active so the canvas knows
@@ -500,6 +502,8 @@ export default function MuskConstellation() {
                 onExpand={handleExpand}
                 highlightLinkIds={highlightLinkIds}
                 bottomOverlayFraction={isNarrowViewport && showMobilePanel ? 0.55 : 0}
+                showAllWeb={showAllWeb}
+                showAllPulse={showAllPulse}
               />
             </WebGLErrorBoundary>
           </Suspense>
@@ -539,6 +543,24 @@ export default function MuskConstellation() {
               </button>
               <button type="button" onClick={collapseAll} className="btn btn-ghost">
                 COLLAPSE
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAllWeb(v => !v)}
+                className={`btn ${showAllWeb ? 'border-white/40 text-white' : ''}`}
+                aria-pressed={showAllWeb}
+                title="Show all link lines persistently"
+              >
+                <Network className="h-3.5 w-3.5" aria-hidden="true" /> WEB
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAllPulse(v => !v)}
+                className={`btn ${showAllPulse ? 'border-white/40 text-white' : ''}`}
+                aria-pressed={showAllPulse}
+                title="Pulse animated flow particles on every connection"
+              >
+                <Activity className="h-3.5 w-3.5" aria-hidden="true" /> PULSE
               </button>
               <button
                 type="button"
@@ -593,6 +615,24 @@ export default function MuskConstellation() {
                     className="btn btn-ghost mb-1 w-full justify-start"
                   >
                     COLLAPSE
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowAllWeb(v => !v); setMobileMenuOpen(false) }}
+                    role="menuitem"
+                    className={`btn mb-1 w-full justify-start gap-1.5 ${showAllWeb ? 'border-white/40 text-white' : ''}`}
+                    aria-pressed={showAllWeb}
+                  >
+                    <Network className="h-3.5 w-3.5" aria-hidden="true" /> WEB
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowAllPulse(v => !v); setMobileMenuOpen(false) }}
+                    role="menuitem"
+                    className={`btn mb-1 w-full justify-start gap-1.5 ${showAllPulse ? 'border-white/40 text-white' : ''}`}
+                    aria-pressed={showAllPulse}
+                  >
+                    <Activity className="h-3.5 w-3.5" aria-hidden="true" /> PULSE
                   </button>
                   <button
                     type="button"

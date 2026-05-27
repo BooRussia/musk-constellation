@@ -30,6 +30,12 @@ export interface Props {
    * geometric center, and smoothly recomposes when the sheet animates.
    */
   bottomOverlayFraction?: number
+  /** WEB toggle — when true, every link line renders bright regardless
+   *  of selection, so the full company web is visible at a glance. */
+  showAllWeb?: boolean
+  /** PULSE toggle — when true, the animated flow particles run on
+   *  every link, not just the focused node's web. */
+  showAllPulse?: boolean
 }
 
 interface SimNode extends Node {
@@ -418,7 +424,13 @@ interface LinkLinesProps {
   selectedId: string | null
   highlightLinkIds: Set<string>
   geometryRef: React.MutableRefObject<THREE.BufferGeometry | null>
-  highlightGeometryRef: React.MutableRefObject<THREE.BufferGeometry | null>}
+  highlightGeometryRef: React.MutableRefObject<THREE.BufferGeometry | null>
+  /** When true, all links render bright regardless of selection. */
+  showAllWeb?: boolean
+  /** When true, every link is treated as highlighted for the flow
+   *  particle pass (and reflected in its line opacity). */
+  showAllPulse?: boolean
+}
 
 const LinkLines = memo(function LinkLines({
   links,
@@ -427,27 +439,38 @@ const LinkLines = memo(function LinkLines({
   highlightLinkIds,
   geometryRef,
   highlightGeometryRef,
+  showAllWeb = false,
+  showAllPulse = false,
 }: LinkLinesProps) {
-  const { positions, colors, highlightIndices } = useMemo(() => {
+  const { positions, colors, highlightIndices, flowIndices } = useMemo(() => {
     const pos = new Float32Array(links.length * 6)
     const col = new Float32Array(links.length * 6)
-    const hi: number[] = []
+    const hi: number[] = []   // white overlay (focus only)
+    const fi: number[] = []   // animated flow particles
 
     links.forEach((link, i) => {
-      const isHighlighted =
+      const isFocusHighlight =
         highlightLinkIds.has(`${link.source}-${link.target}`) ||
         highlightLinkIds.has(`${link.target}-${link.source}`)
+
       // Direction-aware gradient: source node's group color at the source
-      // end, target node's group color at the target end. A viewer can see
-      // a Tesla→Boring link reading red→yellow (Tesla side starts the line)
-      // and immediately knows which way the relationship flows.
+      // end, target node's group color at the target end.
       const srcNode = getNodeById(link.source)
       const tgtNode = getNodeById(link.target)
       const srcRgb = hexToRgb(srcNode ? GROUP_COLORS[srcNode.group] : (LINK_COLORS[link.type] || '#888888'))
       const tgtRgb = hexToRgb(tgtNode ? GROUP_COLORS[tgtNode.group] : (LINK_COLORS[link.type] || '#888888'))
-      const opacity = isHighlighted ? 0.95 : selectedId ? 0.18 : 0.5
-      // Brighten the source end slightly so the gradient reads as "flowing
-      // FROM source" rather than as an arbitrary mix.
+
+      // Opacity priority:
+      //   1. focus-highlighted (selected node's web)  → 0.95 (loudest)
+      //   2. WEB toggle on                            → 0.78 (persistent bright)
+      //   3. selection active but this link unrelated → 0.18 (dimmed away)
+      //   4. default home state                       → 0.5
+      let opacity: number
+      if (isFocusHighlight) opacity = 0.95
+      else if (showAllWeb) opacity = 0.78
+      else if (selectedId) opacity = 0.18
+      else opacity = 0.5
+
       const srcMul = opacity * 1.0
       const tgtMul = opacity * 0.55
       const base = i * 6
@@ -457,11 +480,13 @@ const LinkLines = memo(function LinkLines({
       col[base + 3] = (tgtRgb[0] / 255) * tgtMul
       col[base + 4] = (tgtRgb[1] / 255) * tgtMul
       col[base + 5] = (tgtRgb[2] / 255) * tgtMul
-      if (isHighlighted) hi.push(i)
+
+      if (isFocusHighlight) hi.push(i)
+      if (isFocusHighlight || showAllPulse) fi.push(i)
     })
 
-    return { positions: pos, colors: col, highlightIndices: hi }
-  }, [links, highlightLinkIds, selectedId])
+    return { positions: pos, colors: col, highlightIndices: hi, flowIndices: fi }
+  }, [links, highlightLinkIds, selectedId, showAllWeb, showAllPulse])
 
   const highlightPositions = useMemo(
     () => new Float32Array(highlightIndices.length * 6),
@@ -554,7 +579,7 @@ const LinkLines = memo(function LinkLines({
 
       <LinkFlow
         links={links}
-        highlightIndices={highlightIndices}
+        highlightIndices={flowIndices}
         simNodesRef={simNodesRef}
       />
     </>
@@ -567,7 +592,9 @@ const LinkLines = memo(function LinkLines({
 // completely unambiguous at a glance.
 // ============================================
 const FLOW_PARTICLES_PER_LINK = 4
-const FLOW_MAX_LINKS = 40
+// Bumped to cover every visible link when the PULSE toggle is on
+// (53 documented links; ~40-50 visible at peak expansion).
+const FLOW_MAX_LINKS = 64
 const FLOW_TOTAL = FLOW_PARTICLES_PER_LINK * FLOW_MAX_LINKS
 const FLOW_SPEED = 0.35 // 1/seconds — particle traverses link in ~3s
 
@@ -741,6 +768,8 @@ function Scene({
   onSelect,
   highlightLinkIds = EMPTY_SET,
   bottomOverlayFraction = 0,
+  showAllWeb = false,
+  showAllPulse = false,
 }: Omit<Props, 'onExpand'>) {
   const { camera, raycaster, mouse, scene, size } = useThree()
   const controlsRef = useRef<OrbitControlsImpl>(null)
@@ -1340,6 +1369,8 @@ function Scene({
           highlightLinkIds={highlightLinkIds}
           geometryRef={linkGeometryRef}
           highlightGeometryRef={highlightGeometryRef}
+          showAllWeb={showAllWeb}
+          showAllPulse={showAllPulse}
         />
         {visibleNodes.map((node) => {
           const isSelected = selectedId === node.id
