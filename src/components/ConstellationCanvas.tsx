@@ -498,6 +498,23 @@ const LinkLines = memo(function LinkLines({
     highlightGeometryRef.current = null
   }, [geometryRef, highlightGeometryRef, links])
 
+  // R3F's <bufferAttribute args={[colors, 3]} /> only reads `args` at
+  // construction. When useMemo recomputes `colors` because WEB / PULSE /
+  // selection state changed, the JSX gets a new array reference but the
+  // GPU buffer is never re-uploaded — so toggling WEB or PULSE looked
+  // stuck. Fix: each time `colors` changes, copy the new values into the
+  // existing attached buffer and mark it for upload.
+  useEffect(() => {
+    const geo = geometryRef.current
+    if (!geo) return
+    const colorAttr = geo.getAttribute('color') as THREE.BufferAttribute | undefined
+    if (!colorAttr) return
+    const arr = colorAttr.array as Float32Array
+    if (arr.length !== colors.length) return
+    arr.set(colors)
+    colorAttr.needsUpdate = true
+  }, [colors, geometryRef])
+
   useFrame(() => {
     const geo = geometryRef.current
     if (!geo) return

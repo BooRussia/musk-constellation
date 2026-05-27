@@ -395,10 +395,16 @@ export default function MuskConstellation() {
   }, [])
 
   const resetView = useCallback(() => {
-    setSelectedId(INITIAL_FOCUS)
+    // True home state — matches what the page looks like on first load.
+    // No selected node, default expanded set, panels closed, search cleared.
+    // Display preferences (legend, sidebar visibility, WEB/PULSE toggles)
+    // are intentionally preserved so the user's view settings survive a
+    // reset.
+    setSelectedId(null)
     setExpandedIds(new Set(['tesla', 'spacex', 'xai']))
     setSearchQuery('')
-    toast('Constellation reset', { description: 'Core empire + key sub-webs restored' })
+    setShowMobilePanel(false)
+    toast('Constellation reset', { description: 'Back to the home view' })
   }, [])
 
   const expandAll = useCallback(() => {
