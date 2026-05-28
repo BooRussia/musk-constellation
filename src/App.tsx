@@ -423,11 +423,73 @@ function Coachmark() {
 }
 
 // ============================================
+// URL STATE — share / deep-link support
+// ============================================
+// Selection + expanded set are mirrored to the URL so any view of the
+// constellation can be shared as a link. ?node=spacex auto-selects and
+// flies the camera in on load. ?expand=tesla,spacex,xai overrides the
+// default expanded core set. We only persist non-default state so
+// the canonical home URL stays clean.
+const DEFAULT_EXPANDED_IDS = ['tesla', 'spacex', 'xai']
+
+function readUrlState(): { node: string | null; expand: string[] | null } {
+  if (typeof window === 'undefined') return { node: null, expand: null }
+  try {
+    const params = new URLSearchParams(window.location.search)
+    const rawNode = params.get('node')
+    const node = rawNode && getNodeById(rawNode) ? rawNode : null
+    const rawExpand = params.get('expand')
+    const expand = rawExpand
+      ? rawExpand.split(',').map(s => s.trim()).filter(id => getNodeById(id))
+      : null
+    return { node, expand }
+  } catch {
+    return { node: null, expand: null }
+  }
+}
+
+function writeUrlState(node: string | null, expand: Set<string>) {
+  if (typeof window === 'undefined') return
+  try {
+    const params = new URLSearchParams(window.location.search)
+    if (node) params.set('node', node)
+    else params.delete('node')
+    // Only persist expand if it differs from the default. Sorted for
+    // stable URLs (set iteration order is insertion-based).
+    const expandList = Array.from(expand).sort()
+    const defaultList = [...DEFAULT_EXPANDED_IDS].sort()
+    const isDefault =
+      expandList.length === defaultList.length &&
+      expandList.every((id, i) => id === defaultList[i])
+    if (isDefault) params.delete('expand')
+    else params.set('expand', expandList.join(','))
+    const search = params.toString()
+    const url = `${window.location.pathname}${search ? `?${search}` : ''}${window.location.hash}`
+    window.history.replaceState(window.history.state, '', url)
+  } catch {
+    // History API unavailable (file:// etc.) — silent.
+  }
+}
+
+// ============================================
 // MAIN APP
 // ============================================
 export default function MuskConstellation() {
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set(['tesla', 'spacex', 'xai']))
+  // Lazy initializers read the URL exactly once on first render so the
+  // first paint already reflects the shared state.
+  const initialUrl = useMemo(() => readUrlState(), [])
+  const [selectedId, setSelectedId] = useState<string | null>(initialUrl.node)
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
+    // If a deep-linked node is a sub, auto-expand its parent so the
+    // orb is present in the live sim when the camera flies to it.
+    const base = initialUrl.expand ?? DEFAULT_EXPANDED_IDS
+    const set = new Set(base)
+    if (initialUrl.node) {
+      const parent = getParentId(initialUrl.node)
+      if (parent) set.add(parent)
+    }
+    return set
+  })
   const [searchQuery, setSearchQuery] = useState('')
   const [showLegend, setShowLegend] = useState(false)
   const [showMobilePanel, setShowMobilePanel] = useState(false)
@@ -451,6 +513,35 @@ export default function MuskConstellation() {
     update()
     mql.addEventListener('change', update)
     return () => mql.removeEventListener('change', update)
+  }, [])
+
+  // Mirror selectedId + expandedIds back to the URL so the current view
+  // is shareable. replaceState (not pushState) — we don't want every orb
+  // click to add a history entry. Back-button restoration is handled by
+  // the popstate effect below, which fires on user navigation only.
+  useEffect(() => {
+    writeUrlState(selectedId, expandedIds)
+  }, [selectedId, expandedIds])
+
+  // Restore state when the user hits back/forward (e.g. after opening
+  // the site from a Slack preview, fly-to'ing a few nodes, and going
+  // back to the share URL). We don't push our own history entries,
+  // but the browser still fires popstate on hash changes etc.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const onPopState = () => {
+      const next = readUrlState()
+      setSelectedId(next.node)
+      const baseExpand = next.expand ?? DEFAULT_EXPANDED_IDS
+      const set = new Set(baseExpand)
+      if (next.node) {
+        const parent = getParentId(next.node)
+        if (parent) set.add(parent)
+      }
+      setExpandedIds(set)
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
   }, [])
 
   // Close mobile menu when tapping anywhere outside it.
