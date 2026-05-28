@@ -291,6 +291,135 @@ function PeekTab({ label, onExpand }: { label: string; onExpand: () => void }) {
 }
 
 // ============================================
+// FIRST-LOAD COACHMARK
+// ============================================
+// A 3-step tour card that appears once on a first visit to teach
+// the basic verbs: click an orb, expand sub-webs, search anything.
+// localStorage-gated so it never returns. Dismissable with ESC,
+// the X button, or "Got it" on the last step.
+//
+// Designed as a small floating card, not a full-screen modal —
+// it doesn't block the canvas behind it, so curious users can
+// still drag/zoom while reading. Bottom-center on mobile so it
+// stays out of the way of the peek tab; bottom-left on desktop
+// where it sits above the legend dock.
+const COACHMARK_STORAGE_KEY = 'muskconstellation.coachmark.seen.v1'
+
+const COACHMARK_STEPS = [
+  {
+    title: 'Click any orb',
+    body: 'Each glowing sphere is a company, sub-division, or partner. Click one to fly the camera in and read the brief.',
+  },
+  {
+    title: 'Expand the deep web',
+    body: 'Hit EXPAND in the top nav to reveal sub-divisions and revenue drivers nested under each core company.',
+  },
+  {
+    title: 'Search anything',
+    body: 'Type a name in the search bar to jump straight to it — hidden sub-orbs auto-reveal as you go.',
+  },
+]
+
+function Coachmark() {
+  // Initial visibility = first visit only. Reading localStorage in a
+  // lazy initializer keeps the work out of every render.
+  const [visible, setVisible] = useState<boolean>(() => {
+    try {
+      return typeof window !== 'undefined' && !window.localStorage.getItem(COACHMARK_STORAGE_KEY)
+    } catch {
+      return false
+    }
+  })
+  const [step, setStep] = useState(0)
+
+  const dismiss = useCallback(() => {
+    setVisible(false)
+    try {
+      window.localStorage.setItem(COACHMARK_STORAGE_KEY, '1')
+    } catch {
+      // Safari private mode etc. — silent, the coachmark just shows again next load.
+    }
+  }, [])
+
+  // ESC closes the coachmark even though it's not a modal — a power-user
+  // shortcut that matches the rest of the app's ESC behavior.
+  useEffect(() => {
+    if (!visible) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') dismiss()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [visible, dismiss])
+
+  if (!visible) return null
+
+  const current = COACHMARK_STEPS[step]
+  const isLast = step === COACHMARK_STEPS.length - 1
+  const next = () => (isLast ? dismiss() : setStep(s => s + 1))
+
+  return (
+    <AnimatePresence>
+      <motion.aside
+        key="coachmark"
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 8 }}
+        transition={{ delay: 0.6, duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+        className="ui-layer coachmark glass panel"
+        role="dialog"
+        aria-labelledby="coachmark-title"
+        aria-describedby="coachmark-body"
+      >
+        <div className="coachmark-header">
+          <p className="coachmark-eyebrow">QUICK TOUR · {step + 1} OF {COACHMARK_STEPS.length}</p>
+          <button
+            type="button"
+            onClick={dismiss}
+            className="coachmark-close"
+            aria-label="Skip tour"
+            title="Skip tour (ESC)"
+          >
+            <X className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </div>
+        <h2 id="coachmark-title" className="coachmark-title">{current.title}</h2>
+        <p id="coachmark-body" className="coachmark-body">{current.body}</p>
+        <div className="coachmark-footer">
+          <div className="coachmark-dots" role="presentation">
+            {COACHMARK_STEPS.map((_, i) => (
+              <span
+                key={i}
+                className={`coachmark-dot ${i === step ? 'coachmark-dot--active' : ''}`}
+              />
+            ))}
+          </div>
+          <div className="coachmark-actions">
+            {!isLast && (
+              <button
+                type="button"
+                onClick={dismiss}
+                className="coachmark-skip"
+              >
+                Skip
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={next}
+              className="btn btn-primary coachmark-next"
+              autoFocus
+            >
+              {isLast ? 'Got it' : 'Next'}
+            </button>
+          </div>
+        </div>
+      </motion.aside>
+    </AnimatePresence>
+  )
+}
+
+// ============================================
 // MAIN APP
 // ============================================
 export default function MuskConstellation() {
@@ -1058,6 +1187,8 @@ export default function MuskConstellation() {
         <div className={`ui-layer keyboard-hints hidden text-xs text-white/40 md:block ${panelOpen ? 'keyboard-hints--offset' : ''}`}>
           W/S — up/down &nbsp;•&nbsp; A/D — orbit &nbsp;•&nbsp; Q/E — zoom &nbsp;•&nbsp; Arrows — pan &nbsp;•&nbsp; R — reset &nbsp;•&nbsp; ESC — deselect / clear &nbsp;•&nbsp; Drag nodes to rearrange
         </div>
+
+        <Coachmark />
 
         <GlobalKeys onReset={resetView} onEscape={handleEscape} />
       </div>

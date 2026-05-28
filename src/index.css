@@ -1275,3 +1275,145 @@ body {
     outline-offset: 2px;
   }
 }
+
+/* ===========================================================
+   First-load coachmark
+   Small floating tour card. Bottom-left on desktop (above the
+   legend dock), bottom-center on mobile (above the peek tab).
+   z-index sits above legend but below the topnav. */
+.coachmark {
+  position: fixed;
+  z-index: 38;
+  padding: 16px 18px 14px;
+  border-radius: 12px;
+  width: min(360px, calc(100vw - 32px));
+  pointer-events: auto;
+  /* Mobile default: bottom-centered above the peek tab. Peek tab
+     sits at the bottom safe-area; reserve room for it. */
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 96px);
+}
+
+@media (min-width: 1024px) {
+  .coachmark {
+    left: 20px;
+    right: auto;
+    transform: none;
+    bottom: calc(var(--legend-h, 280px) + 28px);
+  }
+}
+
+.coachmark-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.coachmark-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0;
+}
+
+.coachmark-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.coachmark-close:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.coachmark-close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.coachmark-title {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  color: #fff;
+  margin: 0 0 6px;
+  line-height: 1.25;
+}
+
+.coachmark-body {
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 14px;
+}
+
+.coachmark-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.coachmark-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.coachmark-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+
+.coachmark-dot--active {
+  background: var(--accent);
+  transform: scale(1.25);
+}
+
+.coachmark-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.coachmark-skip {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 4px;
+}
+
+.coachmark-skip:hover {
+  color: #fff;
+}
+
+.coachmark-skip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.coachmark-next {
+  padding: 6px 14px;
+  min-height: 32px;
+  font-size: 11px;
+}
