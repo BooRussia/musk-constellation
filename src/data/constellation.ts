@@ -906,6 +906,63 @@ export const TIMELINE_BOUNDS: { min: number; max: number } = (() => {
   return { min: Number.isFinite(min) ? min : 2002, max: Number.isFinite(max) ? max : 2026 }
 })()
 
+// ============================================
+// TIMELINE EVENTS — narrative milestones
+// ============================================
+// Curated headlines surfaced in the Timeline scrubber as the cursor
+// crosses each year. Each event is a single beat in the story of
+// the empire growing — not a full history. Kept tight so the UI
+// can show the most recent event as a one-line annotation rather
+// than a scrolling feed.
+export interface TimelineEvent {
+  /** Calendar year the event occurred. Sub-year ordering not needed
+   *  — the scrubber surfaces the latest event ≤ floor(cursorYear). */
+  year: number
+  /** Bold one-liner. Reads as a headline. */
+  title: string
+  /** Optional sub-line for color. Kept short — one sentence max. */
+  detail?: string
+  /** Optional node ids the event spotlights. Reserved for future
+   *  features (e.g. flash-highlighting the involved orbs). */
+  nodes?: string[]
+}
+
+export const EVENTS: TimelineEvent[] = [
+  { year: 2002, title: 'SpaceX founded', detail: 'Musk puts $100M into a rocket startup. Goal: make life multiplanetary.', nodes: ['spacex'] },
+  { year: 2003, title: 'Tesla founded', detail: 'Eberhard and Tarpenning incorporate Tesla Motors in San Carlos, CA.', nodes: ['tesla'] },
+  { year: 2004, title: 'Musk leads Tesla Series A', detail: 'Joins as chairman and largest investor with $6.5M of a $7.5M round.', nodes: ['tesla'] },
+  { year: 2008, title: 'Falcon 1 reaches orbit', detail: 'Fourth attempt. First privately-funded liquid-fuel rocket to orbit. NASA awards SpaceX a $1.6B COTS contract weeks later.', nodes: ['spacex', 'nasa'] },
+  { year: 2010, title: 'Falcon 9 maiden flight', detail: 'New workhorse rocket flies. Dragon spacecraft reaches orbit on second launch and returns intact.', nodes: ['spacex', 'spacex-falcon'] },
+  { year: 2012, title: 'Dragon docks with the ISS', detail: 'First commercial spacecraft to dock with the station. SpaceX becomes a primary US cargo ferry.', nodes: ['spacex', 'nasa'] },
+  { year: 2014, title: 'Tesla Autopilot launches', detail: 'Hardware 1 ships on Model S — the seed of what becomes FSD and Robotaxi.', nodes: ['tesla', 'tesla-autonomy'] },
+  { year: 2015, title: 'Falcon 9 lands itself', detail: 'First orbital-class booster to return propulsively. Reusability changes the economics of space. Tesla Powerwall debuts; Starlink concept announced.', nodes: ['spacex', 'spacex-falcon', 'tesla-energy', 'spacex-starlink'] },
+  { year: 2016, title: 'Neuralink + Boring Co founded', detail: 'BCIs and tunnels enter the empire in the same year.', nodes: ['neuralink', 'boring'] },
+  { year: 2017, title: 'Tesla Semi unveiled', detail: 'Class 8 electric truck reveal. Model 3 deliveries begin to early reservation holders.', nodes: ['tesla', 'tesla-semi'] },
+  { year: 2018, title: 'Falcon Heavy maiden flight', detail: 'Most powerful operational rocket. A cherry Roadster is sent toward Mars.', nodes: ['spacex', 'spacex-falcon'] },
+  { year: 2019, title: 'Starlink launches • Megapack debuts', detail: '60 V0.9 sats on a single Falcon 9 — the constellation buildout begins. Tesla Energy ships the Megapack at grid scale. Dojo unveiled.', nodes: ['spacex-starlink', 'tesla-energy', 'tesla-ai-chips'] },
+  { year: 2020, title: 'Crew Dragon returns US to crewed flight', detail: 'Demo-2 sends Behnken and Hurley to the ISS — first crewed orbital launch from US soil since 2011. Starlink opens commercial beta. Space Force contracts begin.', nodes: ['spacex', 'nasa', 'spacex-starlink', 'us-space-force'] },
+  { year: 2021, title: 'Vegas Loop opens • Optimus revealed', detail: 'The Boring Co\'s LVCC tunnel goes live at CES. Tesla unveils the Optimus humanoid robot concept at AI Day.', nodes: ['boring-vegas-loop', 'tesla-optimus'] },
+  { year: 2022, title: 'Musk acquires Twitter for $44B', detail: 'Rebrand to X begins. SpaceX announces Starshield (defense Starlink). T-Mobile partners on direct-to-cell.', nodes: ['x', 'spacex-starshield', 't-mobile'] },
+  { year: 2023, title: 'xAI founded • Grok ships', detail: 'Musk\'s answer to OpenAI. Grok 1 lands on X by year-end. Twitter formally rebranded to X.', nodes: ['xai', 'xai-grok', 'x'] },
+  { year: 2024, title: 'Neuralink\'s first patient', detail: 'Noland Arbaugh — quadriplegic — controls a cursor with his mind via the N1 implant. Colossus 1 (100k+ H100s) comes online for xAI training. Boring announces Music City Loop.', nodes: ['nlink-telepathy', 'xai-colossus', 'boring-music-city'] },
+  { year: 2025, title: 'Anthropic leases Colossus 1', detail: 'Anthropic takes 100% of Colossus 1 capacity from xAI at $1.25B/month through 2029. xAI starts building Colossus 2 toward 1M GPUs. X Money launches on Visa rails.', nodes: ['anthropic', 'xai-colossus', 'xai-colossus-2', 'x-money'] },
+  { year: 2026, title: 'SpaceX acquires xAI', detail: '$1.25T combined entity. SpaceX files S-1 in May targeting the largest IPO in history. Project Celestia — orbital data centers — gets FCC approval.', nodes: ['spacex', 'xai', 'spacex-celestia'] },
+]
+
+/** Most recent event with year ≤ cursor. Returns null if cursor is
+ *  before any event (so the scrubber can render an empty slot
+ *  rather than "the oldest event forever"). */
+export function getCurrentEvent(year: number): TimelineEvent | null {
+  const cutoff = Math.floor(year)
+  let latest: TimelineEvent | null = null
+  for (const e of EVENTS) {
+    if (e.year <= cutoff && (latest === null || e.year >= latest.year)) {
+      latest = e
+    }
+  }
+  return latest
+}
+
 /** Links whose source and target are both in the visible node set. */
 export function getVisibleLinks(visibleNodes: Node[]): Link[] {
   const visibleIds = new Set(visibleNodes.map(n => n.id))

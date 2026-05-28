@@ -16,7 +16,7 @@ import {
   getChildren, getNodeLinks, getNodeById, getParentId, getVisibleNodes,
   getLinkRole, getLinkRoleLabel,
   GROUP_COLORS, LINK_COLORS, LINK_LABELS,
-  INITIAL_FOCUS, TIMELINE_BOUNDS,
+  INITIAL_FOCUS, TIMELINE_BOUNDS, getCurrentEvent,
 } from './data/constellation'
 import type { Link } from './data/constellation'
 
@@ -487,6 +487,53 @@ function writeUrlState(node: string | null, expand: Set<string>) {
 // drives the cursor; per-orb scaling reads the same float year.
 const TIMELINE_PLAY_RATE_PER_SEC = 1.0
 
+/** One-line narrative annotation that updates as the cursor crosses
+ *  each event year. Animated with AnimatePresence so the transition
+ *  from one event to the next reads as a quick fade-swap, not a
+ *  flicker. Kept inside the scrubber to avoid yet another floating
+ *  card stacking on screen. */
+function TimelineEventLine({ year }: { year: number }) {
+  const event = useMemo(() => getCurrentEvent(year), [year])
+  return (
+    <div className="timeline-event-row" aria-live="polite">
+      <AnimatePresence mode="wait">
+        {event ? (
+          <motion.div
+            key={`${event.year}-${event.title}`}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+            className="timeline-event"
+          >
+            <span className="timeline-event-year">{event.year}</span>
+            <span className="timeline-event-body">
+              <span className="timeline-event-title">{event.title}</span>
+              {event.detail && (
+                <span className="timeline-event-detail">{event.detail}</span>
+              )}
+            </span>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="pre-events"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="timeline-event timeline-event--empty"
+          >
+            <span className="timeline-event-year">—</span>
+            <span className="timeline-event-body">
+              <span className="timeline-event-detail">Before the empire begins.</span>
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
 function TimelineScrubber({
   year,
   playing,
@@ -578,6 +625,8 @@ function TimelineScrubber({
           </button>
         </div>
       </div>
+
+      <TimelineEventLine year={year} />
 
       <div className="timeline-slider-wrap">
         <input
