@@ -39,6 +39,11 @@ export interface Props {
   /** Monotonically-increasing counter. Each increment triggers a
    *  smooth camera animation back to the initial fitted "home" view. */
   resetSignal?: number
+  /** Timeline mode cursor (float year). When non-null, each NodeMesh
+   *  scales its render size by clamp((timelineYear - foundedYear) /
+   *  GROWTH_DURATION, 0, 1) so orbs grow in smoothly as the user
+   *  scrubs past each entity's founding year. null = Timeline off. */
+  timelineYear?: number | null
 }
 
 interface SimNode extends Node {
@@ -173,7 +178,14 @@ interface NodeMeshProps {
   groupRefs: React.MutableRefObject<Map<string, THREE.Group>>
   onNodeClick: (id: string, e: ThreeEvent<MouseEvent>) => void
   onPointerDown: (id: string, e: ThreeEvent<PointerEvent>) => void
+  /** Live float year for Timeline mode. Read every frame so orbs
+   *  scale + fade in continuously as the cursor scrubs past their
+   *  foundedYear. null = Timeline off, full size + opacity. */
+  timelineYearRef: React.RefObject<number | null>
 }
+
+/** Years between an orb's foundedYear and "fully grown". */
+const NODE_GROWTH_DURATION_YEARS = 1.2
 
 const NodeMesh = memo(function NodeMesh({
   node,
@@ -183,6 +195,7 @@ const NodeMesh = memo(function NodeMesh({
   groupRefs,
   onNodeClick,
   onPointerDown,
+  timelineYearRef,
 }: NodeMeshProps) {
   const groupRef = useRef<THREE.Group>(null)
   const orbMeshRef = useRef<THREE.Mesh>(null)
@@ -285,6 +298,25 @@ const NodeMesh = memo(function NodeMesh({
     const group = groupRef.current
     if (!el || !group) return
 
+    // Timeline grow-in: when Timeline mode is active, scale this orb
+    // from a tiny seed (5%) up to full size over GROWTH_DURATION_YEARS
+    // years past its foundedYear. Nodes without a foundedYear (or with
+    // Timeline off) always render at full size. Reading from a ref
+    // means changing the year doesn't cause a re-render of every
+    // memo'd NodeMesh — only the per-frame scale write happens.
+    const ty = timelineYearRef.current
+    let birthScale = 1
+    let birthLabelMult = 1
+    if (ty !== null && typeof node.foundedYear === 'number') {
+      const yearsAlive = ty - node.foundedYear
+      // Smoothstep gives a soft ease-in/out so orbs don't snap awake.
+      const t = Math.max(0, Math.min(1, yearsAlive / NODE_GROWTH_DURATION_YEARS))
+      const eased = t * t * (3 - 2 * t)
+      birthScale = 0.05 + eased * 0.95
+      birthLabelMult = eased
+    }
+    group.scale.setScalar(birthScale)
+
     let target: number
 
     if (!hasSelection) {
@@ -315,7 +347,7 @@ const NodeMesh = memo(function NodeMesh({
       if (isHovered) target = 1
     }
 
-    el.style.opacity = target.toFixed(3)
+    el.style.opacity = (target * birthLabelMult).toFixed(3)
   })
 
   return (
@@ -793,6 +825,7 @@ function Scene({
   showAllWeb = false,
   showAllPulse = false,
   resetSignal = 0,
+  timelineYear = null,
 }: Omit<Props, 'onExpand'>) {
   const { camera, raycaster, mouse, scene, size } = useThree()
   const controlsRef = useRef<OrbitControlsImpl>(null)
@@ -810,6 +843,16 @@ function Scene({
   const hasInitialFitRef = useRef(false)
   const mountSettledRef = useRef(false)
   const fitKeyRef = useRef('')
+
+  // Mirror the timelineYear prop into a ref so NodeMesh's per-frame
+  // size animation can read it without forcing every memo'd orb to
+  // re-render every time the year ticks (which during auto-play
+  // happens 60×/sec). useEffect (not direct write) satisfies the
+  // react-hooks/refs lint rule.
+  const timelineYearRef = useRef<number | null>(timelineYear)
+  useEffect(() => {
+    timelineYearRef.current = timelineYear
+  }, [timelineYear])
 
   const dragVecs = useRef({
     nodePos: new THREE.Vector3(),
@@ -1508,6 +1551,7 @@ function Scene({
               groupRefs={nodeGroupRefs}
               onNodeClick={handleNodeClick}
               onPointerDown={handlePointerDown}
+              timelineYearRef={timelineYearRef}
             />
           )
         })}

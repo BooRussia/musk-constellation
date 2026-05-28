@@ -475,11 +475,18 @@ function writeUrlState(node: string | null, expand: Set<string>) {
 // ============================================
 // TIMELINE SCRUBBER
 // ============================================
-// Floating year-slider at the bottom of the screen. Drag or click the
-// rail to jump to a year; tap Play to auto-advance one year every
-// ~900ms. Major years tick along the rail. Acts purely as a controlled
-// component — App owns the year + playing state so toggling Timeline
-// mode off (or hitting RESET) can reset both atomically.
+// Floating year-slider centered on the canvas viewport (chrome-aware
+// so it stays visually balanced when the right panel or left sidebar
+// is open). The cursor is a continuous float — dragging scrubs
+// smoothly between years so orbs grow in gradually rather than
+// snapping. Play auto-advances at ~1 year per real second via
+// requestAnimationFrame for buttery 60fps motion. Acts as a
+// controlled component — App owns both year + playing state.
+// Auto-play advance rate. The canvas owns the orb growth duration
+// (NODE_GROWTH_DURATION_YEARS in ConstellationCanvas) — App just
+// drives the cursor; per-orb scaling reads the same float year.
+const TIMELINE_PLAY_RATE_PER_SEC = 1.0
+
 function TimelineScrubber({
   year,
   playing,
@@ -495,16 +502,29 @@ function TimelineScrubber({
 }) {
   const { min, max } = TIMELINE_BOUNDS
 
-  // Auto-play: advance the cursor 1 year every 900ms, loop back to min
-  // after hitting max. Pauses if the user grabs the slider (controlled
-  // by `playing` from the parent).
+  // Auto-play: advance the cursor smoothly via requestAnimationFrame.
+  // Using rAF + delta time means orbs grow continuously at 60fps
+  // instead of jumping each integer year. Loops back to `min` after
+  // crossing `max` so the animation is replayable without manual reset.
+  const yearRef = useRef(year)
+  useEffect(() => {
+    yearRef.current = year
+  }, [year])
   useEffect(() => {
     if (!playing) return
-    const id = window.setInterval(() => {
-      onYearChange(year >= max ? min : year + 1)
-    }, 900)
-    return () => window.clearInterval(id)
-  }, [playing, year, min, max, onYearChange])
+    let rafId = 0
+    let lastTs = performance.now()
+    const tick = (ts: number) => {
+      const dt = Math.min(0.1, (ts - lastTs) / 1000) // clamp big tab-switch dt
+      lastTs = ts
+      let next = yearRef.current + dt * TIMELINE_PLAY_RATE_PER_SEC
+      if (next > max) next = min
+      onYearChange(next)
+      rafId = requestAnimationFrame(tick)
+    }
+    rafId = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafId)
+  }, [playing, min, max, onYearChange])
 
   // Tick years to draw on the rail — every 4 years for readability.
   const ticks = useMemo(() => {
@@ -513,6 +533,10 @@ function TimelineScrubber({
     for (let y = start; y <= max; y += 4) out.push(y)
     return out
   }, [min, max])
+
+  // Display the integer year — internal year is a float for smooth
+  // growth but a "2014.37" readout would feel broken.
+  const displayYear = Math.floor(year)
 
   return (
     <motion.aside
@@ -527,7 +551,7 @@ function TimelineScrubber({
       <div className="timeline-header">
         <div className="timeline-year-block">
           <span className="timeline-eyebrow">TIMELINE</span>
-          <span className="timeline-year">{year}</span>
+          <span className="timeline-year">{displayYear}</span>
         </div>
         <div className="timeline-controls">
           <button
@@ -560,14 +584,14 @@ function TimelineScrubber({
           type="range"
           min={min}
           max={max}
-          step={1}
+          step={0.05}
           value={year}
           onChange={(e) => {
             onPlayingChange(false)
-            onYearChange(parseInt(e.target.value, 10))
+            onYearChange(parseFloat(e.target.value))
           }}
           className="timeline-slider"
-          aria-label={`Year ${year} — drag to scrub between ${min} and ${max}`}
+          aria-label={`Year ${displayYear} — drag to scrub between ${min} and ${max}`}
         />
         <div className="timeline-ticks" aria-hidden="true">
           {ticks.map((t) => {
@@ -878,6 +902,7 @@ export default function MuskConstellation() {
                 showAllWeb={showAllWeb}
                 showAllPulse={showAllPulse}
                 resetSignal={resetSignal}
+                timelineYear={timelineYear}
               />
             </WebGLErrorBoundary>
           </Suspense>

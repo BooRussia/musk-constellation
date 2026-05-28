@@ -1408,17 +1408,19 @@ body {
 
 /* ===========================================================
    Timeline scrubber
-   Floating bar pinned to the bottom-center of the screen when
-   Timeline mode is active. Year readout + play/close + a slider
-   with year ticks. Sits above the legend dock zone but below
-   any selected-detail panel. */
+   Floating bar centered on the *canvas viewport* — not the
+   window — so when the right details panel or left sidebar is
+   open the scrubber stays visually balanced. The left/right
+   bounds use the same --sidebar-w and --panel-w variables that
+   drive the canvas's render width. */
 .timeline-scrubber {
   position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
+  left: var(--sidebar-w, 0px);
+  right: var(--panel-w, 0px);
+  margin: 0 auto;
   bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
   z-index: 37;
-  width: min(720px, calc(100vw - 32px));
+  max-width: min(720px, calc(100vw - 32px));
   padding: 12px 18px 14px;
   border-radius: 14px;
   pointer-events: auto;
@@ -1426,8 +1428,11 @@ body {
 
 @media (max-width: 639px) {
   .timeline-scrubber {
+    /* Mobile: no side chrome, just pad away from the peek tab. */
+    left: 12px;
+    right: 12px;
+    max-width: none;
     bottom: calc(env(safe-area-inset-bottom, 0px) + 92px);
-    width: calc(100vw - 24px);
     padding: 10px 14px 12px;
   }
 }
