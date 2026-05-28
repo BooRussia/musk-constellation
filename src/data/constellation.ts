@@ -47,6 +47,12 @@ export interface Node {
    *  external orbs their own thematic color instead of the shared
    *  external grey. Ignored for cores and subs (they always use group). */
   color?: string
+  /** Year this entity entered Musk's empire — founding for Musk-owned
+   *  companies, acquisition year for X (2022), launch/announcement for
+   *  subs, partnership initiation for externals. Drives Timeline mode:
+   *  an orb is hidden when `cursorYear < foundedYear`. Nodes without
+   *  a year are treated as always-present. */
+  foundedYear?: number
 }
 
 export interface Link {
@@ -90,6 +96,7 @@ export const NODES: Node[] = [
     group: 'tesla',
     valuationB: 1600,
     val: 4.21, // cbrt(1600)*0.36
+    foundedYear: 2003,
     short: 'EVs • Energy • Autonomy • Robotics • Custom AI silicon',
     mission: 'Build a world of amazing abundance.',
     metric: 'Market cap ~$1.6T • 2026 Rev pace ~$95-100B',
@@ -107,6 +114,7 @@ export const NODES: Node[] = [
     group: 'spacex',
     valuationB: 1850,
     val: 4.43, // cbrt(1850)*0.36
+    foundedYear: 2002,
     short: 'Rockets • Starlink • Starship • Starshield • Orbital DCs • Acq. xAI',
     mission: 'Making life multiplanetary.',
     metric: 'S-1 filed May 20, 2026 • Valuation ~$1.85T • SPCX listing late June',
@@ -123,6 +131,7 @@ export const NODES: Node[] = [
     group: 'xai',
     valuationB: 250,
     val: 2.27, // cbrt(250)*0.36
+    foundedYear: 2023,
     short: 'Grok 4.3 • Colossus 1 + 2 • Acq. by SpaceX • Federal AI',
     mission: 'Accelerate our collective understanding of the universe.',
     metric: '~$2B ARR run-rate (2026) • Grok 4.3 flagship • Colossus 2 at 555k GPUs / 2GW',
@@ -139,6 +148,7 @@ export const NODES: Node[] = [
     group: 'neuralink',
     valuationB: 14,
     val: 0.87, // cbrt(14)*0.36
+    foundedYear: 2016,
     short: 'BCI • Telepathy • Blindsight • VOICE • R1 surgical robot',
     mission: 'Restore autonomy to those with unmet medical needs today and unlock human potential tomorrow.',
     metric: 'Valuation ~$14-15B (secondary, May 2026) • 24+ implants',
@@ -153,6 +163,7 @@ export const NODES: Node[] = [
     group: 'x',
     valuationB: 45,
     val: 1.28, // cbrt(45)*0.36
+    foundedYear: 2022,
     short: 'Everything app • 611M MAU • Acquired by xAI 2025 → SpaceX 2026',
     mission: 'The town square of the internet — an everything app.',
     metric: '611M MAU • 259M DAU • 14.2M Premium subs (4.7M Premium+)',
@@ -167,6 +178,7 @@ export const NODES: Node[] = [
     group: 'boring',
     valuationB: 7,
     val: 0.69, // cbrt(7)*0.36
+    foundedYear: 2016,
     short: 'Vegas Loop • Music City Loop • Dubai Loop • Factory tunnels',
     mission: 'Solve traffic with tunnels.',
     metric: 'Valuation ~$7B (secondary) • 3 active loops + Gigafactory tunnels',
@@ -183,6 +195,7 @@ export const NODES: Node[] = [
     group: 'tesla',
     valuationB: 400, // ~25% of Tesla
     val: 2.10, // sqrt(0.25) * 4.21
+    foundedYear: 2015,
     short: 'Megapack 3 • Megablock 20MWh • Powerwall • Solar',
     mission: 'Accelerate the world\'s transition to sustainable energy — at grid scale.',
     metric: '2025 Rev $12.8B (+27%) • 46.7 GWh deployed • Megapack 3 + Houston Megafactory ramping',
@@ -196,6 +209,7 @@ export const NODES: Node[] = [
     group: 'tesla',
     valuationB: 450, // bumped to ~28% — Robotaxi is the 2026 story
     val: 2.23, // sqrt(0.28) * 4.21
+    foundedYear: 2014,
     short: 'FSD • Cybercab • Unsupervised Robotaxi (Austin/Dallas/Houston)',
     mission: 'Autonomous transportation at massive scale.',
     metric: '1.28M FSD subs • Unsupervised Robotaxi in 3 TX cities • Cybercab production at Giga TX',
@@ -209,6 +223,7 @@ export const NODES: Node[] = [
     group: 'tesla',
     valuationB: 128, // ~8% — small today, massive future optionality
     val: 1.19, // sqrt(0.08) * 4.21
+    foundedYear: 2021,
     short: 'Humanoid general-purpose robot — Gen 3 in production',
     mission: 'A useful humanoid robot in every home and factory.',
     metric: 'Gen 3 production started Jan 2026 • 50K-100K unit 2026 target • Internal use only',
@@ -222,6 +237,7 @@ export const NODES: Node[] = [
     group: 'tesla',
     valuationB: 48, // ~3%
     val: 0.73, // sqrt(0.03) * 4.21
+    foundedYear: 2017,
     short: 'Class 8 electric truck • Nevada factory online',
     mission: 'Electrify long-haul freight.',
     metric: 'High-volume production began Apr 2026 • 50K/yr design capacity',
@@ -235,6 +251,7 @@ export const NODES: Node[] = [
     group: 'tesla',
     valuationB: 32, // ~2%
     val: 0.60, // sqrt(0.02) * 4.21
+    foundedYear: 2022,
     short: 'First large-scale US lithium hydroxide refinery',
     mission: 'Vertically integrate the cell supply chain.',
     metric: 'Fully operational Jan 2026 • Novel acid-free alkaline-leach process',
@@ -248,6 +265,7 @@ export const NODES: Node[] = [
     group: 'tesla',
     valuationB: 80, // ~5%
     val: 0.94, // sqrt(0.05) * 4.21
+    foundedYear: 2019,
     short: 'Custom AI silicon for FSD + Optimus + Dojo3',
     mission: 'Vertically-owned inference silicon at Optimus scale.',
     metric: 'AI6 at Samsung Taylor TX fab on 2nm ($16.5B deal) • AI5 in production',
@@ -263,6 +281,7 @@ export const NODES: Node[] = [
     group: 'spacex',
     valuationB: 833, // ~45% of SpaceX value — majority revenue + biggest growth
     val: 2.97, // sqrt(0.45) * 4.43
+    foundedYear: 2015,
     short: 'Satellite broadband • Direct-to-Cell • 10M+ subs',
     mission: 'High-speed internet everywhere on Earth (and soon Mars).',
     metric: '~10M subs (Feb 2026) • Targeting 25M by year-end • ~$11.8B 2025 rev',
@@ -276,6 +295,7 @@ export const NODES: Node[] = [
     group: 'spacex',
     valuationB: 333, // ~18% of SpaceX
     val: 1.88, // sqrt(0.18) * 4.43
+    foundedYear: 2019,
     short: 'Fully-reusable super-heavy launch system',
     mission: 'Make life multiplanetary.',
     metric: 'V3 flying • 12 tests through May 2026 • 5 uncrewed Mars Starships planned',
@@ -289,6 +309,7 @@ export const NODES: Node[] = [
     group: 'spacex',
     valuationB: 222, // ~12% of SpaceX
     val: 1.53, // sqrt(0.12) * 4.43
+    foundedYear: 2010,
     short: 'Reusable workhorse rocket • ~140 launches/yr',
     mission: 'Reliable, low-cost orbital access.',
     metric: '61 launches by May 25, 2026 • Targeting ~140 (40% of global cadence)',
@@ -302,6 +323,7 @@ export const NODES: Node[] = [
     group: 'spacex',
     valuationB: 148, // ~8% of SpaceX
     val: 1.25, // sqrt(0.08) * 4.43
+    foundedYear: 2022,
     short: 'Classified DoD/NRO satellite constellation',
     mission: 'Military variant of Starlink for national security.',
     metric: 'NRO spy-sat constellation operational • $1.8B+ NRO + Space Force awards',
@@ -315,6 +337,7 @@ export const NODES: Node[] = [
     group: 'spacex',
     valuationB: 222, // ~12% of SpaceX (massive future bet)
     val: 1.53, // sqrt(0.12) * 4.43
+    foundedYear: 2026,
     short: 'Solar-powered orbital AI data centers (xAI compute)',
     mission: 'Move AI training off-planet.',
     metric: 'Aether-1 100MW module targeted late 2026 • FCC filing for up to 1M sats',
@@ -330,6 +353,7 @@ export const NODES: Node[] = [
     group: 'xai',
     valuationB: 63, // ~25% — fully leased to Anthropic, ~$15B/yr revenue
     val: 1.14, // sqrt(0.25) * 2.27
+    foundedYear: 2024,
     short: 'Original Memphis cluster • 220k GPUs • 100% Anthropic-leased',
     mission: 'The compute engine for understanding the universe.',
     metric: '220k GPUs • ~150MW • 100% leased to Anthropic ($15B+/yr)',
@@ -345,6 +369,7 @@ export const NODES: Node[] = [
     group: 'xai',
     valuationB: 88, // ~35% of xAI — the new flagship
     val: 1.34, // sqrt(0.35) * 2.27
+    foundedYear: 2025,
     short: 'New Memphis flagship • 555k→1M Blackwell GPUs • 2GW',
     mission: 'A million-GPU cluster for the next generation of Grok and orbital deployment.',
     metric: '555k Blackwell GPUs (Jan 2026) • $18B+ capex • 2GW gas + Megapack',
@@ -358,6 +383,7 @@ export const NODES: Node[] = [
     group: 'xai',
     valuationB: 50, // ~20% of xAI — the LLM product
     val: 1.02, // sqrt(0.20) * 2.27
+    foundedYear: 2023,
     short: 'Grok 4.3 flagship • Grok 5 (6T MoE) in training',
     mission: 'Maximum truth-seeking AI with a rebellious streak.',
     metric: 'Grok 4.3 May 2026 • 1M context • Native video • Grok 5 Q2 2026',
@@ -371,6 +397,7 @@ export const NODES: Node[] = [
     group: 'xai',
     valuationB: 38, // ~15% of xAI — multimodal product line
     val: 0.88, // sqrt(0.15) * 2.27
+    foundedYear: 2024,
     short: 'Image/video gen • Agent Mode • Voice cloning',
     mission: 'Multimodal Grok across image, video, voice, and agents.',
     metric: 'Imagine Agent Mode (beta) • Custom Voices in TTS + Voice Agent APIs',
@@ -386,6 +413,7 @@ export const NODES: Node[] = [
     group: 'neuralink',
     valuationB: 7.7, // ~55% of Neuralink
     val: 0.65, // sqrt(0.55) * 0.87
+    foundedYear: 2024,
     short: 'Wireless motor-cortex BCI for cursor/keyboard control',
     mission: 'Restore digital communication for paralysis patients.',
     metric: '21 PRIME patients • Up to ~140 wpm typing',
@@ -399,6 +427,7 @@ export const NODES: Node[] = [
     group: 'neuralink',
     valuationB: 2.1, // ~15%
     val: 0.34, // sqrt(0.15) * 0.87
+    foundedYear: 2025,
     short: 'Speech-restoration trial — reading speech-production cortex',
     mission: 'Restore spoken communication for patients with ALS, stroke.',
     metric: 'Trial launched 2026 • Targeting 140 wpm conversational speech',
@@ -412,6 +441,7 @@ export const NODES: Node[] = [
     group: 'neuralink',
     valuationB: 2.8, // ~20%
     val: 0.39, // sqrt(0.20) * 0.87
+    foundedYear: 2024,
     short: 'Visual-cortex microelectrode array for the blind',
     mission: 'Restore vision (and eventually exceed natural sight).',
     metric: 'FDA Breakthrough Device Designation • First human implant targeted 2026',
@@ -425,6 +455,7 @@ export const NODES: Node[] = [
     group: 'neuralink',
     valuationB: 1.4, // ~10%
     val: 0.28, // sqrt(0.10) * 0.87
+    foundedYear: 2024,
     short: 'Automated implantation robot',
     mission: 'Make BCI implantation safe, fast, and reproducible.',
     metric: 'Near-fully automated • Reaches any brain region',
@@ -440,6 +471,7 @@ export const NODES: Node[] = [
     group: 'x',
     valuationB: 25, // ~55% — still the core business
     val: 0.95, // sqrt(0.55) * 1.28
+    foundedYear: 2022,
     short: 'Core ad business: feed, video pre-roll (Amplify), Takeover',
     mission: 'Monetize the public square.',
     metric: '~$3B 2025 run-rate • $750M Q1 2026',
@@ -453,6 +485,7 @@ export const NODES: Node[] = [
     group: 'x',
     valuationB: 9, // ~20%
     val: 0.57, // sqrt(0.20) * 1.28
+    foundedYear: 2022,
     short: 'Subscription tiers bundling no-ads, Grok, creator tools',
     mission: 'A premium experience for X power-users.',
     metric: '14.2M subs (4.7M Premium+) • ~$1.7B ARR',
@@ -466,6 +499,7 @@ export const NODES: Node[] = [
     group: 'x',
     valuationB: 7, // ~15% — big upside
     val: 0.50, // sqrt(0.15) * 1.28
+    foundedYear: 2025,
     short: 'Payments + 6% APY savings • Visa rails • FDIC via Cross River',
     mission: 'Payments at the scale of the everything-app.',
     metric: 'Early public access Apr 2026 • Licensed in 40+ states',
@@ -479,6 +513,7 @@ export const NODES: Node[] = [
     group: 'x',
     valuationB: 2.3, // ~5%
     val: 0.29, // sqrt(0.05) * 1.28
+    foundedYear: 2024,
     short: 'Smart-TV app for creator video — YouTube challenger play',
     mission: 'Make X creator video first-class on the big screen.',
     metric: 'Beta on Fire TV / LG webOS / Android + Google TV',
@@ -494,6 +529,7 @@ export const NODES: Node[] = [
     group: 'boring',
     valuationB: 2.8, // ~40% of Boring — most mature project
     val: 0.44, // sqrt(0.40) * 0.69
+    foundedYear: 2021,
     short: '8 stations • ~130 Teslas (Model Y + Cybertruck on FSD Supervised)',
     mission: 'Solve Vegas traffic underground.',
     metric: '8 stations live • Airport Connector Q1 2026 • ~130 vehicle fleet',
@@ -507,6 +543,7 @@ export const NODES: Node[] = [
     group: 'boring',
     valuationB: 2.5, // ~35% of Boring — flagship active project
     val: 0.41, // sqrt(0.35) * 0.69
+    foundedYear: 2024,
     short: 'Nashville: BNA airport → Capitol → Lower Broadway',
     mission: 'Zero-emission underground transit for Nashville.',
     metric: '~13 miles • $240-300M • Construction started Feb 2026',
@@ -520,6 +557,7 @@ export const NODES: Node[] = [
     group: 'boring',
     valuationB: 1.1, // ~15% of Boring
     val: 0.27, // sqrt(0.15) * 0.69
+    foundedYear: 2025,
     short: 'Dubai pilot: DIFC ↔ Dubai Mall • Full alignment 22.5km / 19 stations',
     mission: 'Bring The Boring Company to a global metro.',
     metric: 'Construction contract signed with Dubai RTA • Tunneling H2 2026',
@@ -535,6 +573,7 @@ export const NODES: Node[] = [
     group: 'external',
     color: '#3b82f6', // NASA blue
     val: 1.55,
+    foundedYear: 2008,
     short: 'Human spaceflight & exploration',
     mission: 'Explore the unknown and inspire the world.',
     metric: '~$22B in active SpaceX awards • HLS $6.9B obligated',
@@ -549,6 +588,7 @@ export const NODES: Node[] = [
     color: '#fb7185', // warm coral
     valuationB: 380,
     val: 2.61, // cbrt(380)*0.36
+    foundedYear: 2026,
     short: 'Frontier AI safety-focused lab (Claude)',
     mission: 'Build reliable, interpretable, and steerable AI systems.',
     metric: '~$380B Series G (Feb 2026) • ~$14B revenue run-rate • In talks for $900B round',
@@ -562,6 +602,7 @@ export const NODES: Node[] = [
     group: 'external',
     color: '#94a3b8', // generic slate
     val: 1.10,
+    foundedYear: 2020,
     short: 'Enterprise, maritime, aviation, disaster response worldwide',
     mission: 'Connectivity everywhere on Earth.',
     metric: '>10M subscribers (Feb 2026) • Available to 3.1B people in 100+ countries',
@@ -576,6 +617,7 @@ export const NODES: Node[] = [
     color: '#0ea5e9', // sky / dev-tool blue
     valuationB: 50, // in talks Apr 2026 at $50B; SpaceX acq option struck at $60B
     val: 1.33, // cbrt(50)*0.36
+    foundedYear: 2026,
     short: 'AI coding IDE • Anysphere • $60B SpaceX acquisition option',
     mission: 'AI-native software development at scale.',
     metric: '~$50B in talks (Apr 2026) • $2B+ ARR (Feb 2026) • $60B SpaceX option',
@@ -589,6 +631,7 @@ export const NODES: Node[] = [
     group: 'external',
     color: '#cbd5e1', // brushed silver
     val: 1.45,
+    foundedYear: 2020,
     short: 'NSSL launches • Starshield • MILNET • Golden Dome',
     mission: 'Secure US national security operations in space.',
     metric: 'PLEO ceiling $13B (was $900M) • $714M NSSL Phase 3 Lane 2 FY26',
@@ -603,6 +646,7 @@ export const NODES: Node[] = [
     color: '#ec4899', // T-Mobile magenta
     valuationB: 280,
     val: 2.36, // cbrt(280)*0.36
+    foundedYear: 2022,
     short: 'T-Satellite Direct-to-Cell partner with Starlink',
     mission: 'Ubiquitous cellular connectivity, including from space.',
     metric: 'T-Satellite commercial since Jul 2025 • $10-17/mo D2C pricing',
@@ -616,6 +660,7 @@ export const NODES: Node[] = [
     group: 'external',
     color: '#14b8a6', // medical teal
     val: 0.85,
+    foundedYear: 2025,
     short: 'PRIME clinical trial sites (Univ. of Miami + Barrow Neurological)',
     mission: 'Translate Neuralink technology into clinical care.',
     metric: 'Two of the largest PRIME trial sites in the US',
@@ -821,8 +866,14 @@ export function getLinkRoleLabel(link: Link, viewingNodeId: string): string {
 // Initial camera focus target (center of empire)
 export const INITIAL_FOCUS = 'tesla'
 
-/** Nodes visible in the 3D graph: core + external always; sub-nodes when parent is expanded. */
-export function getVisibleNodes(expandedIds: Iterable<string>): Node[] {
+/** Nodes visible in the 3D graph: core + external always; sub-nodes when
+ *  parent is expanded. When `timelineYear` is set, nodes with a
+ *  `foundedYear > timelineYear` are filtered out — Timeline mode. Nodes
+ *  without a `foundedYear` are treated as always-present. */
+export function getVisibleNodes(
+  expandedIds: Iterable<string>,
+  timelineYear?: number,
+): Node[] {
   const visible = new Map<string, Node>()
   for (const node of NODES) {
     if (node.type !== 'sub') visible.set(node.id, node)
@@ -832,8 +883,28 @@ export function getVisibleNodes(expandedIds: Iterable<string>): Node[] {
       visible.set(child.id, child)
     }
   }
+  if (typeof timelineYear === 'number') {
+    for (const [id, node] of visible) {
+      if (typeof node.foundedYear === 'number' && node.foundedYear > timelineYear) {
+        visible.delete(id)
+      }
+    }
+  }
   return [...visible.values()]
 }
+
+/** Min/max foundedYear across all nodes — bounds for the Timeline slider. */
+export const TIMELINE_BOUNDS: { min: number; max: number } = (() => {
+  let min = Infinity
+  let max = -Infinity
+  for (const n of NODES) {
+    if (typeof n.foundedYear === 'number') {
+      if (n.foundedYear < min) min = n.foundedYear
+      if (n.foundedYear > max) max = n.foundedYear
+    }
+  }
+  return { min: Number.isFinite(min) ? min : 2002, max: Number.isFinite(max) ? max : 2026 }
+})()
 
 /** Links whose source and target are both in the visible node set. */
 export function getVisibleLinks(visibleNodes: Node[]): Link[] {

@@ -4,6 +4,7 @@ import {
   X, RotateCcw, Layers, ZoomIn, Info,
   Globe, ChevronUp, ChevronDown, Menu, Network, Activity,
   PanelRightClose, PanelRightOpen, PanelLeftClose, PanelLeftOpen,
+  Clock, Play, Pause,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import SearchBar from './components/SearchBar'
@@ -15,7 +16,7 @@ import {
   getChildren, getNodeLinks, getNodeById, getParentId, getVisibleNodes,
   getLinkRole, getLinkRoleLabel,
   GROUP_COLORS, LINK_COLORS, LINK_LABELS,
-  INITIAL_FOCUS,
+  INITIAL_FOCUS, TIMELINE_BOUNDS,
 } from './data/constellation'
 import type { Link } from './data/constellation'
 
@@ -472,6 +473,122 @@ function writeUrlState(node: string | null, expand: Set<string>) {
 }
 
 // ============================================
+// TIMELINE SCRUBBER
+// ============================================
+// Floating year-slider at the bottom of the screen. Drag or click the
+// rail to jump to a year; tap Play to auto-advance one year every
+// ~900ms. Major years tick along the rail. Acts purely as a controlled
+// component — App owns the year + playing state so toggling Timeline
+// mode off (or hitting RESET) can reset both atomically.
+function TimelineScrubber({
+  year,
+  playing,
+  onYearChange,
+  onPlayingChange,
+  onClose,
+}: {
+  year: number
+  playing: boolean
+  onYearChange: (y: number) => void
+  onPlayingChange: (p: boolean) => void
+  onClose: () => void
+}) {
+  const { min, max } = TIMELINE_BOUNDS
+
+  // Auto-play: advance the cursor 1 year every 900ms, loop back to min
+  // after hitting max. Pauses if the user grabs the slider (controlled
+  // by `playing` from the parent).
+  useEffect(() => {
+    if (!playing) return
+    const id = window.setInterval(() => {
+      onYearChange(year >= max ? min : year + 1)
+    }, 900)
+    return () => window.clearInterval(id)
+  }, [playing, year, min, max, onYearChange])
+
+  // Tick years to draw on the rail — every 4 years for readability.
+  const ticks = useMemo(() => {
+    const out: number[] = []
+    const start = Math.ceil(min / 4) * 4
+    for (let y = start; y <= max; y += 4) out.push(y)
+    return out
+  }, [min, max])
+
+  return (
+    <motion.aside
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 12 }}
+      transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+      className="ui-layer timeline-scrubber glass panel"
+      role="region"
+      aria-label="Timeline scrubber"
+    >
+      <div className="timeline-header">
+        <div className="timeline-year-block">
+          <span className="timeline-eyebrow">TIMELINE</span>
+          <span className="timeline-year">{year}</span>
+        </div>
+        <div className="timeline-controls">
+          <button
+            type="button"
+            onClick={() => onPlayingChange(!playing)}
+            className="timeline-btn"
+            aria-label={playing ? 'Pause timeline' : 'Play timeline'}
+            title={playing ? 'Pause' : 'Play'}
+          >
+            {playing ? (
+              <Pause className="h-3.5 w-3.5" aria-hidden="true" />
+            ) : (
+              <Play className="h-3.5 w-3.5" aria-hidden="true" />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="timeline-btn timeline-btn--close"
+            aria-label="Close timeline"
+            title="Close timeline (show all years)"
+          >
+            <X className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+
+      <div className="timeline-slider-wrap">
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={1}
+          value={year}
+          onChange={(e) => {
+            onPlayingChange(false)
+            onYearChange(parseInt(e.target.value, 10))
+          }}
+          className="timeline-slider"
+          aria-label={`Year ${year} — drag to scrub between ${min} and ${max}`}
+        />
+        <div className="timeline-ticks" aria-hidden="true">
+          {ticks.map((t) => {
+            const pct = ((t - min) / (max - min)) * 100
+            return (
+              <span
+                key={t}
+                className="timeline-tick"
+                style={{ left: `${pct}%` }}
+              >
+                {t}
+              </span>
+            )
+          })}
+        </div>
+      </div>
+    </motion.aside>
+  )
+}
+
+// ============================================
 // MAIN APP
 // ============================================
 export default function MuskConstellation() {
@@ -497,6 +614,10 @@ export default function MuskConstellation() {
   const [isNarrowViewport, setIsNarrowViewport] = useState(false)
   const [showAllWeb, setShowAllWeb] = useState(false)
   const [showAllPulse, setShowAllPulse] = useState(false)
+  // Timeline mode: when active, only nodes with foundedYear <= timelineYear
+  // are visible. timelineYear === null means Timeline is off (show all).
+  const [timelineYear, setTimelineYear] = useState<number | null>(null)
+  const [timelinePlaying, setTimelinePlaying] = useState(false)
   // Incremented every time RESET is pressed. ConstellationCanvas
   // listens for changes and animates the camera back to the initial
   // fitted home view.
@@ -565,8 +686,8 @@ export default function MuskConstellation() {
   const selectedNode = selectedId ? getNodeById(selectedId) : null
 
   const visibleNodes = useMemo(
-    () => getVisibleNodes(expandedIds),
-    [expandedIds],
+    () => getVisibleNodes(expandedIds, timelineYear ?? undefined),
+    [expandedIds, timelineYear],
   )
 
   const highlightLinkIds = useMemo(() => {
@@ -817,6 +938,18 @@ export default function MuskConstellation() {
               </button>
               <button
                 type="button"
+                onClick={() => {
+                  setTimelinePlaying(false)
+                  setTimelineYear(prev => (prev === null ? TIMELINE_BOUNDS.min : null))
+                }}
+                className={`btn ${timelineYear !== null ? 'border-white/40 text-white' : ''}`}
+                aria-pressed={timelineYear !== null}
+                title="Scrub year-by-year to watch the empire grow"
+              >
+                <Clock className="h-3.5 w-3.5" aria-hidden="true" /> TIMELINE
+              </button>
+              <button
+                type="button"
                 onClick={() => setShowLegend(v => !v)}
                 className={`btn ${showLegend ? 'border-white/40' : ''}`}
                 aria-expanded={showLegend}
@@ -886,6 +1019,19 @@ export default function MuskConstellation() {
                     aria-pressed={showAllPulse}
                   >
                     <Activity className="h-3.5 w-3.5" aria-hidden="true" /> PULSE
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTimelinePlaying(false)
+                      setTimelineYear(prev => (prev === null ? TIMELINE_BOUNDS.min : null))
+                      setMobileMenuOpen(false)
+                    }}
+                    role="menuitem"
+                    className={`btn mb-1 w-full justify-start gap-1.5 ${timelineYear !== null ? 'border-white/40 text-white' : ''}`}
+                    aria-pressed={timelineYear !== null}
+                  >
+                    <Clock className="h-3.5 w-3.5" aria-hidden="true" /> TIMELINE
                   </button>
                   <button
                     type="button"
@@ -1281,6 +1427,21 @@ export default function MuskConstellation() {
         <div className={`ui-layer keyboard-hints hidden text-xs text-white/40 md:block ${panelOpen ? 'keyboard-hints--offset' : ''}`}>
           W/S — up/down &nbsp;•&nbsp; A/D — orbit &nbsp;•&nbsp; Q/E — zoom &nbsp;•&nbsp; Arrows — pan &nbsp;•&nbsp; R — reset &nbsp;•&nbsp; ESC — deselect / clear &nbsp;•&nbsp; Drag nodes to rearrange
         </div>
+
+        <AnimatePresence>
+          {timelineYear !== null && (
+            <TimelineScrubber
+              year={timelineYear}
+              playing={timelinePlaying}
+              onYearChange={setTimelineYear}
+              onPlayingChange={setTimelinePlaying}
+              onClose={() => {
+                setTimelinePlaying(false)
+                setTimelineYear(null)
+              }}
+            />
+          )}
+        </AnimatePresence>
 
         <Coachmark />
 
