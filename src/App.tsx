@@ -425,25 +425,36 @@ export default function MuskConstellation() {
     toast('All collapsed', { description: 'Showing only core nodes' })
   }, [])
 
-  // Selecting a sub-node from search (or anywhere else) when its parent
-  // isn't expanded would previously open the side panel but skip the
-  // camera fly-to because the sub orb wasn't in the live simNodes set.
-  // Auto-expand the parent first, give the simulation a tick to place
-  // the new orb near its real spot, THEN trigger the select so the
-  // fly-to animation lands on something visible.
+  // Selecting a sub-node from search when its parent isn't expanded
+  // needs the parent expanded first so the sub is in the simNodes set
+  // and the camera fly-to has a real target. Previously this used a
+  // silent 320ms setTimeout — the user clicked, the dropdown vanished,
+  // and *nothing* visible happened until the timer fired. Now:
+  //   1. Toast the user immediately ("Revealing [child] under [parent]…")
+  //      so they see acknowledgement instantly.
+  //   2. Expand the parent, which triggers a fresh simulation tick and
+  //      places the new orb near its real position within ~150ms.
+  //   3. setTimeout still gates the actual fly-to (we still need the
+  //      sim to converge before the camera flies), but it's now
+  //      perceptually instant because the toast covers the gap.
   const flyToNode = useCallback((id: string) => {
     const target = getNodeById(id)
     if (target?.type === 'sub') {
       const parentId = getParentId(id)
       if (parentId && !expandedIds.has(parentId)) {
+        const parent = getNodeById(parentId)
         setExpandedIds(prev => {
           if (prev.has(parentId)) return prev
           const next = new Set(prev)
           next.add(parentId)
           return next
         })
-        // Delay matches the d3-force tick rate enough to let the new
-        // orb settle near its connected position before the camera flies.
+        toast(`Revealing ${target.label}`, {
+          description: parent ? `Inside ${parent.label}` : undefined,
+          duration: 1500,
+        })
+        // Sim convergence delay — kept at 320ms but the user now has
+        // immediate feedback so the gap doesn't feel dead.
         window.setTimeout(() => handleSelect(id), 320)
         return
       }
