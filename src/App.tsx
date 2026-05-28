@@ -465,17 +465,16 @@ export default function MuskConstellation() {
     }
   }, [showLegend, searchQuery, selectedId, handleSelect])
 
-  // The X button on the details panel collapses the panel back to the
-  // right edge AND animates the camera back to the home fitted view —
-  // X is the explicit "I'm done with this node" action, so it should
-  // restore everything to the page-load state. (The topnav panel toggle
-  // is the way to just hide/show the panel without affecting view or
-  // selection.)
+  // The X on the details panel closes the panel + clears the selection
+  // but DOES NOT move the camera. If the user wants the camera back at
+  // home they can press RESET (or R). This split gives users two
+  // distinct verbs:
+  //   • X / ESC  — "I'm done reading, leave me where I am"
+  //   • RESET    — "take me back to the page-load view"
   const closeDetailsPanel = useCallback(() => {
     setShowDesktopPanel(false)
     setShowMobilePanel(false)
     setSelectedId(null)
-    setResetSignal(n => n + 1)
   }, [])
 
   const liveAnnouncement = selectedNode
@@ -551,7 +550,7 @@ export default function MuskConstellation() {
 
           <nav aria-label="Constellation controls" className="topnav-actions">
             <div className="topnav-actions-desktop hidden md:flex">
-              <button type="button" onClick={resetView} className="btn" title="Reset view (R)">
+              <button type="button" onClick={resetView} className="btn" title="Reset to home view — camera + selection (R)">
                 <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> RESET
               </button>
               <button type="button" onClick={expandAll} className="btn">
@@ -750,7 +749,7 @@ export default function MuskConstellation() {
                     onClick={closeDetailsPanel}
                     className="btn btn-ghost shrink-0 p-2"
                     aria-label="Close details panel"
-                    title="Close panel"
+                    title="Close panel (keeps camera). RESET to go home."
                   >
                     <X className="h-4 w-4" aria-hidden="true" />
                   </button>
@@ -910,7 +909,7 @@ export default function MuskConstellation() {
                     onClick={closeDetailsPanel}
                     className="btn btn-ghost shrink-0 p-2"
                     aria-label="Close details panel"
-                    title="Close panel"
+                    title="Close panel (keeps camera). RESET to go home."
                   >
                     <X className="h-4 w-4" aria-hidden="true" />
                   </button>
