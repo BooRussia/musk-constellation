@@ -1278,9 +1278,8 @@ body {
 
 /* ===========================================================
    First-load coachmark
-   Small floating tour card. Bottom-left on desktop (above the
-   legend dock), bottom-center on mobile (above the peek tab).
-   z-index sits above legend but below the topnav. */
+   Small floating tour card centered on screen across every
+   viewport. z-index sits above legend but below the topnav. */
 .coachmark {
   position: fixed;
   z-index: 38;
@@ -1288,20 +1287,9 @@ body {
   border-radius: 12px;
   width: min(360px, calc(100vw - 32px));
   pointer-events: auto;
-  /* Mobile default: bottom-centered above the peek tab. Peek tab
-     sits at the bottom safe-area; reserve room for it. */
   left: 50%;
-  transform: translateX(-50%);
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 96px);
-}
-
-@media (min-width: 1024px) {
-  .coachmark {
-    left: 20px;
-    right: auto;
-    transform: none;
-    bottom: calc(var(--legend-h, 280px) + 28px);
-  }
+  top: 50%;
+  transform: translate(-50%, -50%);
 }
 
 .coachmark-header {

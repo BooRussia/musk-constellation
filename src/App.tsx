@@ -362,9 +362,12 @@ function Coachmark() {
     <AnimatePresence>
       <motion.aside
         key="coachmark"
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 8 }}
+        // No y/scale on the motion props — the CSS positions the card via
+        // transform: translate(-50%, -50%) and framer's transform would
+        // override that and break centering mid-animation. Opacity only.
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
         transition={{ delay: 0.6, duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
         className="ui-layer coachmark glass panel"
         role="dialog"
