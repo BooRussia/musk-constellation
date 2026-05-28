@@ -1319,9 +1319,9 @@ function Scene({
 
   // ============================================
   // KEYBOARD ORBIT (WASD + QE)
-  //   W / S       — dolly camera toward / away from controls.target
+  //   W / S       — orbit polar (move camera up / down around target)
   //   A / D       — orbit azimuthally (left / right) around target
-  //   Q / E       — orbit polar (up / down) around target
+  //   Q / E       — dolly camera toward / away from target (zoom in / out)
   //   Arrow keys  — pan target left/right/up/down (in camera plane)
   // Smooth per-frame easing with delta-time scaling. Velocities ramp
   // up and decay so a tapped key produces a soft glide instead of a
@@ -1387,8 +1387,8 @@ function Scene({
     const accel = 12 // 1/s — how fast velocity ramps to target
     const decay = 8 // 1/s — how fast velocity decays when no key held
     const targetAz = (held.has('a') ? 1 : 0) - (held.has('d') ? 1 : 0)
-    const targetPol = (held.has('q') ? 1 : 0) - (held.has('e') ? 1 : 0)
-    const targetDolly = (held.has('s') ? 1 : 0) - (held.has('w') ? 1 : 0)
+    const targetPol = (held.has('w') ? 1 : 0) - (held.has('s') ? 1 : 0)
+    const targetDolly = (held.has('e') ? 1 : 0) - (held.has('q') ? 1 : 0)
     const targetPanX = (held.has('ArrowLeft') ? 1 : 0) - (held.has('ArrowRight') ? 1 : 0)
     const targetPanY = (held.has('ArrowUp') ? 1 : 0) - (held.has('ArrowDown') ? 1 : 0)
 
