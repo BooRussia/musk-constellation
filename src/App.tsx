@@ -465,14 +465,17 @@ export default function MuskConstellation() {
     }
   }, [showLegend, searchQuery, selectedId, handleSelect])
 
-  // The X button on the details panel collapses the panel back to the right
-  // edge (rather than just clearing the selection, which would leave the
-  // overview state visible). Selection is dropped too so reopening the panel
-  // shows a clean overview.
+  // The X button on the details panel collapses the panel back to the
+  // right edge AND animates the camera back to the home fitted view —
+  // X is the explicit "I'm done with this node" action, so it should
+  // restore everything to the page-load state. (The topnav panel toggle
+  // is the way to just hide/show the panel without affecting view or
+  // selection.)
   const closeDetailsPanel = useCallback(() => {
     setShowDesktopPanel(false)
     setShowMobilePanel(false)
     setSelectedId(null)
+    setResetSignal(n => n + 1)
   }, [])
 
   const liveAnnouncement = selectedNode
