@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="70%">
+      <stop offset="0%" stop-color="#16161a"/>
+      <stop offset="60%" stop-color="#070708"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </radialGradient>
+
+    <radialGradient id="orbTesla" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ff5e5e" stop-opacity="1"/>
+      <stop offset="60%" stop-color="#cc2424" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#660000" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="orbSpacex" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#8bb6ff" stop-opacity="1"/>
+      <stop offset="60%" stop-color="#3a78e0" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#0a1f4a" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="orbXai" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#d090ff" stop-opacity="1"/>
+      <stop offset="60%" stop-color="#8e3ad6" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#2a0a4a" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="orbNeuralink" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#8aebcf" stop-opacity="1"/>
+      <stop offset="60%" stop-color="#34a07a" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#0a3024" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="orbX" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#f0f0f0" stop-opacity="1"/>
+      <stop offset="60%" stop-color="#7a7a82" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#1a1a1c" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="orbBoring" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffd47a" stop-opacity="1"/>
+      <stop offset="60%" stop-color="#d68a1c" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#3a1f00" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Deep space backdrop -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Star field (deterministic dots) -->
+  <g fill="#ffffff" opacity="0.55">
+    <circle cx="90"  cy="60"  r="0.8"/>
+    <circle cx="200" cy="120" r="0.6"/>
+    <circle cx="320" cy="40"  r="1.0"/>
+    <circle cx="420" cy="180" r="0.5"/>
+    <circle cx="530" cy="80"  r="0.7"/>
+    <circle cx="640" cy="200" r="0.6"/>
+    <circle cx="760" cy="60"  r="0.9"/>
+    <circle cx="880" cy="150" r="0.5"/>
+    <circle cx="980" cy="90"  r="0.7"/>
+    <circle cx="1100" cy="200" r="0.8"/>
+    <circle cx="60"  cy="300" r="0.7"/>
+    <circle cx="160" cy="500" r="0.6"/>
+    <circle cx="280" cy="580" r="0.9"/>
+    <circle cx="380" cy="430" r="0.5"/>
+    <circle cx="500" cy="560" r="0.7"/>
+    <circle cx="700" cy="510" r="0.8"/>
+    <circle cx="830" cy="600" r="0.6"/>
+    <circle cx="950" cy="470" r="0.5"/>
+    <circle cx="1080" cy="540" r="0.8"/>
+    <circle cx="1150" cy="380" r="0.6"/>
+    <circle cx="40"  cy="250" r="0.5"/>
+    <circle cx="1180" cy="280" r="0.7"/>
+  </g>
+
+  <!-- Faint link web between cores -->
+  <g stroke="#ffffff" stroke-opacity="0.18" stroke-width="1.1" fill="none">
+    <line x1="320" y1="380" x2="600" y2="280"/>
+    <line x1="600" y1="280" x2="880" y2="380"/>
+    <line x1="320" y1="380" x2="880" y2="380"/>
+    <line x1="600" y1="280" x2="600" y2="500"/>
+    <line x1="320" y1="380" x2="600" y2="500"/>
+    <line x1="880" y1="380" x2="600" y2="500"/>
+    <line x1="600" y1="280" x2="430" y2="180"/>
+    <line x1="600" y1="280" x2="770" y2="180"/>
+  </g>
+
+  <!-- Orbs -->
+  <!-- Tesla (left, big) -->
+  <circle cx="320" cy="380" r="90" fill="url(#orbTesla)"/>
+  <text x="320" y="500" font-family="-apple-system, system-ui, sans-serif" font-size="18" font-weight="600" fill="#ffffff" text-anchor="middle" letter-spacing="2">TESLA</text>
+
+  <!-- SpaceX (center, biggest) -->
+  <circle cx="600" cy="280" r="110" fill="url(#orbSpacex)"/>
+  <text x="600" y="410" font-family="-apple-system, system-ui, sans-serif" font-size="18" font-weight="600" fill="#ffffff" text-anchor="middle" letter-spacing="2">SPACEX</text>
+
+  <!-- xAI (right, big) -->
+  <circle cx="880" cy="380" r="85" fill="url(#orbXai)"/>
+  <text x="880" y="495" font-family="-apple-system, system-ui, sans-serif" font-size="18" font-weight="600" fill="#ffffff" text-anchor="middle" letter-spacing="2">XAI</text>
+
+  <!-- Neuralink (bottom center) -->
+  <circle cx="600" cy="500" r="40" fill="url(#orbNeuralink)"/>
+  <text x="600" y="558" font-family="-apple-system, system-ui, sans-serif" font-size="13" font-weight="500" fill="#ffffff" opacity="0.85" text-anchor="middle" letter-spacing="2">NEURALINK</text>
+
+  <!-- X (top-left of center) -->
+  <circle cx="430" cy="180" r="32" fill="url(#orbX)"/>
+  <text x="430" y="230" font-family="-apple-system, system-ui, sans-serif" font-size="12" font-weight="500" fill="#ffffff" opacity="0.85" text-anchor="middle" letter-spacing="2">X</text>
+
+  <!-- Boring Co (top-right of center) -->
+  <circle cx="770" cy="180" r="32" fill="url(#orbBoring)"/>
+  <text x="770" y="230" font-family="-apple-system, system-ui, sans-serif" font-size="11" font-weight="500" fill="#ffffff" opacity="0.85" text-anchor="middle" letter-spacing="2">BORING CO</text>
+
+  <!-- Title block, bottom-left -->
+  <g transform="translate(60, 540)">
+    <text x="0" y="0" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="14" font-weight="400" fill="#ffffff" opacity="0.5" letter-spacing="3">THE LIVING WEB</text>
+    <text x="0" y="40" font-family="-apple-system, system-ui, sans-serif" font-size="32" font-weight="700" fill="#ffffff" letter-spacing="-0.5">CONSTELLATION</text>
+  </g>
+
+  <!-- Subtitle, bottom-right -->
+  <g transform="translate(1140, 580)">
+    <text x="0" y="0" font-family="-apple-system, system-ui, sans-serif" font-size="14" font-weight="400" fill="#ffffff" opacity="0.55" text-anchor="end">Elon Musk's Interconnected Empire · Interactive 3D</text>
+  </g>
+</svg>
