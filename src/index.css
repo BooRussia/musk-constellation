@@ -43,11 +43,19 @@
   /* Layout — single source of truth for chrome offsets. Mobile uses a
      2-row topnav (brand+menu, then search) so search stays reachable
      without sacrificing the brand row. */
-  --topnav-h: 110px;
+  /* Mobile default. Slimmed from 110→88px by hiding the "THE LIVING
+     WEB" eyebrow below 640px (.brand-eyebrow is display:none in the
+     mobile media query) and tightening row gap. Search still gets
+     its own row. */
+  --topnav-h: 88px;
   --panel-w: 0px;
   --sidebar-w: 0px;
   --legend-h: 280px;
+  /* vh fallback first; dvh wins where supported. dvh prevents the
+     mobile panel from being shoved off-screen when iOS Safari's URL
+     bar collapses/expands during scroll. */
   --mobile-panel-h: 55vh;
+  --mobile-panel-h: 55dvh;
 }
 
 @media (min-width: 640px) {
@@ -128,6 +136,17 @@ body {
 .search-input:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* Universal a11y fallback. Any focusable element that isn't matched
+   by a more specific :focus-visible rule above (or below) still gets
+   a visible focus indicator. Skip-link, canvas viewport (the
+   #main-content fragment target), and bare <button>s in Suspense
+   fallbacks all pick this up. */
+:where(button, a, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .btn-primary {
@@ -788,6 +807,20 @@ body {
   line-height: 1;
   margin-bottom: 4px;
   white-space: nowrap;
+}
+
+/* Hide the eyebrow + tighten brand on mobile so the topnav can drop
+   to ~88px without crowding. The H1 still labels the page. */
+@media (max-width: 639px) {
+  .topnav-brand .brand-eyebrow {
+    display: none;
+  }
+  .topnav-brand h1 {
+    font-size: 16px;
+  }
+  .topnav {
+    gap: 6px 10px;
+  }
 }
 
 .topnav-tagline {

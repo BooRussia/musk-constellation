@@ -517,7 +517,11 @@ export default function MuskConstellation() {
           {liveAnnouncement}
         </div>
 
-        <div className={`canvas-viewport ${showMobilePanel ? 'canvas-viewport--mobile-panel-open' : ''}`}>
+        <div
+          id="main-content"
+          tabIndex={-1}
+          className={`canvas-viewport ${showMobilePanel ? 'canvas-viewport--mobile-panel-open' : ''}`}
+        >
           <Suspense fallback={<CanvasLoader />}>
             <WebGLErrorBoundary onSelect={flyToNode}>
               <ConstellationCanvas
@@ -737,7 +741,6 @@ export default function MuskConstellation() {
           {selectedNode ? (
               <motion.main
                 key={selectedNode.id}
-                id="main-content"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -903,7 +906,6 @@ export default function MuskConstellation() {
             ) : (
               <motion.main
                 key="overview"
-                id="main-content"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
