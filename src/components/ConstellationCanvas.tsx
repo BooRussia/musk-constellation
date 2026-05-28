@@ -1006,31 +1006,42 @@ function Scene({
     [onSelect],
   )
 
+  // Track the pointer-down origin AND whether we've committed to a drag
+  // yet. A pure click (no movement past threshold) should NOT pin the
+  // node or restart the sim — earlier, every click jolted the
+  // constellation because handlePointerDown immediately set fx/fy/fz
+  // and bumped alphaTarget.
+  const dragStartScreenRef = useRef({ x: 0, y: 0 })
+  const dragCommittedRef = useRef(false)
+  const DRAG_THRESHOLD_PX = 4
+
   const handlePointerDown = useCallback((id: string, e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation()
     draggingIdRef.current = id
     setDraggingId(id)
-    const node = simNodesRef.current.find((n) => n.id === id)
-    if (node) {
-      node.fx = node.x
-      node.fy = node.y
-      node.fz = node.z
-    }
-    simulationRef.current?.alphaTarget(0.25).restart()
+    dragCommittedRef.current = false
+    dragStartScreenRef.current.x = e.clientX
+    dragStartScreenRef.current.y = e.clientY
+    // No pin, no alpha bump yet — those happen lazily in handleMove
+    // only if the pointer actually moves past DRAG_THRESHOLD_PX.
   }, [])
 
   const handlePointerUp = useCallback(() => {
     const dragId = draggingIdRef.current
     if (!dragId) return
-    const node = simNodesRef.current.find((n) => n.id === dragId)
-    if (node) {
-      node.fx = null
-      node.fy = null
-      node.fz = null
+    // Only undo the pin + alpha if we actually committed to a drag.
+    if (dragCommittedRef.current) {
+      const node = simNodesRef.current.find((n) => n.id === dragId)
+      if (node) {
+        node.fx = null
+        node.fy = null
+        node.fz = null
+      }
+      simulationRef.current?.alphaTarget(0).restart()
     }
     draggingIdRef.current = null
+    dragCommittedRef.current = false
     setDraggingId(null)
-    simulationRef.current?.alphaTarget(0).restart()
   }, [])
 
   useEffect(() => {
@@ -1042,6 +1053,22 @@ function Scene({
       const node = simNodesRef.current.find((n) => n.id === draggingIdRef.current)
       const controls = controlsRef.current
       if (!node || !controls) return
+
+      // Defer committing to "this is a drag" until the pointer has
+      // actually moved past the threshold. Until then, do nothing — a
+      // click that lifts at the same pixel will skip this branch
+      // entirely and fall through to handleNodeClick → onSelect.
+      if (!dragCommittedRef.current) {
+        const dx = ev.clientX - dragStartScreenRef.current.x
+        const dy = ev.clientY - dragStartScreenRef.current.y
+        if (dx * dx + dy * dy < DRAG_THRESHOLD_PX * DRAG_THRESHOLD_PX) return
+        dragCommittedRef.current = true
+        // First real drag motion — pin the node + nudge the sim awake.
+        node.fx = node.x ?? 0
+        node.fy = node.y ?? 0
+        node.fz = node.z ?? 0
+        simulationRef.current?.alphaTarget(0.25).restart()
+      }
 
       vecs.nodePos.set(node.x ?? 0, node.y ?? 0, node.z ?? 0)
       vecs.mouseNDC.set(
@@ -1128,6 +1155,10 @@ function Scene({
     const idealDist = Math.max(9, (node.val || 1.5) * 5.2)
     const newCamPos = targetPos.clone().add(dir.multiplyScalar(idealDist))
 
+    // Drop any queued WASD/QE/arrow keys so they don't snap the camera
+    // off-target the moment the fly-to completes.
+    keysHeld.current.clear()
+
     controls.enabled = false
     const startTarget = controls.target.clone()
     const duration = 920
@@ -1202,6 +1233,10 @@ function Scene({
       update: () => {},
     } as unknown as OrbitControlsImpl
     fitCameraToNodes(tmpCam, tmpControls, simNodesRef.current, fitVecs.current)
+
+    // Drop any queued WASD keystrokes so they don't snap the camera
+    // off-home the instant the reset animation completes.
+    keysHeld.current.clear()
 
     const startPos = cam.position.clone()
     const startTarget = controls.target.clone()
