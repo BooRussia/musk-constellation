@@ -1421,7 +1421,7 @@ function Scene({
     const held = keysHeld.current
     const accel = 12 // 1/s — how fast velocity ramps to target
     const decay = 8 // 1/s — how fast velocity decays when no key held
-    const targetAz = (held.has('a') ? 1 : 0) - (held.has('d') ? 1 : 0)
+    const targetAz = (held.has('d') ? 1 : 0) - (held.has('a') ? 1 : 0)
     const targetPol = (held.has('w') ? 1 : 0) - (held.has('s') ? 1 : 0)
     const targetDolly = (held.has('e') ? 1 : 0) - (held.has('q') ? 1 : 0)
     const targetPanX = (held.has('ArrowLeft') ? 1 : 0) - (held.has('ArrowRight') ? 1 : 0)
