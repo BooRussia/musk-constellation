@@ -1004,6 +1004,32 @@ export const EVENTS: TimelineEvent[] = [
   { year: 2026, title: 'Cybercab volume production begins', detail: 'Tesla starts volume Cybercab production at Giga Texas using the unboxed manufacturing process, targeting sub-$30k pricing for autonomous fleets.', nodes: ['tesla', 'tesla-autonomy'] },
 ]
 
+/** All events that have happened on or before the cursor year, in
+ *  reverse chronological order (newest first). Powers the events
+ *  feed that accumulates milestones as the user scrubs forward.
+ *  Within a busy year (multiple events), only events whose "year
+ *  slice" the cursor has crossed are included — so slow-scrubbing
+ *  through 2024 reveals events one by one. */
+export function getPassedEvents(year: number): TimelineEvent[] {
+  const yearInt = Math.floor(year)
+  const out: TimelineEvent[] = []
+  // All events from years strictly before the cursor year.
+  for (const e of EVENTS) {
+    if (e.year < yearInt) out.push(e)
+  }
+  // Events in the current year — include up to the cursor's slice.
+  const yearEvents = EVENTS.filter(e => e.year === yearInt)
+  if (yearEvents.length > 0) {
+    const frac = Math.max(0, Math.min(0.9999, year - yearInt))
+    const passedInYear = Math.floor(frac * yearEvents.length) + 1
+    for (let i = 0; i < Math.min(passedInYear, yearEvents.length); i++) {
+      out.push(yearEvents[i])
+    }
+  }
+  // Reverse so the most recent event is at the top of the feed.
+  return out.reverse()
+}
+
 /** Pick the current event for a float cursor year. When the cursor
  *  is inside a year with N events, the year is sliced into N equal
  *  parts and each part surfaces the next event — so slow-scrubbing

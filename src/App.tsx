@@ -16,8 +16,9 @@ import {
   getChildren, getNodeLinks, getNodeById, getParentId, getVisibleNodes,
   getLinkRole, getLinkRoleLabel,
   GROUP_COLORS, LINK_COLORS, LINK_LABELS,
-  INITIAL_FOCUS, TIMELINE_BOUNDS, getCurrentEvent,
+  INITIAL_FOCUS, TIMELINE_BOUNDS, getCurrentEvent, getPassedEvents,
 } from './data/constellation'
+import type { TimelineEvent } from './data/constellation'
 import type { Link } from './data/constellation'
 
 const ConstellationCanvas = lazy(() => import('./components/ConstellationCanvas'))
@@ -528,29 +529,101 @@ function TimelineEventLine({ year }: { year: number }) {
   )
 }
 
+const TIMELINE_SPEED_OPTIONS = [0.25, 0.5, 1, 2] as const
+
+/** Stacked, scrollable feed of every event that has happened on or
+ *  before the current scrub year. Newest at the top so the most
+ *  recent event sits at eye-level — scroll down to read history.
+ *  Mounted as a floating card on the left side of the screen ONLY
+ *  while Timeline mode is active. */
+function TimelineEventsFeed({ year }: { year: number }) {
+  const events = useMemo(() => getPassedEvents(year), [year])
+  return (
+    <motion.aside
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -16 }}
+      transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
+      className="ui-layer timeline-feed glass panel"
+      role="region"
+      aria-label="Timeline events history"
+    >
+      <header className="timeline-feed-header">
+        <span className="timeline-feed-eyebrow">HISTORY</span>
+        <span className="timeline-feed-count">
+          {events.length} {events.length === 1 ? 'event' : 'events'}
+        </span>
+      </header>
+      <ol className="timeline-feed-list">
+        <AnimatePresence initial={false}>
+          {events.map((e) => (
+            <TimelineFeedItem key={`${e.year}-${e.title}`} event={e} />
+          ))}
+        </AnimatePresence>
+      </ol>
+      {events.length === 0 && (
+        <p className="timeline-feed-empty">
+          Scrub forward to start collecting events. The earliest is 2002.
+        </p>
+      )}
+    </motion.aside>
+  )
+}
+
+function TimelineFeedItem({ event }: { event: TimelineEvent }) {
+  return (
+    <motion.li
+      layout
+      initial={{ opacity: 0, y: -8, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, x: -8 }}
+      transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+      className="timeline-feed-item"
+    >
+      <span className="timeline-feed-year">{event.year}</span>
+      <span className="timeline-feed-body">
+        <span className="timeline-feed-title">{event.title}</span>
+        {event.detail && (
+          <span className="timeline-feed-detail">{event.detail}</span>
+        )}
+      </span>
+    </motion.li>
+  )
+}
+
 function TimelineScrubber({
   year,
   playing,
+  speed,
   onYearChange,
   onPlayingChange,
+  onSpeedChange,
   onClose,
 }: {
   year: number
   playing: boolean
+  speed: number
   onYearChange: (y: number) => void
   onPlayingChange: (p: boolean) => void
+  onSpeedChange: (s: number) => void
   onClose: () => void
 }) {
   const { min, max } = TIMELINE_BOUNDS
 
   // Auto-play: advance the cursor smoothly via requestAnimationFrame.
   // Using rAF + delta time means orbs grow continuously at 60fps
-  // instead of jumping each integer year. Loops back to `min` after
-  // crossing `max` so the animation is replayable without manual reset.
+  // instead of jumping each integer year. Speed multiplier lets the
+  // user slow down during dense years (2024+) for readability. Loops
+  // back to `min` after crossing `max` so the animation is replayable
+  // without manual reset.
   const yearRef = useRef(year)
+  const speedRef = useRef(speed)
   useEffect(() => {
     yearRef.current = year
   }, [year])
+  useEffect(() => {
+    speedRef.current = speed
+  }, [speed])
   useEffect(() => {
     if (!playing) return
     let rafId = 0
@@ -558,7 +631,7 @@ function TimelineScrubber({
     const tick = (ts: number) => {
       const dt = Math.min(0.1, (ts - lastTs) / 1000) // clamp big tab-switch dt
       lastTs = ts
-      let next = yearRef.current + dt * TIMELINE_PLAY_RATE_PER_SEC
+      let next = yearRef.current + dt * TIMELINE_PLAY_RATE_PER_SEC * speedRef.current
       if (next > max) next = min
       onYearChange(next)
       rafId = requestAnimationFrame(tick)
@@ -566,6 +639,15 @@ function TimelineScrubber({
     rafId = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(rafId)
   }, [playing, min, max, onYearChange])
+
+  const cycleSpeed = () => {
+    const i = TIMELINE_SPEED_OPTIONS.indexOf(speed as 0.25 | 0.5 | 1 | 2)
+    const next = TIMELINE_SPEED_OPTIONS[(i + 1) % TIMELINE_SPEED_OPTIONS.length]
+    onSpeedChange(next)
+  }
+
+  // Pretty label: integer speeds drop the trailing `.0`.
+  const speedLabel = speed === 0.25 ? '¼x' : speed === 0.5 ? '½x' : `${speed}x`
 
   // Tick years to draw on the rail — every 4 years for readability.
   const ticks = useMemo(() => {
@@ -599,6 +681,15 @@ function TimelineScrubber({
         </span>
         <TimelineEventLine year={year} />
         <div className="timeline-controls">
+          <button
+            type="button"
+            onClick={cycleSpeed}
+            className="timeline-speed"
+            aria-label={`Playback speed ${speedLabel} — tap to cycle`}
+            title={`Speed: ${speedLabel} · click to change`}
+          >
+            {speedLabel}
+          </button>
           <button
             type="button"
             onClick={() => onPlayingChange(!playing)}
@@ -687,6 +778,10 @@ export default function MuskConstellation() {
   // are visible. timelineYear === null means Timeline is off (show all).
   const [timelineYear, setTimelineYear] = useState<number | null>(null)
   const [timelinePlaying, setTimelinePlaying] = useState(false)
+  // Speed multiplier — default 0.5x (2 sec/year) so dense years like
+  // 2024 (9 events) and 2026 (12 events) are readable. User can cycle
+  // up to 2x or down to 0.25x via the speed chip in the scrubber.
+  const [timelineSpeed, setTimelineSpeed] = useState<number>(0.5)
   // Incremented every time RESET is pressed. ConstellationCanvas
   // listens for changes and animates the camera back to the initial
   // fitted home view.
@@ -1515,11 +1610,19 @@ export default function MuskConstellation() {
 
         <AnimatePresence>
           {timelineYear !== null && (
+            <TimelineEventsFeed key="events-feed" year={timelineYear} />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {timelineYear !== null && (
             <TimelineScrubber
               year={timelineYear}
               playing={timelinePlaying}
+              speed={timelineSpeed}
               onYearChange={setTimelineYear}
               onPlayingChange={setTimelinePlaying}
+              onSpeedChange={setTimelineSpeed}
               onClose={() => {
                 setTimelinePlaying(false)
                 setTimelineYear(null)
