@@ -873,6 +873,7 @@ export const INITIAL_FOCUS = 'tesla'
 export function getVisibleNodes(
   expandedIds: Iterable<string>,
   timelineYear?: number,
+  enabledGroups?: Set<Node['group']>,
 ): Node[] {
   const visible = new Map<string, Node>()
   for (const node of NODES) {
@@ -890,7 +891,53 @@ export function getVisibleNodes(
       }
     }
   }
+  // Group focus filter. When enabledGroups is set and doesn't cover
+  // every group, hide nodes whose group is disabled UNLESS they're
+  // directly linked to a node from an enabled group. That way
+  // focusing "Tesla" still surfaces the SpaceX core (because Tesla
+  // sells Megapacks to SpaceX) but hides Anthropic (which only
+  // connects to xAI/Colossus, not Tesla).
+  if (enabledGroups && enabledGroups.size < ALL_GROUPS.length) {
+    // Step 1: collect ids of nodes whose own group is enabled.
+    const ownGroupVisible = new Set<string>()
+    for (const node of visible.values()) {
+      if (enabledGroups.has(node.group)) ownGroupVisible.add(node.id)
+    }
+    // Step 2: collect ids that are adjacent to any own-group-visible
+    // node via a link. Subs are NOT promoted by adjacency — only
+    // cores and externals — so focusing Tesla doesn't drag SpaceX's
+    // sub-web into view.
+    const adjacent = new Set<string>()
+    for (const link of LINKS) {
+      const sIn = ownGroupVisible.has(link.source)
+      const tIn = ownGroupVisible.has(link.target)
+      if (sIn && !tIn) adjacent.add(link.target)
+      if (tIn && !sIn) adjacent.add(link.source)
+    }
+    for (const [id, node] of visible) {
+      if (ownGroupVisible.has(id)) continue
+      if (adjacent.has(id) && node.type !== 'sub') continue
+      visible.delete(id)
+    }
+  }
   return [...visible.values()]
+}
+
+/** Stable list of every group used by NODES. Drives the focus toggles
+ *  and lets getVisibleNodes detect the "all enabled, no filtering"
+ *  shortcut. */
+export const ALL_GROUPS: Node['group'][] = [
+  'tesla', 'spacex', 'xai', 'neuralink', 'x', 'boring', 'external',
+]
+
+export const GROUP_LABELS: Record<Node['group'], string> = {
+  tesla: 'Tesla',
+  spacex: 'SpaceX',
+  xai: 'xAI',
+  neuralink: 'Neuralink',
+  x: 'X',
+  boring: 'Boring Co',
+  external: 'External',
 }
 
 /** Min/max foundedYear across all nodes — bounds for the Timeline slider. */

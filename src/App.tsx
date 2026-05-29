@@ -17,9 +17,9 @@ import {
   getLinkRole, getLinkRoleLabel,
   GROUP_COLORS, LINK_COLORS, LINK_LABELS,
   INITIAL_FOCUS, TIMELINE_BOUNDS, getCurrentEvent, getPassedEvents,
-  EVENTS,
+  EVENTS, ALL_GROUPS, GROUP_LABELS,
 } from './data/constellation'
-import type { TimelineEvent } from './data/constellation'
+import type { Node as ConstellationNode, TimelineEvent } from './data/constellation'
 import type { Link } from './data/constellation'
 
 const ConstellationCanvas = lazy(() => import('./components/ConstellationCanvas'))
@@ -835,6 +835,14 @@ export default function MuskConstellation() {
   // 2024 (9 events) and 2026 (12 events) are readable. User can cycle
   // up to 2x or down to 0.25x via the speed chip in the scrubber.
   const [timelineSpeed, setTimelineSpeed] = useState<number>(0.5)
+  // Per-company focus filter. When a group is disabled, its nodes
+  // hide BUT nodes directly linked to enabled-group nodes still
+  // show — so focusing Tesla keeps the SpaceX core visible (via the
+  // Tesla→SpaceX Megapack link) while hiding Anthropic. Default: all
+  // enabled (no filtering).
+  const [enabledGroups, setEnabledGroups] = useState<Set<ConstellationNode['group']>>(
+    () => new Set(ALL_GROUPS)
+  )
   // Incremented every time RESET is pressed. ConstellationCanvas
   // listens for changes and animates the camera back to the initial
   // fitted home view.
@@ -908,8 +916,8 @@ export default function MuskConstellation() {
   const selectedNode = selectedId ? getNodeById(selectedId) : null
 
   const visibleNodes = useMemo(
-    () => getVisibleNodes(expandedIds, timelineYear ?? undefined),
-    [expandedIds, timelineYear],
+    () => getVisibleNodes(expandedIds, timelineYear ?? undefined, enabledGroups),
+    [expandedIds, timelineYear, enabledGroups],
   )
 
   const highlightLinkIds = useMemo(() => {
@@ -1626,14 +1634,50 @@ export default function MuskConstellation() {
                 </div>
 
                 <div>
-                  <div className="mb-1 text-[9px] uppercase tracking-[1.5px] text-white/45">Companies</div>
-                  <div className="grid grid-cols-2 gap-x-2">
-                    {Object.entries(GROUP_COLORS).slice(0, 6).map(([key, color]) => (
-                      <div key={key} className="legend-item">
-                        <div className="dot" style={{ backgroundColor: color }} />
-                        <span className="capitalize">{key}</span>
-                      </div>
-                    ))}
+                  <div className="mb-1.5 flex items-baseline justify-between">
+                    <span className="text-[9px] uppercase tracking-[1.5px] text-white/45">Focus</span>
+                    {enabledGroups.size < ALL_GROUPS.length && (
+                      <button
+                        type="button"
+                        onClick={() => setEnabledGroups(new Set(ALL_GROUPS))}
+                        className="text-[9px] uppercase tracking-[1.5px] text-white/55 hover:text-white"
+                        title="Re-enable every group"
+                      >
+                        All
+                      </button>
+                    )}
+                  </div>
+                  <div className="legend-focus-grid">
+                    {ALL_GROUPS.map((group) => {
+                      const active = enabledGroups.has(group)
+                      const color = GROUP_COLORS[group]
+                      return (
+                        <button
+                          key={group}
+                          type="button"
+                          onClick={() => {
+                            setEnabledGroups(prev => {
+                              const next = new Set(prev)
+                              if (next.has(group)) next.delete(group)
+                              else next.add(group)
+                              // Never let the user end up with zero
+                              // groups — that would hide every orb.
+                              // Re-enable all if they just removed
+                              // the last one.
+                              if (next.size === 0) return new Set(ALL_GROUPS)
+                              return next
+                            })
+                          }}
+                          className={`legend-focus-chip ${active ? 'legend-focus-chip--on' : 'legend-focus-chip--off'}`}
+                          style={{ '--chip-color': color } as React.CSSProperties}
+                          aria-pressed={active}
+                          title={active ? `Hide ${GROUP_LABELS[group]} (still shows when linked)` : `Show ${GROUP_LABELS[group]}`}
+                        >
+                          <span className="legend-focus-chip-dot" />
+                          <span>{GROUP_LABELS[group]}</span>
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
 
