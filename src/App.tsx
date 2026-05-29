@@ -1119,6 +1119,7 @@ export default function MuskConstellation() {
                 showAllPulse={showAllPulse}
                 resetSignal={resetSignal}
                 timelineYear={timelineYear}
+                enabledGroups={enabledGroups}
               />
             </WebGLErrorBoundary>
           </Suspense>

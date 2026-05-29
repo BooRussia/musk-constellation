@@ -44,6 +44,11 @@ export interface Props {
    *  GROWTH_DURATION, 0, 1) so orbs grow in smoothly as the user
    *  scrubs past each entity's founding year. null = Timeline off. */
   timelineYear?: number | null
+  /** Per-company focus filter. Nodes whose group is NOT in this set
+   *  are hidden, unless they're directly linked to a node in an
+   *  enabled group (adjacency rule — keeps the focused company's
+   *  partners visible). undefined = no filtering. */
+  enabledGroups?: Set<Node['group']>
 }
 
 interface SimNode extends Node {
@@ -826,6 +831,7 @@ function Scene({
   showAllPulse = false,
   resetSignal = 0,
   timelineYear = null,
+  enabledGroups,
 }: Omit<Props, 'onExpand'>) {
   const { camera, raycaster, mouse, scene, size } = useThree()
   const controlsRef = useRef<OrbitControlsImpl>(null)
@@ -869,8 +875,8 @@ function Scene({
   })
 
   const visibleNodes = useMemo(
-    () => getVisibleNodes(expandedIds),
-    [expandedIds],
+    () => getVisibleNodes(expandedIds, undefined, enabledGroups),
+    [expandedIds, enabledGroups],
   )
 
   const visibleNodeKey = useMemo(
