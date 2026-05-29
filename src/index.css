@@ -1655,6 +1655,167 @@ body {
   outline-offset: 2px;
 }
 
+/* Event markers row — one dot per event, positioned at its
+   year fraction. Sits between the slider rail and the tick
+   year labels so it never collides with either. Hovering a
+   dot reveals a tooltip with the event headline; clicking a
+   dot jumps the cursor right to that event. */
+.timeline-event-markers {
+  position: relative;
+  margin-top: 8px;
+  height: 12px;
+}
+
+.timeline-event-marker {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.timeline-event-marker:focus-visible {
+  outline: none;
+}
+
+.timeline-event-marker:focus-visible .timeline-event-marker-dot {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.timeline-event-marker-dot {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(120, 180, 255, 0.65);
+  box-shadow: 0 0 4px rgba(80, 150, 255, 0.45);
+  transition: all 0.15s ease;
+}
+
+.timeline-event-marker:hover .timeline-event-marker-dot,
+.timeline-event-marker:focus-visible .timeline-event-marker-dot {
+  width: 9px;
+  height: 9px;
+  background: #fff;
+  box-shadow: 0 0 10px rgba(120, 180, 255, 0.9);
+}
+
+/* Tooltip — appears above the dot on hover/focus. Pure CSS show/hide
+   so it costs nothing on idle. Wide enough for the longest title;
+   pointer-events: none on the wrapper so it doesn't intercept clicks
+   on neighboring dots. */
+.timeline-event-marker-tooltip {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%) translateY(6px);
+  width: 260px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(8, 8, 12, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.8);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.14s ease, transform 0.14s ease;
+  z-index: 50;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.timeline-event-marker-tooltip::after {
+  /* Small caret pointing down at the dot. */
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: rgba(8, 8, 12, 0.96);
+}
+
+.timeline-event-marker:hover .timeline-event-marker-tooltip,
+.timeline-event-marker:focus-visible .timeline-event-marker-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.timeline-event-marker-year {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: rgba(255, 255, 255, 0.5);
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline-event-marker-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.3;
+  letter-spacing: -0.1px;
+}
+
+.timeline-event-marker-detail {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.4;
+}
+
+/* Edge-anchored tooltips for markers near the start/end of the rail
+   so the tooltip doesn't fly off-screen. */
+.timeline-event-markers > .timeline-event-marker:nth-child(-n+3) .timeline-event-marker-tooltip {
+  left: 0;
+  transform: translateY(6px);
+}
+.timeline-event-markers > .timeline-event-marker:nth-child(-n+3) .timeline-event-marker-tooltip::after {
+  left: 16px;
+  transform: none;
+}
+.timeline-event-markers > .timeline-event-marker:nth-child(-n+3):hover .timeline-event-marker-tooltip,
+.timeline-event-markers > .timeline-event-marker:nth-child(-n+3):focus-visible .timeline-event-marker-tooltip {
+  transform: translateY(0);
+}
+
+.timeline-event-markers > .timeline-event-marker:nth-last-child(-n+3) .timeline-event-marker-tooltip {
+  left: auto;
+  right: 0;
+  transform: translateY(6px);
+}
+.timeline-event-markers > .timeline-event-marker:nth-last-child(-n+3) .timeline-event-marker-tooltip::after {
+  left: auto;
+  right: 16px;
+  transform: none;
+}
+.timeline-event-markers > .timeline-event-marker:nth-last-child(-n+3):hover .timeline-event-marker-tooltip,
+.timeline-event-markers > .timeline-event-marker:nth-last-child(-n+3):focus-visible .timeline-event-marker-tooltip {
+  transform: translateY(0);
+}
+
+@media (max-width: 639px) {
+  /* Mobile: smaller markers, narrower tooltip. */
+  .timeline-event-markers {
+    height: 10px;
+  }
+  .timeline-event-marker-dot {
+    width: 5px;
+    height: 5px;
+  }
+  .timeline-event-marker-tooltip {
+    width: 220px;
+  }
+}
+
 .timeline-ticks {
   position: relative;
   margin-top: 12px;

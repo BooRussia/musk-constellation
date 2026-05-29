@@ -17,6 +17,7 @@ import {
   getLinkRole, getLinkRoleLabel,
   GROUP_COLORS, LINK_COLORS, LINK_LABELS,
   INITIAL_FOCUS, TIMELINE_BOUNDS, getCurrentEvent, getPassedEvents,
+  EVENTS,
 } from './data/constellation'
 import type { TimelineEvent } from './data/constellation'
 import type { Link } from './data/constellation'
@@ -658,6 +659,33 @@ function TimelineScrubber({
     return out
   }, [min, max])
 
+  // One marker per event, positioned at its fractional year. Busy
+  // years are spread across the year's slice so every event in 2024
+  // (9 events) has its own clickable dot rather than 9 dots stacked
+  // at the same x. The fractional year is also where clicking will
+  // jump the cursor so the event lands as the "current event".
+  const eventMarkers = useMemo(() => {
+    const byYear = new Map<number, TimelineEvent[]>()
+    for (const e of EVENTS) {
+      const arr = byYear.get(e.year) ?? []
+      arr.push(e)
+      byYear.set(e.year, arr)
+    }
+    const span = max - min
+    return EVENTS.map((e) => {
+      const yearEvents = byYear.get(e.year)!
+      const idx = yearEvents.indexOf(e)
+      // Center each event in its slice — for 9 events in a year,
+      // slice width is 1/9 and centers are at 0.056, 0.167, ..., 0.944.
+      const sliceFrac = (idx + 0.5) / yearEvents.length
+      const exact = e.year + sliceFrac
+      // Clamp the visual position 0..1 (events at the very last year
+      // shouldn't pop past the rail's right edge).
+      const pct = Math.max(0, Math.min(1, (exact - min) / span)) * 100
+      return { event: e, exact, pct }
+    })
+  }, [min, max])
+
   // Display the integer year — internal year is a float for smooth
   // growth but a "2014.37" readout would feel broken.
   const displayYear = Math.floor(year)
@@ -730,6 +758,30 @@ function TimelineScrubber({
           className="timeline-slider"
           aria-label={`Year ${displayYear} — drag to scrub between ${min} and ${max}`}
         />
+        <div className="timeline-event-markers">
+          {eventMarkers.map(({ event, exact, pct }) => (
+            <button
+              key={`${event.year}-${event.title}`}
+              type="button"
+              onClick={() => {
+                onPlayingChange(false)
+                onYearChange(exact)
+              }}
+              className="timeline-event-marker"
+              style={{ left: `${pct}%` }}
+              aria-label={`Jump to ${event.year} — ${event.title}`}
+            >
+              <span className="timeline-event-marker-dot" />
+              <span className="timeline-event-marker-tooltip" role="tooltip">
+                <span className="timeline-event-marker-year">{event.year}</span>
+                <span className="timeline-event-marker-title">{event.title}</span>
+                {event.detail && (
+                  <span className="timeline-event-marker-detail">{event.detail}</span>
+                )}
+              </span>
+            </button>
+          ))}
+        </div>
         <div className="timeline-ticks" aria-hidden="true">
           {ticks.map((t) => {
             const pct = ((t - min) / (max - min)) * 100
