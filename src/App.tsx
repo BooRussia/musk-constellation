@@ -487,32 +487,29 @@ function writeUrlState(node: string | null, expand: Set<string>) {
 // drives the cursor; per-orb scaling reads the same float year.
 const TIMELINE_PLAY_RATE_PER_SEC = 1.0
 
-/** One-line narrative annotation that updates as the cursor crosses
- *  each event year. Animated with AnimatePresence so the transition
- *  from one event to the next reads as a quick fade-swap, not a
- *  flicker. Kept inside the scrubber to avoid yet another floating
- *  card stacking on screen. */
+/** Narrative annotation that updates as the cursor crosses each event
+ *  year. Pure typography — title above, detail below — no border or
+ *  background block. Animated with AnimatePresence so the swap reads
+ *  as a quick fade-up, not a pop. Sits between the year readout and
+ *  the controls inside the single-row scrubber. */
 function TimelineEventLine({ year }: { year: number }) {
   const event = useMemo(() => getCurrentEvent(year), [year])
   return (
-    <div className="timeline-event-row" aria-live="polite">
+    <div className="timeline-event" aria-live="polite">
       <AnimatePresence mode="wait">
         {event ? (
           <motion.div
             key={`${event.year}-${event.title}`}
-            initial={{ opacity: 0, y: 4 }}
+            initial={{ opacity: 0, y: 3 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
-            className="timeline-event"
+            exit={{ opacity: 0, y: -3 }}
+            transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
+            className="timeline-event-stack"
           >
-            <span className="timeline-event-year">{event.year}</span>
-            <span className="timeline-event-body">
-              <span className="timeline-event-title">{event.title}</span>
-              {event.detail && (
-                <span className="timeline-event-detail">{event.detail}</span>
-              )}
-            </span>
+            <span className="timeline-event-title">{event.title}</span>
+            {event.detail && (
+              <span className="timeline-event-detail">{event.detail}</span>
+            )}
           </motion.div>
         ) : (
           <motion.div
@@ -520,13 +517,10 @@ function TimelineEventLine({ year }: { year: number }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            className="timeline-event timeline-event--empty"
+            transition={{ duration: 0.16 }}
+            className="timeline-event-stack timeline-event-stack--empty"
           >
-            <span className="timeline-event-year">—</span>
-            <span className="timeline-event-body">
-              <span className="timeline-event-detail">Before the empire begins.</span>
-            </span>
+            <span className="timeline-event-detail">Before the empire begins.</span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -587,19 +581,23 @@ function TimelineScrubber({
 
   return (
     <motion.aside
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 12 }}
+      exit={{ opacity: 0, y: 8 }}
       transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
       className="ui-layer timeline-scrubber glass panel"
       role="region"
       aria-label="Timeline scrubber"
     >
-      <div className="timeline-header">
-        <div className="timeline-year-block">
-          <span className="timeline-eyebrow">TIMELINE</span>
-          <span className="timeline-year">{displayYear}</span>
-        </div>
+      {/* Single row: year on the left, event headline in the middle,
+          controls on the right. Year is the visual anchor; the event
+          headline is a clean piece of typography next to it (no box,
+          no border — that read as "popping up" before). */}
+      <div className="timeline-row">
+        <span className="timeline-year" aria-label={`Year ${displayYear}`}>
+          {displayYear}
+        </span>
+        <TimelineEventLine year={year} />
         <div className="timeline-controls">
           <button
             type="button"
@@ -626,22 +624,7 @@ function TimelineScrubber({
         </div>
       </div>
 
-      <TimelineEventLine year={year} />
-
       <div className="timeline-slider-wrap">
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={0.05}
-          value={year}
-          onChange={(e) => {
-            onPlayingChange(false)
-            onYearChange(parseFloat(e.target.value))
-          }}
-          className="timeline-slider"
-          aria-label={`Year ${displayYear} — drag to scrub between ${min} and ${max}`}
-        />
         <div className="timeline-ticks" aria-hidden="true">
           {ticks.map((t) => {
             const pct = ((t - min) / (max - min)) * 100
@@ -656,6 +639,19 @@ function TimelineScrubber({
             )
           })}
         </div>
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={0.05}
+          value={year}
+          onChange={(e) => {
+            onPlayingChange(false)
+            onYearChange(parseFloat(e.target.value))
+          }}
+          className="timeline-slider"
+          aria-label={`Year ${displayYear} — drag to scrub between ${min} and ${max}`}
+        />
       </div>
     </motion.aside>
   )
@@ -914,10 +910,19 @@ export default function MuskConstellation() {
   // ============================================
   const panelOpen = showDesktopPanel
   const layoutVars = {
-    '--panel-w': panelOpen ? '440px' : '0px',
-    '--sidebar-w': showLeftSidebar ? '294px' : '0px',
-    '--panel-width': panelOpen ? '440px' : '0px',
-    '--sidebar-width': showLeftSidebar ? '294px' : '0px',
+    // Right details panel still pushes the canvas (reading + viewing
+    // side-by-side is a feature). Narrowed 440 → 380 to give the
+    // canvas back ~60px of room.
+    '--panel-w': panelOpen ? '380px' : '0px',
+    // Left sidebar now OVERLAYS the canvas (with backdrop blur)
+    // instead of pushing it — the canvas stays full-width on the
+    // left at all times, so the screen feels less crowded.
+    '--sidebar-w': '0px',
+    '--panel-width': panelOpen ? '380px' : '0px',
+    '--sidebar-width': '0px',
+    // Visual width of the left sidebar itself (for its own CSS), kept
+    // separate from --sidebar-w so the canvas doesn't pad away from it.
+    '--sidebar-visual-w': showLeftSidebar ? '288px' : '0px',
   } as React.CSSProperties
 
   return (

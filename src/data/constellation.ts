@@ -928,35 +928,100 @@ export interface TimelineEvent {
 }
 
 export const EVENTS: TimelineEvent[] = [
-  { year: 2002, title: 'SpaceX founded', detail: 'Musk puts $100M into a rocket startup. Goal: make life multiplanetary.', nodes: ['spacex'] },
-  { year: 2003, title: 'Tesla founded', detail: 'Eberhard and Tarpenning incorporate Tesla Motors in San Carlos, CA.', nodes: ['tesla'] },
-  { year: 2004, title: 'Musk leads Tesla Series A', detail: 'Joins as chairman and largest investor with $6.5M of a $7.5M round.', nodes: ['tesla'] },
-  { year: 2008, title: 'Falcon 1 reaches orbit', detail: 'Fourth attempt. First privately-funded liquid-fuel rocket to orbit. NASA awards SpaceX a $1.6B COTS contract weeks later.', nodes: ['spacex', 'nasa'] },
-  { year: 2010, title: 'Falcon 9 maiden flight', detail: 'New workhorse rocket flies. Dragon spacecraft reaches orbit on second launch and returns intact.', nodes: ['spacex', 'spacex-falcon'] },
-  { year: 2012, title: 'Dragon docks with the ISS', detail: 'First commercial spacecraft to dock with the station. SpaceX becomes a primary US cargo ferry.', nodes: ['spacex', 'nasa'] },
-  { year: 2014, title: 'Tesla Autopilot launches', detail: 'Hardware 1 ships on Model S — the seed of what becomes FSD and Robotaxi.', nodes: ['tesla', 'tesla-autonomy'] },
-  { year: 2015, title: 'Falcon 9 lands itself', detail: 'First orbital-class booster to return propulsively. Reusability changes the economics of space. Tesla Powerwall debuts; Starlink concept announced.', nodes: ['spacex', 'spacex-falcon', 'tesla-energy', 'spacex-starlink'] },
-  { year: 2016, title: 'Neuralink + Boring Co founded', detail: 'BCIs and tunnels enter the empire in the same year.', nodes: ['neuralink', 'boring'] },
-  { year: 2017, title: 'Tesla Semi unveiled', detail: 'Class 8 electric truck reveal. Model 3 deliveries begin to early reservation holders.', nodes: ['tesla', 'tesla-semi'] },
-  { year: 2018, title: 'Falcon Heavy maiden flight', detail: 'Most powerful operational rocket. A cherry Roadster is sent toward Mars.', nodes: ['spacex', 'spacex-falcon'] },
-  { year: 2019, title: 'Starlink launches • Megapack debuts', detail: '60 V0.9 sats on a single Falcon 9 — the constellation buildout begins. Tesla Energy ships the Megapack at grid scale. Dojo unveiled.', nodes: ['spacex-starlink', 'tesla-energy', 'tesla-ai-chips'] },
-  { year: 2020, title: 'Crew Dragon returns US to crewed flight', detail: 'Demo-2 sends Behnken and Hurley to the ISS — first crewed orbital launch from US soil since 2011. Starlink opens commercial beta. Space Force contracts begin.', nodes: ['spacex', 'nasa', 'spacex-starlink', 'us-space-force'] },
-  { year: 2021, title: 'Vegas Loop opens • Optimus revealed', detail: 'The Boring Co\'s LVCC tunnel goes live at CES. Tesla unveils the Optimus humanoid robot concept at AI Day.', nodes: ['boring-vegas-loop', 'tesla-optimus'] },
-  { year: 2022, title: 'Musk acquires Twitter for $44B', detail: 'Rebrand to X begins. SpaceX announces Starshield (defense Starlink). T-Mobile partners on direct-to-cell.', nodes: ['x', 'spacex-starshield', 't-mobile'] },
-  { year: 2023, title: 'xAI founded • Grok ships', detail: 'Musk\'s answer to OpenAI. Grok 1 lands on X by year-end. Twitter formally rebranded to X.', nodes: ['xai', 'xai-grok', 'x'] },
-  { year: 2024, title: 'Neuralink\'s first patient', detail: 'Noland Arbaugh — quadriplegic — controls a cursor with his mind via the N1 implant. Colossus 1 (100k+ H100s) comes online for xAI training. Boring announces Music City Loop.', nodes: ['nlink-telepathy', 'xai-colossus', 'boring-music-city'] },
-  { year: 2025, title: 'Anthropic leases Colossus 1', detail: 'Anthropic takes 100% of Colossus 1 capacity from xAI at $1.25B/month through 2029. xAI starts building Colossus 2 toward 1M GPUs. X Money launches on Visa rails.', nodes: ['anthropic', 'xai-colossus', 'xai-colossus-2', 'x-money'] },
-  { year: 2026, title: 'SpaceX acquires xAI', detail: '$1.25T combined entity. SpaceX files S-1 in May targeting the largest IPO in history. Project Celestia — orbital data centers — gets FCC approval.', nodes: ['spacex', 'xai', 'spacex-celestia'] },
+  { year: 2002, title: 'SpaceX founded in El Segundo', detail: 'Musk founds Space Exploration Technologies with $100M of personal capital, aiming to drastically reduce launch costs and make humanity multi-planetary.', nodes: ['spacex'] },
+  { year: 2003, title: 'Tesla Motors incorporated', detail: 'Martin Eberhard and Marc Tarpenning incorporate Tesla Motors in San Carlos, California to build a high-performance electric sports car.', nodes: ['tesla'] },
+  { year: 2004, title: 'Musk leads Tesla Series A', detail: 'Musk invests $6.5M to lead Tesla\'s Series A round and joins as chairman of the board, taking effective control of product direction.', nodes: ['tesla'] },
+  { year: 2006, title: 'SolarCity founded by cousins', detail: 'Musk\'s cousins Lyndon and Peter Rive launch SolarCity with Musk\'s backing, seeding what becomes Tesla Energy a decade later.', nodes: ['tesla-energy'] },
+  { year: 2008, title: 'Falcon 1 reaches orbit', detail: 'After three failures nearly bankrupted the company, Falcon 1 becomes the first privately developed liquid-fueled rocket to reach Earth orbit on its fourth flight.', nodes: ['spacex', 'spacex-falcon'] },
+  { year: 2008, title: 'Tesla Roadster ships', detail: 'Tesla begins delivering the Lotus-based Roadster, the first highway-legal lithium-ion EV with 244 miles of range, and Musk becomes CEO mid-crisis.', nodes: ['tesla'] },
+  { year: 2010, title: 'Falcon 9 and Dragon debut', detail: 'Falcon 9 successfully reaches orbit on its maiden flight and Dragon becomes the first commercial spacecraft to be recovered from orbit.', nodes: ['spacex', 'spacex-falcon', 'nasa'] },
+  { year: 2012, title: 'Model S launches, Dragon docks with ISS', detail: 'Tesla delivers the Model S sedan, redefining the premium EV, while SpaceX\'s Dragon becomes the first commercial spacecraft to dock with the International Space Station.', nodes: ['tesla', 'spacex', 'nasa'] },
+  { year: 2014, title: 'Autopilot hardware ships on Model S', detail: 'Tesla introduces Autopilot 1.0 with forward camera, radar and ultrasonics, beginning the company\'s transition into an autonomy and AI company.', nodes: ['tesla', 'tesla-autonomy'] },
+  { year: 2015, title: 'Powerwall unveiled, Falcon 9 lands', detail: 'Tesla launches the Powerwall home battery while SpaceX achieves the first vertical landing of an orbital-class booster on a ground pad at Cape Canaveral.', nodes: ['tesla-energy', 'spacex', 'spacex-falcon'] },
+  { year: 2015, title: 'Model X falcon-wing SUV ships', detail: 'Tesla begins delivering the Model X with falcon-wing doors, extending the Model S platform into the SUV segment after years of delays.', nodes: ['tesla'] },
+  { year: 2016, title: 'Gigafactory Nevada opens', detail: 'Tesla and Panasonic open Gigafactory 1 outside Reno, the largest battery factory in the world and the backbone of Model 3 production.', nodes: ['tesla', 'tesla-energy'] },
+  { year: 2016, title: 'Model 3 revealed to 400k reservations', detail: 'Tesla unveils the mass-market Model 3 and collects roughly 400,000 $1,000 deposits within weeks, validating the demand for an affordable EV.', nodes: ['tesla'] },
+  { year: 2016, title: 'Neuralink and Boring Company founded', detail: 'Musk co-founds Neuralink to build brain-computer interfaces and launches The Boring Company in December to dig tunnels under LA traffic.', nodes: ['neuralink', 'boring'] },
+  { year: 2017, title: 'Model 3 production begins', detail: 'Tesla enters \'production hell\' delivering the first Model 3s from Fremont, ultimately scaling to become the best-selling EV in the world.', nodes: ['tesla'] },
+  { year: 2018, title: 'Falcon Heavy launches Roadster to space', detail: 'Falcon Heavy debuts as the world\'s most powerful operational rocket, launching Musk\'s personal Tesla Roadster on a heliocentric orbit toward Mars.', nodes: ['spacex', 'spacex-falcon', 'tesla'] },
+  { year: 2018, title: 'Boring Company opens LA test tunnel', detail: 'The Boring Company unveils its 1.14-mile Hawthorne test tunnel beneath SpaceX HQ, demonstrating the Loop concept with modified Tesla vehicles.', nodes: ['boring'] },
+  { year: 2019, title: 'Starlink begins constellation deployment', detail: 'SpaceX launches the first 60 operational Starlink satellites in May, kicking off what becomes the largest satellite constellation in history.', nodes: ['spacex', 'spacex-starlink'] },
+  { year: 2019, title: 'Gigafactory Shanghai opens, Cybertruck unveiled', detail: 'Tesla opens Gigafactory Shanghai in under a year and unveils the stainless-steel Cybertruck in November, shattering a window during the demo.', nodes: ['tesla'] },
+  { year: 2019, title: 'Neuralink reveals surgical robot', detail: 'Neuralink holds its first public event, showing a sewing-machine-like robot that threads ultra-thin electrodes into the brain to avoid blood vessels.', nodes: ['neuralink', 'nlink-r1'] },
+  { year: 2020, title: 'Crew Dragon Demo-2 returns US human spaceflight', detail: 'SpaceX launches NASA astronauts Bob Behnken and Doug Hurley to the ISS, the first crewed orbital launch from US soil since the Shuttle\'s 2011 retirement.', nodes: ['spacex', 'nasa'] },
+  { year: 2020, title: 'Neuralink\'s Gertrude pig demo', detail: 'Musk presents \'Three Little Pigs\', live-streaming neural signals from a pig named Gertrude implanted with a coin-sized Link device.', nodes: ['neuralink'] },
+  { year: 2020, title: 'FSD Beta rolls out to early access', detail: 'Tesla releases the Full Self-Driving Beta to a small group of owners, expanding Autopilot from highway to city streets via vision-based neural nets.', nodes: ['tesla', 'tesla-autonomy'] },
+  { year: 2021, title: 'Pager the macaque plays Pong', detail: 'Neuralink publishes video of a macaque named Pager controlling the game Pong with thought alone via two implanted Link devices.', nodes: ['neuralink', 'nlink-telepathy'] },
+  { year: 2021, title: 'Inspiration4 flies all-civilian crew', detail: 'SpaceX\'s Inspiration4 mission carries four private citizens to a higher orbit than the ISS for three days, the first all-civilian orbital flight.', nodes: ['spacex'] },
+  { year: 2021, title: 'Optimus humanoid robot announced', detail: 'At AI Day, Tesla announces the Optimus humanoid robot program, framing it as the natural extension of FSD\'s real-world AI stack.', nodes: ['tesla', 'tesla-optimus'] },
+  { year: 2022, title: 'Vegas Loop opens for CES', detail: 'The Boring Company opens the LVCC Loop to the public during CES, ferrying attendees in Teslas through three stations under the convention center.', nodes: ['boring', 'boring-vegas-loop'] },
+  { year: 2022, title: 'Giga Berlin and Giga Texas open', detail: 'Tesla cuts the ribbon on both Gigafactory Berlin-Brandenburg and Gigafactory Texas within weeks of each other, dramatically expanding global capacity.', nodes: ['tesla'] },
+  { year: 2022, title: 'Musk closes $44B X acquisition', detail: 'After months of legal fighting, Musk closes the $44B acquisition of Twitter on October 27 and immediately fires top executives and roughly half the staff.', nodes: ['x'] },
+  { year: 2022, title: 'Starlink crosses 1M subscribers', detail: 'Starlink surpasses one million active subscribers globally and plays a strategic role in Ukraine, validating the consumer satellite-internet business.', nodes: ['spacex-starlink'] },
+  { year: 2023, title: 'xAI founded', detail: 'Musk incorporates xAI in July with a mission to \'understand the true nature of the universe\', recruiting researchers from DeepMind, OpenAI and Google.', nodes: ['xai'] },
+  { year: 2023, title: 'Starship IFT-1 clears the pad', detail: 'The fully integrated Starship stack lifts off from Boca Chica in April; multiple engines fail and the vehicle is terminated, but the pad survives in altered form.', nodes: ['spacex-starship'] },
+  { year: 2023, title: 'Twitter rebranded to X', detail: 'Musk replaces the Twitter bird with an X logo in July, signaling the platform\'s pivot toward an \'everything app\' encompassing payments, video and AI.', nodes: ['x'] },
+  { year: 2023, title: 'X algorithm open-sourced', detail: 'X publishes the core recommendation algorithm to GitHub in March, the first major social network to open-source its ranking code.', nodes: ['x'] },
+  { year: 2023, title: 'Grok 1 launches inside X', detail: 'xAI releases Grok 1 in November as a Premium+ perk on X, positioning itself as a real-time, less-filtered alternative to ChatGPT and Claude.', nodes: ['xai', 'xai-grok', 'x-premium'] },
+  { year: 2023, title: 'Cybertruck deliveries begin', detail: 'Tesla delivers the first production Cybertrucks at Giga Texas in November after four years of delays, debuting a 48-volt architecture and steer-by-wire.', nodes: ['tesla'] },
+  { year: 2023, title: 'Optimus Gen 2 unveiled', detail: 'Tesla shows Optimus Gen 2, 30% faster and 10kg lighter than the prior prototype, with new actuators and tactile fingers capable of handling eggs.', nodes: ['tesla-optimus'] },
+  { year: 2023, title: 'FDA clears Neuralink human trials', detail: 'Neuralink receives FDA Investigational Device Exemption approval in May to begin its first in-human PRIME study of the Telepathy implant.', nodes: ['neuralink', 'nlink-telepathy'] },
+  { year: 2024, title: 'Noland Arbaugh becomes first Neuralink patient', detail: 'On January 29, Neuralink implants the Telepathy device in Noland Arbaugh, a quadriplegic who soon plays chess and Civilization VI by thought alone.', nodes: ['neuralink', 'nlink-telepathy'] },
+  { year: 2024, title: 'Starship IFT-4 survives reentry', detail: 'On the fourth integrated flight in June, Starship\'s Super Heavy booster soft-lands in the Gulf and the ship survives reentry to splash down in the Indian Ocean.', nodes: ['spacex-starship'] },
+  { year: 2024, title: 'Mechazilla catches Super Heavy', detail: 'On IFT-5 in October, the Mechazilla launch tower\'s chopstick arms catch the returning Super Heavy booster mid-air, a milestone for rapid reusability.', nodes: ['spacex-starship'] },
+  { year: 2024, title: 'Starlink Direct-to-Cell with T-Mobile', detail: 'SpaceX launches the first batch of Direct-to-Cell Starlink satellites, partnering with T-Mobile to provide text coverage to unmodified phones in dead zones.', nodes: ['spacex-starlink', 't-mobile'] },
+  { year: 2024, title: 'Colossus 1 goes live with 100k H100s', detail: 'xAI brings the 100,000-H100 Colossus supercluster online in Memphis in just 122 days, instantly becoming the world\'s largest known AI training cluster.', nodes: ['xai', 'xai-colossus'] },
+  { year: 2024, title: 'Second Neuralink patient \'Alex\'', detail: 'In August, Neuralink implants its second PRIME participant, \'Alex\', who within days uses the Link to design 3D objects in CAD and play first-person shooters.', nodes: ['neuralink', 'nlink-telepathy'] },
+  { year: 2024, title: 'Blindsight gets Breakthrough Designation', detail: 'The FDA grants Neuralink\'s Blindsight visual cortex implant Breakthrough Device Designation in September, accelerating its path toward restoring sight.', nodes: ['neuralink', 'nlink-blindsight'] },
+  { year: 2024, title: 'Robotaxi \'We, Robot\' event', detail: 'Tesla unveils the two-seat Cybercab without steering wheel or pedals plus the larger Robovan at a Warner Bros. studio event in October.', nodes: ['tesla', 'tesla-autonomy'] },
+  { year: 2024, title: 'Third Neuralink patient with ALS', detail: 'Neuralink implants \'Brad\', a patient with ALS, late in the year, expanding PRIME beyond spinal cord injury into neurodegenerative disease.', nodes: ['neuralink', 'nlink-telepathy'] },
+  { year: 2024, title: 'X TV launches on smart televisions', detail: 'X rolls out a dedicated TV app for Samsung, LG and Amazon Fire devices, turning the platform\'s video feed into a lean-back living-room experience.', nodes: ['x', 'x-tv'] },
+  { year: 2024, title: 'Music City Loop announced for Nashville', detail: 'The Boring Company announces a Nashville-area Music City Loop connecting downtown to the airport, its largest project outside Las Vegas.', nodes: ['boring', 'boring-music-city'] },
+  { year: 2025, title: 'xAI acquires X in $113B deal', detail: 'In March, xAI absorbs X in an all-stock deal valuing xAI at $80B and X at $33B, fully merging the model lab with its distribution platform.', nodes: ['xai', 'x'] },
+  { year: 2025, title: 'Dubai Loop contract signed', detail: 'The Boring Company signs an agreement with Dubai\'s RTA to build an underground transit network beneath the city, its first international Loop deployment.', nodes: ['boring', 'boring-dubai-loop'] },
+  { year: 2025, title: 'Grok 3 and Grok 4 ship', detail: 'xAI releases Grok 3 in February and Grok 4 by mid-year, training Grok 4 on Colossus and topping several reasoning benchmarks against frontier rivals.', nodes: ['xai-grok'] },
+  { year: 2025, title: 'VOICE study gets FDA Breakthrough', detail: 'In May, the FDA grants Breakthrough Device Designation to Neuralink\'s VOICE study, aimed at restoring speech to patients with severe speech impairment.', nodes: ['neuralink', 'nlink-voice'] },
+  { year: 2025, title: 'Megapack 3 and 20MWh Megablock revealed', detail: 'Tesla Energy unveils Megapack 3 and the 20MWh Megablock utility product, dramatically increasing energy density per site for grid-scale storage.', nodes: ['tesla-energy'] },
+  { year: 2025, title: 'Colossus 2 scales past 200k GPUs', detail: 'xAI expands the Memphis campus with Colossus 2, pushing toward a million-GPU training footprint and signing long-term power deals with TVA.', nodes: ['xai', 'xai-colossus-2'] },
+  { year: 2025, title: 'Optimus Gen 3 unveiled', detail: 'Tesla shows Optimus Gen 3 with redesigned hands, faster gait and on-device FSD-derived inference, targeting limited external pilots in 2026.', nodes: ['tesla-optimus'] },
+  { year: 2025, title: 'First UK and Canada Neuralink implants', detail: 'Neuralink performs its first PRIME implants in the United Kingdom and Canada, beginning the company\'s international clinical expansion.', nodes: ['neuralink', 'nlink-telepathy'] },
+  { year: 2025, title: 'R1 robot deployed at Miami Project and Barrow', detail: 'Neuralink\'s R1 surgical robot is installed at the Miami Project to Cure Paralysis and Barrow Neurological Institute, expanding US surgical capacity.', nodes: ['neuralink', 'nlink-r1', 'miami-project'] },
+  { year: 2025, title: 'First Starshield contracts disclosed', detail: 'Reporting confirms SpaceX\'s Starshield division is building a classified reconnaissance constellation for the National Reconnaissance Office under a $1.8B deal.', nodes: ['spacex-starshield', 'us-space-force'] },
+  { year: 2025, title: 'EchoStar spectrum acquisition', detail: 'SpaceX acquires roughly $17B of EchoStar\'s S-band and AWS-4 spectrum, dramatically expanding Direct-to-Cell capacity for Starlink.', nodes: ['spacex-starlink', 't-mobile'] },
+  { year: 2026, title: '21+ Neuralink patients by January', detail: 'Neuralink discloses more than 21 humans now implanted with the Telepathy device across PRIME, CONVOY and international study arms.', nodes: ['neuralink', 'nlink-telepathy'] },
+  { year: 2026, title: 'SpaceX-xAI merger closes', detail: 'In February, SpaceX and xAI complete a combination integrating Starlink distribution, Colossus compute and Grok models under one capital structure.', nodes: ['spacex', 'xai', 'spacex-starlink', 'xai-colossus'] },
+  { year: 2026, title: 'Music City Loop construction begins', detail: 'The Boring Company breaks ground in February on the Nashville Music City Loop, with Prufrock-3 TBMs sized for a 12-mile spine.', nodes: ['boring', 'boring-music-city'] },
+  { year: 2026, title: 'Anthropic leases Colossus 1 capacity', detail: 'Anthropic signs a multi-year compute lease on the original Colossus cluster as xAI shifts frontier training to Colossus 2, an unusual cross-lab deal.', nodes: ['xai-colossus', 'anthropic'] },
+  { year: 2026, title: '$55B Terafab JV with Intel announced', detail: 'Tesla, SpaceX and Intel announce a $55B Terafab joint venture in Arizona to produce custom AI inference silicon for cars, robots and satellites.', nodes: ['tesla-ai-chips', 'spacex', 'tesla-autonomy'] },
+  { year: 2026, title: 'Tesla puts $2B into xAI round', detail: 'Tesla\'s board approves a $2B strategic investment in xAI, formalizing the model-sharing relationship that powers in-car Grok and Optimus reasoning.', nodes: ['tesla', 'xai', 'xai-grok'] },
+  { year: 2026, title: 'X Money launches with Visa', detail: 'X Money goes live in April via a partnership with Visa Direct, enabling instant peer-to-peer payments and creator payouts inside the X app.', nodes: ['x', 'x-money'] },
+  { year: 2026, title: 'Grok 4.3 and Grok Imagine ship', detail: 'xAI releases Grok 4.3 in May alongside Grok Imagine, a native video and image generation model trained on Colossus 2 and integrated into X.', nodes: ['xai-grok', 'xai-grok-imagine', 'xai-colossus-2'] },
+  { year: 2026, title: 'SpaceX files confidential S-1', detail: 'SpaceX files a confidential S-1 with the SEC on May 20, setting up what would be the largest tech IPO ever at a rumored $400B+ valuation.', nodes: ['spacex', 'spacex-starlink'] },
+  { year: 2026, title: 'Project Celestia unveiled', detail: 'SpaceX details Project Celestia, a next-generation Starlink Gen3 constellation launched exclusively on Starship for terabit-class consumer links.', nodes: ['spacex-celestia', 'spacex-starlink', 'spacex-starship'] },
+  { year: 2026, title: '24+ Neuralink patients by May', detail: 'By spring, Neuralink has implanted more than 24 humans worldwide and confirms the first Blindsight visual cortex implants are targeted for late 2026.', nodes: ['neuralink', 'nlink-telepathy', 'nlink-blindsight'] },
+  { year: 2026, title: 'Vegas Airport Connector nears completion', detail: 'The Boring Company finishes mining on the Harry Reid Airport Connector, extending the Vegas Loop directly to the terminal ahead of the 2026 NFL season.', nodes: ['boring-vegas-loop', 'boring'] },
+  { year: 2026, title: 'Starship IFT-12 demonstrates orbital refueling', detail: 'SpaceX completes Starship\'s twelfth integrated flight test, executing the first ship-to-ship propellant transfer in low Earth orbit for HLS.', nodes: ['spacex-starship', 'nasa'] },
+  { year: 2026, title: 'Cybercab volume production begins', detail: 'Tesla starts volume Cybercab production at Giga Texas using the unboxed manufacturing process, targeting sub-$30k pricing for autonomous fleets.', nodes: ['tesla', 'tesla-autonomy'] },
 ]
 
-/** Most recent event with year ≤ cursor. Returns null if cursor is
- *  before any event (so the scrubber can render an empty slot
- *  rather than "the oldest event forever"). */
+/** Pick the current event for a float cursor year. When the cursor
+ *  is inside a year with N events, the year is sliced into N equal
+ *  parts and each part surfaces the next event — so slow-scrubbing
+ *  through 2024 (9 events) cycles all 9 beats. If the current year
+ *  has no events, falls back to the most recent prior event. */
 export function getCurrentEvent(year: number): TimelineEvent | null {
-  const cutoff = Math.floor(year)
+  const yearInt = Math.floor(year)
+  // Events in the current calendar year, in declaration order.
+  const yearEvents = EVENTS.filter(e => e.year === yearInt)
+  if (yearEvents.length > 0) {
+    const frac = Math.max(0, Math.min(0.9999, year - yearInt))
+    const idx = Math.min(yearEvents.length - 1, Math.floor(frac * yearEvents.length))
+    return yearEvents[idx]
+  }
+  // No events this year — fall back to the latest prior event.
   let latest: TimelineEvent | null = null
   for (const e of EVENTS) {
-    if (e.year <= cutoff && (latest === null || e.year >= latest.year)) {
+    if (e.year < yearInt && (latest === null || e.year > latest.year)) {
       latest = e
     }
   }

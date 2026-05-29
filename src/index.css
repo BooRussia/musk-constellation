@@ -660,17 +660,24 @@ body {
   pointer-events: auto;
 }
 
-/* Details panel slide */
+/* Details panel slide. Narrower (380 not 440) since the audit
+   feedback was that the screen feels crowded — every pixel back
+   to the canvas helps. Backdrop blur lets the orbs behind read
+   through as a muted backdrop while the panel content stays
+   foreground-legible. */
 .details-panel {
   position: absolute;
   right: 0;
   top: var(--topnav-h);
   bottom: 0;
-  width: 440px;
+  width: 380px;
   max-width: 94vw;
   z-index: 30;
   overflow-y: auto;
-  padding: 28px 30px 32px;
+  padding: 28px 28px 32px;
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
   transition: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1);
 }
 
@@ -923,17 +930,23 @@ body {
 }
 
 /* Left sidebar.
-   When the legend is open the sidebar's bottom edge stops above the legend
-   so they read as one continuous left rail (matching widths + same left
-   edge). When the legend is closed the sidebar reclaims the full column. */
+   Now OVERLAYS the canvas (with backdrop blur) instead of pushing it
+   — the canvas stays full-width on the left so the screen never
+   feels boxed in. When the legend is open the sidebar's bottom edge
+   stops above the legend so they read as one continuous left rail. */
 .left-sidebar {
   display: none;
   left: 14px;
   top: calc(var(--topnav-h) + 14px);
   bottom: 14px;
-  width: 280px;
+  width: var(--sidebar-visual-w, 288px);
   max-width: calc(100vw - 28px);
   overflow-y: auto;
+  /* Stronger blur + slightly darker bg so orbs behind the sidebar
+     read as "muted background" instead of competing for attention. */
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(24px) saturate(140%);
+  -webkit-backdrop-filter: blur(24px) saturate(140%);
   transition: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1),
               opacity 0.25s ease,
               bottom 0.3s cubic-bezier(0.23, 1, 0.32, 1);
@@ -1407,70 +1420,71 @@ body {
 }
 
 /* ===========================================================
-   Timeline scrubber
-   Floating bar centered on the *canvas viewport* — not the
-   window — so when the right details panel or left sidebar is
-   open the scrubber stays visually balanced. The left/right
-   bounds use the same --sidebar-w and --panel-w variables that
-   drive the canvas's render width. */
+   Timeline scrubber — compact single-row layout
+   Floating bar centered on the canvas viewport. Pulled tight
+   to ~88px so it doesn't dominate the screen while scrubbing.
+   Year on the left, event headline in the middle, controls on
+   the right, slider underneath. No bordered event box —
+   event is pure typography. */
 .timeline-scrubber {
   position: fixed;
   left: var(--sidebar-w, 0px);
   right: var(--panel-w, 0px);
   margin: 0 auto;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
   z-index: 37;
-  max-width: min(720px, calc(100vw - 32px));
-  padding: 12px 18px 14px;
-  border-radius: 14px;
+  max-width: min(820px, calc(100vw - 32px));
+  padding: 12px 16px 10px;
+  border-radius: 12px;
   pointer-events: auto;
 }
 
 @media (max-width: 639px) {
   .timeline-scrubber {
-    /* Mobile: no side chrome, just pad away from the peek tab. */
     left: 12px;
     right: 12px;
     max-width: none;
     bottom: calc(env(safe-area-inset-bottom, 0px) + 92px);
-    padding: 10px 14px 12px;
+    padding: 10px 12px 8px;
   }
 }
 
-.timeline-header {
-  display: flex;
+.timeline-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
+  gap: 16px;
+  margin-bottom: 14px;
 }
 
-.timeline-year-block {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  min-width: 0;
-}
-
-.timeline-eyebrow {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 3px;
-  color: rgba(255, 255, 255, 0.45);
+@media (max-width: 639px) {
+  .timeline-row {
+    gap: 10px;
+    margin-bottom: 10px;
+  }
 }
 
 .timeline-year {
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 700;
-  letter-spacing: -1px;
+  letter-spacing: -1.2px;
   color: #fff;
   font-variant-numeric: tabular-nums;
   line-height: 1;
+  flex-shrink: 0;
+}
+
+@media (max-width: 639px) {
+  .timeline-year {
+    font-size: 24px;
+  }
 }
 
 .timeline-controls {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
 }
 
 .timeline-btn {
@@ -1498,78 +1512,56 @@ body {
   outline-offset: 2px;
 }
 
-/* Event annotation that swaps with a quick fade each time the
-   cursor crosses a new milestone year. Sits between the year
-   readout and the slider — what you read changes the moment
-   you scrub past 2008, 2012, etc. */
-.timeline-event-row {
-  position: relative;
-  min-height: 44px;
-  margin-bottom: 12px;
-  padding: 8px 10px;
-  background: rgba(255, 255, 255, 0.03);
-  border-left: 2px solid var(--accent);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
+/* Event annotation — inline pure typography, no box. Sits to the
+   right of the year readout. Title is the visual peer of the year;
+   detail is a quieter second line. AnimatePresence handles the
+   fade-swap on year-change so transitions read as a clean dissolve. */
 .timeline-event {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
+  position: relative;
   min-width: 0;
+  /* Mask the height so framer's overlapping enter/exit motion never
+     creates a height pop when entry text is taller than exit text. */
+  min-height: 38px;
 }
 
-.timeline-event-year {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 1.5px;
-  color: rgba(255, 255, 255, 0.55);
-  flex-shrink: 0;
-  font-variant-numeric: tabular-nums;
-  padding-top: 1px;
-}
-
-.timeline-event-body {
-  min-width: 0;
+.timeline-event-stack {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
+  min-width: 0;
 }
 
 .timeline-event-title {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: #fff;
-  line-height: 1.3;
-  letter-spacing: -0.1px;
+  line-height: 1.25;
+  letter-spacing: -0.15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .timeline-event-detail {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.55);
   line-height: 1.35;
+  /* Clamp to 1 line so the scrubber stays a stable height as you scrub. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.timeline-event--empty .timeline-event-detail {
+.timeline-event-stack--empty .timeline-event-detail {
   font-style: italic;
   color: rgba(255, 255, 255, 0.4);
 }
 
 @media (max-width: 639px) {
-  .timeline-event-row {
-    padding: 7px 9px;
-    margin-bottom: 10px;
-  }
   .timeline-event-title {
-    font-size: 12px;
+    font-size: 13px;
   }
   .timeline-event-detail {
-    /* Mobile: clamp the detail to 2 lines so the scrubber stays compact. */
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
     font-size: 11px;
   }
 }
