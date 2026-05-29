@@ -749,7 +749,12 @@ export default function MuskConstellation() {
       document.removeEventListener('touchstart', onDocClick as unknown as EventListener)
     }
   }, [mobileMenuOpen])
-  const [showDesktopPanel, setShowDesktopPanel] = useState(true)
+  // Closed by default — first paint shows the pure 3D constellation,
+  // no right rail. Clicking an orb opens it (handleSelect below); the
+  // PanelRight toggle in the chrome can also open it at any time.
+  // Exception: arriving via a deep-link like ?node=spacex opens the
+  // panel on mount because the user explicitly linked into a view.
+  const [showDesktopPanel, setShowDesktopPanel] = useState(() => initialUrl.node !== null)
   const [showLeftSidebar, setShowLeftSidebar] = useState(true)
 
   const selectedNode = selectedId ? getNodeById(selectedId) : null
@@ -822,6 +827,7 @@ export default function MuskConstellation() {
     setExpandedIds(new Set(['tesla', 'spacex', 'xai']))
     setSearchQuery('')
     setShowMobilePanel(false)
+    setShowDesktopPanel(false)
     setResetSignal(n => n + 1)
     toast('Constellation reset', { description: 'Back to the home view' })
   }, [])
