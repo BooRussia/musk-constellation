@@ -4,7 +4,7 @@ import {
   X, RotateCcw, Layers, ZoomIn, Info,
   Globe, ChevronUp, ChevronDown, Menu, Network, Activity,
   PanelRightClose, PanelRightOpen, PanelLeftClose, PanelLeftOpen,
-  Clock, Play, Pause,
+  Clock, Play, Pause, Crosshair,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import SearchBar from './components/SearchBar'
@@ -596,17 +596,21 @@ function TimelineScrubber({
   year,
   playing,
   speed,
+  following,
   onYearChange,
   onPlayingChange,
   onSpeedChange,
+  onFollowingChange,
   onClose,
 }: {
   year: number
   playing: boolean
   speed: number
+  following: boolean
   onYearChange: (y: number) => void
   onPlayingChange: (p: boolean) => void
   onSpeedChange: (s: number) => void
+  onFollowingChange: (f: boolean) => void
   onClose: () => void
 }) {
   const { min, max } = TIMELINE_BOUNDS
@@ -710,6 +714,16 @@ function TimelineScrubber({
         </span>
         <TimelineEventLine year={year} />
         <div className="timeline-controls">
+          <button
+            type="button"
+            onClick={() => onFollowingChange(!following)}
+            className={`timeline-btn ${following ? 'timeline-btn--on' : ''}`}
+            aria-pressed={following}
+            aria-label={following ? 'Camera follow on — click to stop tracking events' : 'Camera follow off — click to track events'}
+            title={following ? 'Camera follows each event (click to stop)' : 'Camera fixed (click to follow events)'}
+          >
+            <Crosshair className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
           <button
             type="button"
             onClick={cycleSpeed}
@@ -835,6 +849,11 @@ export default function MuskConstellation() {
   // 2024 (9 events) and 2026 (12 events) are readable. User can cycle
   // up to 2x or down to 0.25x via the speed chip in the scrubber.
   const [timelineSpeed, setTimelineSpeed] = useState<number>(0.5)
+  // When ON, the camera softly tracks each event's primary node as
+  // the timeline scrubs past it. Defaults to ON because the tracking
+  // effect is what makes Timeline mode feel cinematic — users who
+  // want a static frame can flip it off.
+  const [timelineFollowCamera, setTimelineFollowCamera] = useState<boolean>(true)
   // Per-company focus filter. When a group is disabled, its nodes
   // hide BUT nodes directly linked to enabled-group nodes still
   // show — so focusing Tesla keeps the SpaceX core visible (via the
@@ -919,6 +938,21 @@ export default function MuskConstellation() {
     () => getVisibleNodes(expandedIds, timelineYear ?? undefined, enabledGroups),
     [expandedIds, timelineYear, enabledGroups],
   )
+
+  // Primary node id for the current Timeline event — the camera
+  // follow target. Walks the event's nodes array and picks the
+  // first one that exists and is currently in the visible set so
+  // the camera doesn't try to track a filtered-out orb.
+  const cameraFocusId = useMemo<string | null>(() => {
+    if (timelineYear === null || !timelineFollowCamera) return null
+    const event = getCurrentEvent(timelineYear)
+    if (!event?.nodes) return null
+    const visibleSet = new Set(visibleNodes.map(n => n.id))
+    for (const id of event.nodes) {
+      if (visibleSet.has(id)) return id
+    }
+    return null
+  }, [timelineYear, timelineFollowCamera, visibleNodes])
 
   const highlightLinkIds = useMemo(() => {
     if (!selectedId) return new Set<string>()
@@ -1120,6 +1154,7 @@ export default function MuskConstellation() {
                 resetSignal={resetSignal}
                 timelineYear={timelineYear}
                 enabledGroups={enabledGroups}
+                cameraFocusId={cameraFocusId}
               />
             </WebGLErrorBoundary>
           </Suspense>
@@ -1718,9 +1753,11 @@ export default function MuskConstellation() {
               year={timelineYear}
               playing={timelinePlaying}
               speed={timelineSpeed}
+              following={timelineFollowCamera}
               onYearChange={setTimelineYear}
               onPlayingChange={setTimelinePlaying}
               onSpeedChange={setTimelineSpeed}
+              onFollowingChange={setTimelineFollowCamera}
               onClose={() => {
                 setTimelinePlaying(false)
                 setTimelineYear(null)

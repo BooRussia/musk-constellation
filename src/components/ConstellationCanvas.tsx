@@ -49,6 +49,14 @@ export interface Props {
    *  enabled group (adjacency rule — keeps the focused company's
    *  partners visible). undefined = no filtering. */
   enabledGroups?: Set<Node['group']>
+  /** Camera focus target id for the soft-follow lerp. Used by
+   *  Timeline mode to glide the camera toward each event's company
+   *  as the cursor crosses event years. Differs from selection-
+   *  driven fly-to: doesn't disable OrbitControls, doesn't pin the
+   *  node, doesn't open the details panel — purely a damped track
+   *  that can be smoothly redirected as new events fire. null =
+   *  no follow. */
+  cameraFocusId?: string | null
 }
 
 interface SimNode extends Node {
@@ -832,6 +840,7 @@ function Scene({
   resetSignal = 0,
   timelineYear = null,
   enabledGroups,
+  cameraFocusId = null,
 }: Omit<Props, 'onExpand'>) {
   const { camera, raycaster, mouse, scene, size } = useThree()
   const controlsRef = useRef<OrbitControlsImpl>(null)
@@ -859,6 +868,40 @@ function Scene({
   useEffect(() => {
     timelineYearRef.current = timelineYear
   }, [timelineYear])
+
+  // Soft camera follow — used by Timeline mode to glide the camera
+  // toward each event's primary node as the cursor crosses event
+  // years. Distinct from the explicit fly-to (which disables
+  // controls + pins the node) — follow is a continuous damped lerp
+  // that gracefully redirects when the target changes mid-flight.
+  const followTargetRef = useRef<{ pos: THREE.Vector3; lookAt: THREE.Vector3 } | null>(null)
+  const followFromIdRef = useRef<string | null>(null)
+
+  // When cameraFocusId changes (and isn't already the active follow
+  // target), recompute the desired camera position + lookAt. The
+  // useFrame loop lerps from current state toward this target each
+  // frame; setting a fresh target mid-lerp gracefully redirects.
+  useEffect(() => {
+    if (!cameraFocusId) {
+      followTargetRef.current = null
+      followFromIdRef.current = null
+      return
+    }
+    if (cameraFocusId === followFromIdRef.current) return
+    followFromIdRef.current = cameraFocusId
+    const node = simNodesRef.current.find((n) => n.id === cameraFocusId)
+    const controls = controlsRef.current
+    if (!node || !controls) return
+    const targetPos = new THREE.Vector3(node.x ?? 0, node.y ?? 0, node.z ?? 0)
+    // Keep the current viewing angle — only the position+lookAt
+    // change. Distance is slightly looser than direct selection
+    // (1.4×) so the user sees the orb plus context, not extreme
+    // close-up.
+    const currentDir = camera.position.clone().sub(controls.target).normalize()
+    const idealDist = Math.max(11, (node.val || 1.5) * 6.4)
+    const newCamPos = targetPos.clone().add(currentDir.multiplyScalar(idealDist))
+    followTargetRef.current = { pos: newCamPos, lookAt: targetPos }
+  }, [cameraFocusId, camera])
 
   const dragVecs = useRef({
     nodePos: new THREE.Vector3(),
@@ -1027,6 +1070,32 @@ function Scene({
         hasInitialFitRef.current = true
         mountSettledRef.current = true
       }
+    }
+
+    // Soft camera follow (Timeline mode). Damped per-frame lerp at
+    // a fixed rate per frame, so however quickly cameraFocusId
+    // changes (e.g. in 2024 where 9 events fire across ~2 seconds),
+    // the camera transitions smoothly without jitter. Skipped when
+    // the explicit fly-to is active so the two systems don't fight.
+    const follow = followTargetRef.current
+    const controls = controlsRef.current
+    if (follow && controls && flyToRafRef.current === null) {
+      const k = 0.045 // smoothing factor — ~50% convergence per ~150ms at 60fps
+      // Track the moving node — re-read its sim position each frame
+      // so the camera doesn't lock on a stale spot if the sim is
+      // still settling. Direction from current camera is preserved
+      // so user-controlled rotation isn't snapped away.
+      const node = simNodesRef.current.find((n) => n.id === followFromIdRef.current)
+      if (node) {
+        const lookAt = follow.lookAt.set(node.x ?? 0, node.y ?? 0, node.z ?? 0)
+        const dir = camera.position.clone().sub(controls.target).normalize()
+        const idealDist = Math.max(11, (node.val || 1.5) * 6.4)
+        follow.pos.copy(lookAt).add(dir.multiplyScalar(idealDist))
+      }
+      camera.position.lerp(follow.pos, k)
+      controls.target.lerp(follow.lookAt, k)
+      // controls.update() is called by OrbitControls' own damping
+      // loop; nudging position+target is enough.
     }
   })
 
@@ -1210,12 +1279,14 @@ function Scene({
 
     controls.enabled = false
     const startTarget = controls.target.clone()
-    const duration = 920
+    const duration = 1100
     const startTime = Date.now()
 
     const animate = () => {
       const t = Math.min(1, (Date.now() - startTime) / duration)
-      const ease = 1 - Math.pow(1 - t, 3)
+      // Ease-in-out cubic — soft acceleration AND deceleration for a
+      // cinematic glide instead of a snap-then-coast feel.
+      const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
 
       camera.position.lerpVectors(startPos, newCamPos, ease)
       controls.target.lerpVectors(startTarget, targetPos, ease)
@@ -1576,7 +1647,10 @@ function Scene({
         rotateSpeed={0.55}
         panSpeed={0.8}
         enableDamping
-        dampingFactor={0.12}
+        /* Lower damping factor = more inertia / glide after the
+           user releases the mouse. 0.08 feels weighty + cinematic
+           without becoming sluggish. */
+        dampingFactor={0.08}
       />
     </>
   )

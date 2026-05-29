@@ -1611,6 +1611,21 @@ body {
   outline-offset: 2px;
 }
 
+/* "On" state for toggle-style timeline buttons (the FOLLOW crosshair
+   uses this). Glows the accent color so the user sees at a glance
+   that camera-follow is active. */
+.timeline-btn--on {
+  color: #fff;
+  border-color: var(--accent);
+  background: rgba(80, 150, 255, 0.12);
+  box-shadow: 0 0 0 1px rgba(80, 150, 255, 0.25) inset;
+}
+
+.timeline-btn--on:hover {
+  border-color: var(--accent);
+  background: rgba(80, 150, 255, 0.18);
+}
+
 /* Event annotation — inline pure typography, no box. Sits to the
    right of the year readout. Title is the visual peer of the year;
    detail is a quieter second line. AnimatePresence handles the
