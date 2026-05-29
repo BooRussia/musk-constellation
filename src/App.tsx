@@ -1570,7 +1570,7 @@ export default function MuskConstellation() {
                 />
 
                 <button type="button" onClick={() => handleSelect(INITIAL_FOCUS)} className="btn btn-primary mt-8 w-full">
-                  BEGIN WITH TESLA — THE CENTRAL NODE
+                  START HERE
                 </button>
 
                 <div className="mt-4 text-center text-xs text-white/30">
