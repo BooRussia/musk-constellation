@@ -17,7 +17,7 @@ import {
   getLinkRole, getLinkRoleLabel,
   GROUP_COLORS, LINK_COLORS, LINK_LABELS,
   INITIAL_FOCUS, TIMELINE_BOUNDS, getCurrentEvent, getPassedEvents,
-  EVENTS, ALL_GROUPS, GROUP_LABELS,
+  EVENTS, ALL_GROUPS, GROUP_LABELS, getEventCountInYear,
 } from './data/constellation'
 import type { Node as ConstellationNode, TimelineEvent } from './data/constellation'
 import type { Link } from './data/constellation'
@@ -484,10 +484,15 @@ function writeUrlState(node: string | null, expand: Set<string>) {
 // snapping. Play auto-advances at ~1 year per real second via
 // requestAnimationFrame for buttery 60fps motion. Acts as a
 // controlled component — App owns both year + playing state.
-// Auto-play advance rate. The canvas owns the orb growth duration
-// (NODE_GROWTH_DURATION_YEARS in ConstellationCanvas) — App just
-// drives the cursor; per-orb scaling reads the same float year.
-const TIMELINE_PLAY_RATE_PER_SEC = 1.0
+// Auto-play is EVENT-paced: at speed = 1×, the cursor advances
+// at exactly 1 event per real second regardless of how many events
+// the current calendar year contains. That means a year with 12
+// events (2026) is traversed 12× slower than a year with 1 event,
+// so the camera-follow lerp has time to land on each event's orb
+// before the cursor moves to the next one. The canvas owns the
+// orb growth duration (NODE_GROWTH_DURATION_YEARS) — App just
+// drives the cursor.
+const TIMELINE_EVENTS_PER_SEC_AT_1X = 1.0
 
 /** Narrative annotation that updates as the cursor crosses each event
  *  year. Pure typography — title above, detail below — no border or
@@ -636,7 +641,18 @@ function TimelineScrubber({
     const tick = (ts: number) => {
       const dt = Math.min(0.1, (ts - lastTs) / 1000) // clamp big tab-switch dt
       lastTs = ts
-      let next = yearRef.current + dt * TIMELINE_PLAY_RATE_PER_SEC * speedRef.current
+      // Event-paced rate: each event takes ~(1 / speed) real seconds
+      // regardless of how many sit in the current year. A year with
+      // 12 events therefore advances at 1/12 the rate of a year with
+      // 1 event — every event gets the same screen-time and the
+      // camera-follow lerp has time to fully land before the cursor
+      // moves on to the next one.
+      const yearInt = Math.floor(yearRef.current)
+      const eventsThisYear = getEventCountInYear(yearInt)
+      const slicesPerYear = Math.max(1, eventsThisYear)
+      // years per second = (events per second) / (events per year)
+      const yearsPerSec = (TIMELINE_EVENTS_PER_SEC_AT_1X * speedRef.current) / slicesPerYear
+      let next = yearRef.current + dt * yearsPerSec
       if (next > max) next = min
       onYearChange(next)
       rafId = requestAnimationFrame(tick)

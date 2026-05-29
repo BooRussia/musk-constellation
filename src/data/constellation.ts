@@ -1051,6 +1051,16 @@ export const EVENTS: TimelineEvent[] = [
   { year: 2026, title: 'Cybercab volume production begins', detail: 'Tesla starts volume Cybercab production at Giga Texas using the unboxed manufacturing process, targeting sub-$30k pricing for autonomous fleets.', nodes: ['tesla', 'tesla-autonomy'] },
 ]
 
+/** Number of events declared for a given calendar year. Used by the
+ *  Timeline scrubber to event-pace playback — a year with 12 events
+ *  is traversed 12× slower than a year with 1, so the camera has
+ *  time to land on each event before the cursor advances. */
+export function getEventCountInYear(yearInt: number): number {
+  let count = 0
+  for (const e of EVENTS) if (e.year === yearInt) count++
+  return count
+}
+
 /** All events that have happened on or before the cursor year, in
  *  reverse chronological order (newest first). Powers the events
  *  feed that accumulates milestones as the user scrubs forward.
