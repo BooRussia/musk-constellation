@@ -646,8 +646,9 @@ function TimelineScrubber({
     onSpeedChange(next)
   }
 
-  // Pretty label: integer speeds drop the trailing `.0`.
-  const speedLabel = speed === 0.25 ? '¼x' : speed === 0.5 ? '½x' : `${speed}x`
+  // Decimal label so the chip reads as "0.5x" not "½x" — fractions
+  // looked cramped against the surrounding mono numerals.
+  const speedLabel = `${speed}x`
 
   // Tick years to draw on the rail — every 4 years for readability.
   const ticks = useMemo(() => {
@@ -716,6 +717,19 @@ function TimelineScrubber({
       </div>
 
       <div className="timeline-slider-wrap">
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={0.05}
+          value={year}
+          onChange={(e) => {
+            onPlayingChange(false)
+            onYearChange(parseFloat(e.target.value))
+          }}
+          className="timeline-slider"
+          aria-label={`Year ${displayYear} — drag to scrub between ${min} and ${max}`}
+        />
         <div className="timeline-ticks" aria-hidden="true">
           {ticks.map((t) => {
             const pct = ((t - min) / (max - min)) * 100
@@ -730,19 +744,6 @@ function TimelineScrubber({
             )
           })}
         </div>
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={0.05}
-          value={year}
-          onChange={(e) => {
-            onPlayingChange(false)
-            onYearChange(parseFloat(e.target.value))
-          }}
-          className="timeline-slider"
-          aria-label={`Year ${displayYear} — drag to scrub between ${min} and ${max}`}
-        />
       </div>
     </motion.aside>
   )

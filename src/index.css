@@ -1434,7 +1434,7 @@ body {
   bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
   z-index: 37;
   max-width: min(820px, calc(100vw - 32px));
-  padding: 12px 16px 10px;
+  padding: 12px 16px 14px;
   border-radius: 12px;
   pointer-events: auto;
 }
@@ -1445,7 +1445,7 @@ body {
     right: 12px;
     max-width: none;
     bottom: calc(env(safe-area-inset-bottom, 0px) + 92px);
-    padding: 10px 12px 8px;
+    padding: 10px 12px 12px;
   }
 }
 
@@ -1487,16 +1487,16 @@ body {
   flex-shrink: 0;
 }
 
-/* Speed chip — small tabular numeral button that cycles through
-   ¼x → ½x → 1x → 2x. Width is fixed so cycling doesn't jiggle the
-   surrounding controls. */
+/* Speed chip — cycles 0.25x → 0.5x → 1x → 2x on click. Fixed
+   width so the widest label ("0.25x") sets the cell and the
+   surrounding controls don't reflow when speed changes. */
 .timeline-speed {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 38px;
+  width: 54px;
   height: 30px;
-  padding: 0 8px;
+  padding: 0 6px;
   border-radius: 6px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.04);
@@ -1504,7 +1504,7 @@ body {
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -1599,9 +1599,13 @@ body {
   }
 }
 
+/* Slider above, tick year-labels below — DOM order matches visual
+   order. Padding-top gives the thumb its own breathing room above
+   the rail; the ticks then sit underneath with their own row so
+   the thumb never collides with a year label. */
 .timeline-slider-wrap {
   position: relative;
-  padding-bottom: 18px;
+  padding-top: 8px;
 }
 
 /* Custom range styling. Bare native rails look broken on a dark
@@ -1652,19 +1656,22 @@ body {
 }
 
 .timeline-ticks {
-  position: absolute;
-  inset: 12px 0 0;
+  position: relative;
+  margin-top: 12px;
+  height: 12px;
   pointer-events: none;
 }
 
 .timeline-tick {
   position: absolute;
+  top: 0;
   transform: translateX(-50%);
   font-family: var(--font-mono);
   font-size: 9px;
   letter-spacing: 1px;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.4);
   user-select: none;
+  white-space: nowrap;
 }
 
 /* ===========================================================
