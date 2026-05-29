@@ -332,7 +332,15 @@ const NodeMesh = memo(function NodeMesh({
 
     let target: number
 
-    if (!hasSelection) {
+    // Timeline mode shows EVERY label so the user can identify each
+    // orb the camera glides over. Subs/externals still bow to hover
+    // (full opacity instead of 0.85) so the focused orb reads as
+    // primary. Cores stay at full intent to remain the visual anchor.
+    if (ty !== null) {
+      if (isHovered) target = 1
+      else if (node.type === 'core') target = 0.92
+      else target = 0.78
+    } else if (!hasSelection) {
       // Home state. Core company orbs always show their name so a first-
       // time viewer can identify Tesla / SpaceX / xAI / etc. at a glance.
       // Sub-orbs and externals stay hidden until hover so the field
