@@ -36,14 +36,14 @@ const EARTH_RADIUS_KM = 6371
 const EARTH_RADIUS_SCENE = 5
 const KM_TO_SCENE = EARTH_RADIUS_SCENE / EARTH_RADIUS_KM
 
-// Brand colors per constellation. Starlink cool blue-white,
-// OneWeb warm gold. Toned down from the previous near-pure values
-// so additive blending doesn't saturate to white when 50 sats stack
-// in the same screen-pixel region. Each individual sat reads as
-// a clean tinted dot; clusters glow without bleaching out.
+// Brand colors per constellation. Chosen for MAXIMUM contrast
+// against the blue Earth + blue atmosphere — blue sats were
+// disappearing into the planet. Starlink is now a hot cyan-white
+// (reads as crisp bright pinpricks distinct from earth-blue),
+// OneWeb a warm amber. Both pop off the cool background.
 const CONSTELLATION_COLOR: Record<ConstellationKey, THREE.Color> = {
-  starlink: new THREE.Color('#7ab8ff'),
-  oneweb: new THREE.Color('#ffa838'),
+  starlink: new THREE.Color('#9affef'),
+  oneweb: new THREE.Color('#ffae3a'),
 }
 
 // How many sats to propagate per frame. With 60fps that's 16ms/frame

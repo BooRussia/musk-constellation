@@ -20,7 +20,10 @@ import * as THREE from 'three'
 
 const EARTH_RADIUS = 5
 
-const MAP_TEXTURE_PATH = '/textures/planets/earth_atmos_2048.jpg'
+// BASE_URL prefix (not a root-absolute "/textures/...") so this
+// resolves under the GitHub Pages /musk-constellation/ base too.
+// Vite doesn't rewrite string-literal asset paths.
+const MAP_TEXTURE_PATH = `${import.meta.env.BASE_URL}textures/planets/earth_atmos_2048.jpg`
 
 const MAP_VERT = /* glsl */ `
 varying vec2 vUv;

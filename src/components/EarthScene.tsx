@@ -26,23 +26,27 @@ const EARTH_RADIUS = 5
 // the visible "lit limb" and an outer halo that fades into space
 // for the smooth gradient. Together they produce the soft glow
 // you see in NASA "Earth from orbit" shots.
-const ATMOSPHERE_INNER_RADIUS = EARTH_RADIUS * 1.04
-const ATMOSPHERE_OUTER_RADIUS = EARTH_RADIUS * 1.22
+const ATMOSPHERE_INNER_RADIUS = EARTH_RADIUS * 1.025
+const ATMOSPHERE_OUTER_RADIUS = EARTH_RADIUS * 1.14
 
 // Textures are committed to the repo at public/textures/planets/
-// and served same-origin from Netlify. No CDN dependencies, no
-// CORS, no version-resolution guesswork — they're sourced from
-// three.js's own example suite (raw.githubusercontent.com pull)
-// but live in our static assets so we control delivery.
+// and served same-origin. CRITICAL: paths must be prefixed with
+// import.meta.env.BASE_URL, NOT a root-absolute "/textures/...".
+// Vite rewrites bundled imports + HTML tags for the deploy base
+// path (/musk-constellation/ on GitHub Pages) but does NOT rewrite
+// string literals — so a hardcoded "/textures/..." 404s on Pages
+// and only works on a root-deployed host. BASE_URL ends in "/", so
+// the suffix has no leading slash.
+const BASE = import.meta.env.BASE_URL
 type TextureKey = 'day' | 'normal' | 'night' | 'specular'
 const TEXTURES: Record<TextureKey, string> = {
-  day: '/textures/planets/earth_atmos_2048.jpg',
-  normal: '/textures/planets/earth_normal_2048.jpg',
-  night: '/textures/planets/earth_lights_2048.png',
+  day: `${BASE}textures/planets/earth_atmos_2048.jpg`,
+  normal: `${BASE}textures/planets/earth_normal_2048.jpg`,
+  night: `${BASE}textures/planets/earth_lights_2048.png`,
   // Water mask from three.js's example suite — white = ocean,
   // black = land. Drives the ocean-only specular highlight that
   // gives Earth its signature sun-glint on the daylit hemisphere.
-  specular: '/textures/planets/earth_specular_2048.jpg',
+  specular: `${BASE}textures/planets/earth_specular_2048.jpg`,
 }
 
 // Linear-data textures (no sRGB decode). Normal map carries vectors,
@@ -102,9 +106,9 @@ void main() {
   vec3 cool = vec3(0.35, 0.68, 1.10);
   vec3 warm = vec3(0.95, 0.78, 0.60);
   vec3 col = mix(cool, warm, sun * 0.55);
-  // Capped at 0.65 so additive blending with the outer halo
-  // stays under the saturation point.
-  gl_FragColor = vec4(col, fres * 0.65);
+  // Subtle — a real Earth limb glow is a thin faint band, not a
+  // bright ring. Cut to 0.30 so it reads as atmosphere, not neon.
+  gl_FragColor = vec4(col, fres * 0.30);
 }
 `
 
@@ -125,9 +129,9 @@ void main() {
   vec3 cool = vec3(0.30, 0.55, 1.00);
   vec3 warm = vec3(0.85, 0.65, 0.45);
   vec3 col = mix(cool, warm, sun * 0.4);
-  // Very low max alpha so the long fade looks like atmospheric
-  // light scattering rather than a paint stroke.
-  gl_FragColor = vec4(col, fres * 0.28);
+  // Whisper-faint outer corona — barely-there scatter that fades
+  // into space. 0.12 keeps it from forming a visible second ring.
+  gl_FragColor = vec4(col, fres * 0.12);
 }
 `
 
@@ -178,10 +182,18 @@ varying vec2 vUv;
 // normal map without an explicit tangent attribute. Cheap and good
 // enough for a sphere — relief shows up nicely on continents.
 vec3 perturbNormal(vec3 N, vec3 V, vec2 uv) {
-  vec3 q0 = dFdx(V);
-  vec3 q1 = dFdy(V);
   vec2 st0 = dFdx(uv);
   vec2 st1 = dFdy(uv);
+  // At the equirectangular wrap seam (u jumps 1→0) and at the poles,
+  // the uv derivatives explode or collapse to ~0, which makes the
+  // tangent basis normalize() a near-zero vector → NaN normals and a
+  // flickering line down the date-line. Bail to the geometric normal
+  // when the derivative magnitude is degenerate.
+  if (length(st0) + length(st1) > 0.2 || length(st0) + length(st1) < 1e-6) {
+    return N;
+  }
+  vec3 q0 = dFdx(V);
+  vec3 q1 = dFdy(V);
   vec3 S = normalize(q0 * st1.t - q1 * st0.t);
   vec3 T = normalize(-q0 * st1.s + q1 * st0.s);
   mat3 tsn = mat3(S, T, N);
@@ -698,7 +710,7 @@ export default function EarthScene({
 
       {loadStatus === 'fallback' && (
         <div className="earth-fallback-note">
-          Loading photoreal textures from CDN failed — rendering procedural Earth instead.
+          Earth textures didn’t load — showing the procedural globe instead.
         </div>
       )}
     </>

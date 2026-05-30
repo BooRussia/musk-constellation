@@ -88,27 +88,26 @@ export async function fetchConstellation(
 ): Promise<SatelliteEntry[]> {
   let tleText = readCache(group)
   if (!tleText) {
-    // Use the same-origin proxy on deployed builds. On localhost dev
-    // the _redirects file doesn't apply, so go direct to CelesTrak
-    // (which has CORS * — the issue is corp networks blocking the
-    // domain, not CORS itself).
-    const isDev = typeof window !== 'undefined' &&
-      (window.location.hostname === 'localhost' ||
-       window.location.hostname === '127.0.0.1')
-    const url = isDev
-      ? `https://celestrak.org/NORAD/elements/gp.php?GROUP=${group}&FORMAT=tle`
-      : `/api/tle/${group}`
+    // Fetch CelesTrak directly. CelesTrak sends Access-Control-Allow-
+    // Origin: * so a browser fetch works cross-origin. We do NOT use a
+    // same-origin proxy because the live deploy is GitHub Pages, which
+    // is a static host with no rewrite engine — a /api/tle/* proxy
+    // only exists in (inert) Netlify config and would 404 on Pages.
+    // The one catch: a strict CSP connect-src would block this, so the
+    // Netlify CSP whitelists https://celestrak.org (GitHub Pages has no
+    // CSP header at all, so it's unaffected).
+    const url = `https://celestrak.org/NORAD/elements/gp.php?GROUP=${group}&FORMAT=tle`
     let res: Response
     try {
       res = await fetch(url)
     } catch (err) {
-      // Network-level failure (DNS, refused, CORS preflight rejected).
+      // Network-level failure (DNS, refused, CSP-blocked, offline).
       // Surface a clear message instead of the opaque "Failed to fetch".
       const msg = err instanceof Error ? err.message : String(err)
       throw new Error(`TLE fetch network error for ${group}: ${msg}`, { cause: err })
     }
     if (!res.ok) {
-      throw new Error(`TLE proxy returned ${res.status} for ${group}`)
+      throw new Error(`CelesTrak returned ${res.status} for ${group}`)
     }
     tleText = await res.text()
     // CelesTrak occasionally returns a "no update" notice instead of

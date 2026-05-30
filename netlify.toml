@@ -2,6 +2,11 @@
   command = "npm run build"
   publish = "dist"
 
+# SPA catch-all — serves index.html for any path with no static
+# file. (We fetch CelesTrak TLEs directly from the browser rather
+# than proxying, so the deploy works identically on GitHub Pages,
+# which has no rewrite engine. CelesTrak sends ACAO: * so the
+# cross-origin fetch is allowed; the CSP connect-src below grants it.)
 [[redirects]]
   from = "/*"
   to = "/index.html"
@@ -14,7 +19,7 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
-    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://celestrak.org; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
 
 [[headers]]
   for = "/assets/*"

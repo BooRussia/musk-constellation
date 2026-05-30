@@ -1,9 +1,0 @@
-# Netlify redirects + proxy rules
-# https://docs.netlify.com/routing/redirects/
-
-# Proxy CelesTrak TLE feed through our own origin so the browser
-# fetch is same-origin (no CORS preflight, no network policy hassle).
-# Status 200 means it rewrites the response in place rather than
-# sending a 3xx. The :group placeholder captures any constellation
-# group key — "starlink", "oneweb", "gps-ops", etc.
-/api/tle/:group  https://celestrak.org/NORAD/elements/gp.php?GROUP=:group&FORMAT=tle  200
