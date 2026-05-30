@@ -1,15 +1,15 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
-import { AnimatePresence } from 'framer-motion'
-import { ArrowLeft, Globe, Map as MapIcon, Satellite } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { ArrowLeft, Globe, Map as MapIcon, Satellite, X } from 'lucide-react'
 import { fetchAllConstellations, type ConstellationKey, type SatelliteEntry } from '../lib/tle'
 import type { SatelliteHit } from './SatelliteCloud'
 import {
-  setHighlightedNoradId,
+  setHighlightedNoradIds,
   useSatelliteHover,
   useSatelliteSelect,
 } from './SatelliteInteractionContext'
 import SatelliteTooltip from './SatelliteTooltip'
-import SatellitePinnedCard from './SatellitePinnedCard'
+import { trailColorAt } from '../lib/trailColors'
 
 const EarthScene = lazy(() => import('./EarthScene'))
 
@@ -148,45 +148,61 @@ export default function StarlinkView({ onBack }: Props) {
   // listen here and translate them into UI state for the tooltip
   // and the pinned card.
   const [hoveredSat, setHoveredSat] = useState<SatelliteHit | null>(null)
-  const [pinnedSat, setPinnedSat] = useState<SatelliteHit | null>(null)
+  // Multi-select: clicking a sat toggles it into this list (in click
+  // order, which also drives its trail color). Each selected sat gets
+  // an orbit trail; the panel lists them so you can compare paths.
+  const [selectedSats, setSelectedSats] = useState<SatelliteHit[]>([])
 
   const handleHover = useCallback((hit: SatelliteHit | null) => {
     setHoveredSat(hit)
   }, [])
 
   const handleSelect = useCallback((hit: SatelliteHit | null) => {
-    // hit === null means the user clicked empty canvas → dismiss the
-    // pinned card. A non-null hit either pins a new sat or swaps the
-    // current one out.
-    setPinnedSat(hit)
+    if (hit === null) {
+      // Click on empty space clears the whole selection.
+      setSelectedSats([])
+      return
+    }
+    setSelectedSats((prev) => {
+      const idx = prev.findIndex((s) => s.entry.noradId === hit.entry.noradId)
+      if (idx !== -1) {
+        // Already selected → toggle it off.
+        return prev.filter((_, i) => i !== idx)
+      }
+      return [...prev, hit]
+    })
   }, [])
 
   useSatelliteHover(handleHover)
   useSatelliteSelect(handleSelect)
 
-  // Publish the "which sat to enlarge" id into the cloud. Pinned wins
-  // over hover so a clicked sat stays bright even when the cursor
-  // wanders off; if nothing is pinned, the hovered sat lights up.
-  const highlightId = pinnedSat?.entry.noradId ?? hoveredSat?.entry.noradId ?? null
+  // Publish the set of sats to enlarge in the cloud — all selected
+  // sats plus the currently-hovered one.
+  const highlightedIds = useMemo(() => {
+    const s = new Set<number>(selectedSats.map((x) => x.entry.noradId))
+    if (hoveredSat) s.add(hoveredSat.entry.noradId)
+    return s
+  }, [selectedSats, hoveredSat])
   useEffect(() => {
-    setHighlightedNoradId(highlightId)
-    return () => {
-      // Clear on unmount — avoids a stale highlight if the view
-      // remounts later with the cloud already cached.
-      setHighlightedNoradId(null)
-    }
-  }, [highlightId])
+    setHighlightedNoradIds(highlightedIds)
+    return () => setHighlightedNoradIds(new Set())
+  }, [highlightedIds])
 
-  // If the user clicks the same sat that's already pinned, treat it
-  // as a toggle-off rather than a no-op so the X icon isn't the only
-  // way out.
-  const dismissPinned = useCallback(() => setPinnedSat(null), [])
+  // Entries (selection order) for the orbit trails.
+  const selectedEntries = useMemo(
+    () => selectedSats.map((s) => s.entry),
+    [selectedSats],
+  )
 
-  // Suppress the tooltip when the hovered sat is the same as the
-  // pinned sat — otherwise we'd render the same info twice (once
-  // following the cursor, once in the top-right card).
+  const removeSelected = useCallback((noradId: number) => {
+    setSelectedSats((prev) => prev.filter((s) => s.entry.noradId !== noradId))
+  }, [])
+  const clearSelected = useCallback(() => setSelectedSats([]), [])
+
+  // Suppress the cursor tooltip when hovering an already-selected sat —
+  // its info is already pinned in the selection panel.
   const suppressTooltip =
-    hoveredSat !== null && pinnedSat !== null && hoveredSat.entry.noradId === pinnedSat.entry.noradId
+    hoveredSat !== null && selectedSats.some((s) => s.entry.noradId === hoveredSat.entry.noradId)
 
   return (
     <div className="starlink-view">
@@ -251,6 +267,7 @@ export default function StarlinkView({ onBack }: Props) {
               satellites={satellites}
               enabledConstellations={enabledConstellations}
               viewMode={viewMode}
+              selectedSatellites={selectedEntries}
             />
           </Suspense>
         </EarthErrorBoundary>
@@ -264,17 +281,62 @@ export default function StarlinkView({ onBack }: Props) {
           )}
         </AnimatePresence>
 
-        {/* Pinned card — sits in the top-right corner under the
-            topnav. AnimatePresence lets it slide out cleanly when
-            dismissed. Keyed by noradId so swapping to a different
-            sat triggers an exit/enter rather than morphing in place. */}
+        {/* Selection panel — top-right, lists every selected sat with
+            its trail color, key orbital stats, and a remove button.
+            Click sats to add/remove; click empty space to clear all.
+            Each row's swatch matches that sat's orbit-trail color. */}
         <AnimatePresence>
-          {pinnedSat && (
-            <SatellitePinnedCard
-              key={pinnedSat.entry.noradId}
-              hit={pinnedSat}
-              onClose={dismissPinned}
-            />
+          {selectedSats.length > 0 && (
+            <motion.aside
+              key="selection-panel"
+              initial={{ opacity: 0, x: 16 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 16 }}
+              transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+              className="sat-selection glass panel"
+              aria-label="Selected satellites"
+            >
+              <header className="sat-selection-header">
+                <span className="sat-selection-title">
+                  SELECTED · {selectedSats.length}
+                </span>
+                <button
+                  type="button"
+                  className="sat-selection-clear"
+                  onClick={clearSelected}
+                >
+                  Clear all
+                </button>
+              </header>
+              <ul className="sat-selection-list">
+                {selectedSats.map((s, i) => (
+                  <li key={s.entry.noradId} className="sat-selection-row">
+                    <span
+                      className="sat-selection-swatch"
+                      style={{ background: trailColorAt(i), boxShadow: `0 0 6px ${trailColorAt(i)}` }}
+                    />
+                    <span className="sat-selection-info">
+                      <span className="sat-selection-name">{s.entry.name}</span>
+                      <span className="sat-selection-meta">
+                        {Math.round(s.altitudeKm).toLocaleString()} km ·{' '}
+                        {s.velocityKmS.toFixed(2)} km/s · {s.periodMin.toFixed(0)} min
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      className="sat-selection-remove"
+                      onClick={() => removeSelected(s.entry.noradId)}
+                      aria-label={`Remove ${s.entry.name}`}
+                    >
+                      <X className="h-3 w-3" aria-hidden="true" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <p className="sat-selection-hint">
+                Click more sats to compare paths · click space to clear
+              </p>
+            </motion.aside>
           )}
         </AnimatePresence>
 

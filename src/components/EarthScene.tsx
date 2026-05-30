@@ -7,6 +7,7 @@ import SatelliteCloud from './SatelliteCloud'
 import MapEarth from './MapEarth'
 import KeyboardCameraControls from './KeyboardCameraControls'
 import GlobeLabels from './GlobeLabels'
+import OrbitTrails from './OrbitTrails'
 import type { SatelliteEntry, ConstellationKey } from '../lib/tle'
 
 export type EarthViewMode = 'satellite' | 'map'
@@ -537,12 +538,15 @@ interface EarthSceneProps {
    * both modes — only the Earth sphere swaps.
    */
   viewMode?: EarthViewMode
+  /** Selected sats to draw orbit trails for (in selection order). */
+  selectedSatellites?: SatelliteEntry[]
 }
 
 export default function EarthScene({
   satellites,
   enabledConstellations,
   viewMode = 'satellite',
+  selectedSatellites,
 }: EarthSceneProps) {
   const [textures, setTextures] = useState<LoadedTextures>({
     day: null,
@@ -632,6 +636,12 @@ export default function EarthScene({
             satellites={satellites}
             enabledConstellations={enabledConstellations}
           />
+        )}
+
+        {/* Orbit trails for selected sats — flight paths showing each
+            one's full last orbit, fading from tail to current position. */}
+        {selectedSatellites && selectedSatellites.length > 0 && (
+          <OrbitTrails satellites={selectedSatellites} />
         )}
 
         {/* Place-name labels (continents / oceans / cities) with

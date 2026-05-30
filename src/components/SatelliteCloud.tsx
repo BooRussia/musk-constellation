@@ -6,7 +6,7 @@ import type { SatelliteEntry, ConstellationKey } from '../lib/tle'
 import {
   emitSatelliteHover,
   emitSatelliteSelect,
-  useHighlightedNoradId,
+  useHighlightedNoradIds,
 } from './SatelliteInteractionContext'
 
 // ============================================
@@ -83,22 +83,15 @@ interface Props {
   satellites: SatelliteEntry[]
   /** When set, only sats in this set render. undefined = render all. */
   enabledConstellations?: Set<ConstellationKey>
-  /** When set, this sat is highlighted (larger + brighter). */
-  highlightedNoradId?: number | null
 }
 
 export default function SatelliteCloud({
   satellites,
   enabledConstellations,
-  highlightedNoradId: propHighlightedNoradId = null,
 }: Props) {
-  // The prop is preserved for backwards compatibility, but the live
-  // highlight is published through the SatelliteInteractionContext
-  // pub/sub by the host view — see that file for why we can't pass
-  // it through EarthScene as a normal prop. Prop wins if both are
-  // set so a parent can force-highlight a specific sat.
-  const liveHighlightedNoradId = useHighlightedNoradId()
-  const highlightedNoradId = propHighlightedNoradId ?? liveHighlightedNoradId
+  // The set of sats to render enlarged + brighter (selected sats +
+  // the hovered one), published by the host via the pub/sub context.
+  const highlightedNoradIds = useHighlightedNoradIds()
 
   const visibleSats = useMemo(() => {
     if (!enabledConstellations) return satellites
@@ -149,9 +142,9 @@ export default function SatelliteCloud({
   const tmpVec = useRef(new THREE.Vector3())
   // Frame counter to slice which sats get propagated this tick.
   const frameNumRef = useRef(0)
-  // Track which sat index is currently rendering as highlighted so
-  // we can reset it back to its base color when the highlight moves.
-  const highlightedIndexRef = useRef<number>(-1)
+  // Track which sat indices are currently rendering as highlighted so
+  // we can reset them to base color when they leave the selection.
+  const highlightedIndicesRef = useRef<Set<number>>(new Set())
 
   // Propagate every sat once on mount so the initial frame isn't a
   // pile of (0,0,0) points clustered at Earth's center. Also resets
@@ -160,7 +153,7 @@ export default function SatelliteCloud({
   // buffer (which is already base-colored).
   useEffect(() => {
     if (count === 0) return
-    highlightedIndexRef.current = -1
+    highlightedIndicesRef.current = new Set()
     const now = new Date()
     const gmst = gstime(now)
     for (let i = 0; i < count; i++) {
@@ -194,32 +187,37 @@ export default function SatelliteCloud({
     const colorArr = colorAttr.array as Float32Array
     const sizeArr = sizeAttr.array as Float32Array
 
-    const prevIdx = highlightedIndexRef.current
-    const nextIdx = highlightedNoradId != null
-      ? noradIndex.get(highlightedNoradId) ?? -1
-      : -1
-    if (prevIdx === nextIdx) return
+    // Resolve the highlighted norad-id set → indices in this cloud.
+    const prev = highlightedIndicesRef.current
+    const next = new Set<number>()
+    for (const id of highlightedNoradIds) {
+      const idx = noradIndex.get(id)
+      if (idx != null && idx < count) next.add(idx)
+    }
 
-    // Reset previously highlighted sat back to its base color/size.
-    if (prevIdx !== -1 && prevIdx < count) {
-      const sat = visibleSats[prevIdx]
+    // Reset sats that were highlighted but no longer are.
+    for (const idx of prev) {
+      if (next.has(idx)) continue
+      const sat = visibleSats[idx]
       const c = CONSTELLATION_COLOR[sat.constellation]
-      colorArr[prevIdx * 3 + 0] = c.r
-      colorArr[prevIdx * 3 + 1] = c.g
-      colorArr[prevIdx * 3 + 2] = c.b
-      sizeArr[prevIdx] = 1.4
+      colorArr[idx * 3 + 0] = c.r
+      colorArr[idx * 3 + 1] = c.g
+      colorArr[idx * 3 + 2] = c.b
+      sizeArr[idx] = 2.6
     }
-    // Paint highlight on the new sat.
-    if (nextIdx !== -1 && nextIdx < count) {
-      colorArr[nextIdx * 3 + 0] = 1
-      colorArr[nextIdx * 3 + 1] = 0.6
-      colorArr[nextIdx * 3 + 2] = 0.2
-      sizeArr[nextIdx] = 4.5
+    // Paint highlight on the newly highlighted sats — bright warm
+    // white + enlarged so they pop out of the cloud.
+    for (const idx of next) {
+      if (prev.has(idx)) continue
+      colorArr[idx * 3 + 0] = 1.0
+      colorArr[idx * 3 + 1] = 0.92
+      colorArr[idx * 3 + 2] = 0.55
+      sizeArr[idx] = 5.2
     }
-    highlightedIndexRef.current = nextIdx
+    highlightedIndicesRef.current = next
     colorAttr.needsUpdate = true
     sizeAttr.needsUpdate = true
-  }, [highlightedNoradId, noradIndex, visibleSats, count])
+  }, [highlightedNoradIds, noradIndex, visibleSats, count])
 
   useFrame(() => {
     if (count === 0) return

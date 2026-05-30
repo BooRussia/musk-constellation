@@ -18,15 +18,16 @@ import type { SatelliteHit } from './SatelliteCloud'
 
 type HoverListener = (hit: SatelliteHit | null) => void
 type SelectListener = (hit: SatelliteHit | null) => void
-type HighlightListener = (noradId: number | null) => void
+type HighlightListener = (ids: Set<number>) => void
 
 const hoverListeners = new Set<HoverListener>()
 const selectListeners = new Set<SelectListener>()
 const highlightListeners = new Set<HighlightListener>()
 
-// Last-known highlighted norad id. Sticks around between mounts so
-// SatelliteCloud picks up the value the moment it subscribes.
-let highlightedNoradId: number | null = null
+// Last-known set of highlighted norad ids (selected sats ∪ the hovered
+// sat). Sticks around between mounts so SatelliteCloud picks up the
+// value the moment it subscribes.
+let highlightedNoradIds: Set<number> = new Set()
 
 /** Called by SatelliteCloud when the cursor moves over (or off) a sat. */
 export function emitSatelliteHover(hit: SatelliteHit | null): void {
@@ -38,12 +39,11 @@ export function emitSatelliteSelect(hit: SatelliteHit | null): void {
   for (const fn of selectListeners) fn(hit)
 }
 
-/** Called by the host view to mark which sat should render enlarged
- *  + brighter in the cloud. Pass null to clear. */
-export function setHighlightedNoradId(id: number | null): void {
-  if (highlightedNoradId === id) return
-  highlightedNoradId = id
-  for (const fn of highlightListeners) fn(id)
+/** Called by the host view to mark which sats should render enlarged
+ *  + brighter in the cloud (selected sats + the hovered one). */
+export function setHighlightedNoradIds(ids: Set<number>): void {
+  highlightedNoradIds = ids
+  for (const fn of highlightListeners) fn(ids)
 }
 
 /** Subscribe to hover events for the lifetime of the calling component. */
@@ -66,20 +66,16 @@ export function useSatelliteSelect(listener: SelectListener): void {
   }, [listener])
 }
 
-/** Read the live highlighted norad id as React state. Used by
- *  SatelliteCloud to re-tint the highlighted point. The useState
- *  initial value reads the module-level var, so subscribers mount
- *  with the current id; subsequent emissions update via the listener
- *  callback. The tiny race window between render and subscribe is
- *  acceptable — the next hover/select event will reconcile. */
-export function useHighlightedNoradId(): number | null {
-  const [id, setId] = useState<number | null>(highlightedNoradId)
+/** Read the live highlighted norad-id set as React state. Used by
+ *  SatelliteCloud to re-tint the highlighted points. */
+export function useHighlightedNoradIds(): Set<number> {
+  const [ids, setIds] = useState<Set<number>>(highlightedNoradIds)
   useEffect(() => {
-    const listener: HighlightListener = (next) => setId(next)
+    const listener: HighlightListener = (next) => setIds(next)
     highlightListeners.add(listener)
     return () => {
       highlightListeners.delete(listener)
     }
   }, [])
-  return id
+  return ids
 }

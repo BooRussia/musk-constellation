@@ -2880,3 +2880,139 @@ body {
   .globe-label--ocean .globe-label-text { font-size: 10px; }
   .globe-label--city .globe-label-text { font-size: 10px; }
 }
+
+/* ===========================================================
+   Satellite selection panel (multi-select). Top-right, lists each
+   selected sat with its orbit-trail color swatch + key stats. */
+.sat-selection {
+  position: absolute;
+  top: 72px;
+  right: 14px;
+  z-index: 24;
+  width: 300px;
+  max-width: calc(100vw - 28px);
+  padding: 12px 12px 10px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+  color: rgba(255, 255, 255, 0.9);
+  font-family: var(--font-sans);
+  pointer-events: auto;
+}
+
+@media (max-width: 639px) {
+  .sat-selection {
+    left: 10px;
+    right: 10px;
+    width: auto;
+    top: 60px;
+  }
+}
+
+.sat-selection-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.sat-selection-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.sat-selection-clear {
+  background: transparent;
+  border: none;
+  color: rgba(120, 180, 255, 0.85);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.sat-selection-clear:hover { color: #fff; }
+.sat-selection-clear:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.sat-selection-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+.sat-selection-list::-webkit-scrollbar { width: 6px; }
+.sat-selection-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 3px; }
+
+.sat-selection-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 6px 6px 4px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.sat-selection-swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sat-selection-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sat-selection-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sat-selection-meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.3px;
+  color: rgba(255, 255, 255, 0.5);
+  font-variant-numeric: tabular-nums;
+}
+
+.sat-selection-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+.sat-selection-remove:hover { color: #fff; background: rgba(255,255,255,0.08); }
+.sat-selection-remove:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.sat-selection-hint {
+  margin: 8px 0 0;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  line-height: 1.4;
+}
