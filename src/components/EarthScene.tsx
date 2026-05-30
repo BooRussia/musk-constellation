@@ -233,56 +233,57 @@ void main() {
   vec3 dayColor = texture2D(uDayMap, vUv).rgb;
 
   // ============================================
-  // OCEAN SPECULAR — sun glint on water (uses the relief normal so
-  // wave-scale detail sparkles), gated by the water mask + lit side.
+  // DAY/NIGHT — Apple-Maps style. The whole sunlit hemisphere reads
+  // as bright, evenly-lit daytime; a smooth band fades to a dark
+  // night side glowing with city lights. Sun = REAL sub-solar point,
+  // so daytime on the globe = daytime in real life.
+  // ============================================
+  // termMask: 1 on the day side, 0 on the night side, with a smooth
+  // transition band straddling the terminator. This drives the
+  // day↔night crossfade so the boundary fades like light casting
+  // around the curve of the planet.
+  float termMask = smoothstep(-0.18, 0.15, NdotL);
+
+  // Day brightness: kept HIGH and fairly FLAT across the day side so
+  // entire continents read as lit (not a hot spot at the sub-solar
+  // point). 0.82 floor + a gentle gradient toward the sub-solar point.
+  float dayBright = 0.82 + 0.18 * smoothstep(0.0, 0.65, NdotL);
+  // Subtle relief shading from the bump normal — clamped so terrain
+  // never darkens the land much.
+  float reliefShade = clamp(1.0 + 0.5 * (reliefDot - NdotL), 0.85, 1.15);
+  // Strong gain so the darker Blue-Marble land reads as genuinely
+  // bright, vivid daylight after ACES tone mapping. A touch of
+  // saturation boost makes the greens/tans pop like the reference.
+  vec3 dayBase = dayColor * dayBright * 2.85 * reliefShade;
+  float dayLum = dot(dayBase, vec3(0.299, 0.587, 0.114));
+  vec3 dayLit = mix(vec3(dayLum), dayBase, 1.18);
+
+  // Night side: city lights from the emissive map, warm-tinted.
+  vec3 nightLit = vec3(0.0);
+  if (uHasNight > 0.5) {
+    vec3 lightsTex = texture2D(uNightMap, vUv).rgb;
+    vec3 cityColor = lightsTex * vec3(1.05, 0.90, 0.58);
+    nightLit = cityColor * uNightIntensity;
+  }
+  // Faint earthshine so the unlit land isn't pure black, just very dark.
+  vec3 nightBase = dayColor * 0.045;
+
+  // ============================================
+  // OCEAN SPECULAR — a SOFT, subtle sheen (NOT the old harsh white
+  // orb). Wide highlight, low intensity, only on water, only on the
+  // lit side. Adds life to the oceans without a blown-out blob.
   // ============================================
   vec3 specularLit = vec3(0.0);
   if (uHasSpecular > 0.5) {
     float waterMask = texture2D(uSpecularMap, vUv).r;
     vec3 halfDir = normalize(sunDir + viewDir);
-    float spec = pow(max(0.0, dot(Nrelief, halfDir)), 44.0);
-    float litFactor = smoothstep(-0.05, 0.25, NdotL);
-    specularLit = vec3(1.0, 0.96, 0.86) * spec * waterMask * litFactor;
+    // Lower exponent (16) = broad soft sheen; low intensity (0.22).
+    float spec = pow(max(0.0, dot(Nrelief, halfDir)), 16.0);
+    specularLit = vec3(0.7, 0.8, 1.0) * spec * waterMask * termMask * 0.22;
   }
 
-  // ============================================
-  // DAY/NIGHT — bright daylit hemisphere, clean terminator, dark
-  // night side (Apple-Maps look). The sun is the REAL sub-solar
-  // point, so daytime here = daytime in real life.
-  // ============================================
-  // Day brightness ramps across the terminator: full daylight where
-  // NdotL >= 0.28, easing to near-dark just past the terminator.
-  // Defined (not the old flat half-Lambert wash) so the day/night
-  // boundary reads crisply like the reference globe.
-  float dayShade = smoothstep(-0.06, 0.28, NdotL);
-  // Subtle relief shading: mountains tilted toward the sun brighten a
-  // touch, away-facing slopes darken a touch — CLAMPED so terrain
-  // relief can never black out the land.
-  float reliefShade = clamp(1.0 + 0.6 * (reliefDot - NdotL), 0.80, 1.20);
-  // Low ambient floor (0.06) so the night side of the day texture is
-  // dark — faint earthshine only — letting the city lights dominate.
-  // Bright day gain (1.55) for a vivid sunlit hemisphere.
-  vec3 dayLit = dayColor * (0.06 + 1.55 * dayShade) * reliefShade;
-
-  // Night side: city lights from the emissive map. Boost intensity
-  // and feather into the terminator so lights "turn on" as the
-  // sun sets rather than snapping. Squared for falloff bias.
-  vec3 nightLit = vec3(0.0);
-  if (uHasNight > 0.5) {
-    vec3 lightsTex = texture2D(uNightMap, vUv).rgb;
-    // Warmer tint than raw emissive — matches NASA night-side imagery.
-    vec3 cityColor = lightsTex * vec3(1.05, 0.92, 0.62);
-    // Night weight: 1 on full dark side, 0 on lit side, smooth between.
-    float nightWeight = 1.0 - smoothstep(-0.18, 0.02, NdotL);
-    // Square for sharper falloff so glow concentrates on dark side.
-    nightWeight *= nightWeight;
-    nightLit = cityColor * nightWeight * uNightIntensity;
-  }
-
-  // Combine: daylit surface + night-side city lights + ocean glint.
-  // dayShade already handles the terminator falloff, so no extra
-  // dayWeight multiply is needed.
-  vec3 color = dayLit + nightLit + specularLit;
+  // Crossfade day → (night base + city lights) across the terminator.
+  vec3 color = mix(nightBase + nightLit, dayLit + specularLit, termMask);
 
   // ============================================
   // ATMOSPHERIC HAZE — Rayleigh-style limb tint
