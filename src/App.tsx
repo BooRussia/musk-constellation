@@ -4,7 +4,7 @@ import {
   X, RotateCcw, Layers, ZoomIn, Info,
   Globe, ChevronUp, ChevronDown, Menu, Network, Activity,
   PanelRightClose, PanelRightOpen, PanelLeftClose, PanelLeftOpen,
-  Clock, Play, Pause, Crosshair,
+  Clock, Play, Pause, Crosshair, Satellite,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import SearchBar from './components/SearchBar'
@@ -23,6 +23,9 @@ import type { Node as ConstellationNode, TimelineEvent } from './data/constellat
 import type { Link } from './data/constellation'
 
 const ConstellationCanvas = lazy(() => import('./components/ConstellationCanvas'))
+const StarlinkView = lazy(() => import('./components/StarlinkView'))
+
+type AppView = 'constellation' | 'starlink'
 
 function formatLinkDescription(link: Link): string {
   return link.note || `${LINK_LABELS[link.type]} connection`
@@ -435,8 +438,8 @@ function Coachmark() {
 // the canonical home URL stays clean.
 const DEFAULT_EXPANDED_IDS = ['tesla', 'spacex', 'xai']
 
-function readUrlState(): { node: string | null; expand: string[] | null } {
-  if (typeof window === 'undefined') return { node: null, expand: null }
+function readUrlState(): { node: string | null; expand: string[] | null; view: AppView } {
+  if (typeof window === 'undefined') return { node: null, expand: null, view: 'constellation' }
   try {
     const params = new URLSearchParams(window.location.search)
     const rawNode = params.get('node')
@@ -445,13 +448,15 @@ function readUrlState(): { node: string | null; expand: string[] | null } {
     const expand = rawExpand
       ? rawExpand.split(',').map(s => s.trim()).filter(id => getNodeById(id))
       : null
-    return { node, expand }
+    const rawView = params.get('view')
+    const view: AppView = rawView === 'starlink' ? 'starlink' : 'constellation'
+    return { node, expand, view }
   } catch {
-    return { node: null, expand: null }
+    return { node: null, expand: null, view: 'constellation' }
   }
 }
 
-function writeUrlState(node: string | null, expand: Set<string>) {
+function writeUrlState(node: string | null, expand: Set<string>, view: AppView) {
   if (typeof window === 'undefined') return
   try {
     const params = new URLSearchParams(window.location.search)
@@ -466,6 +471,8 @@ function writeUrlState(node: string | null, expand: Set<string>) {
       expandList.every((id, i) => id === defaultList[i])
     if (isDefault) params.delete('expand')
     else params.set('expand', expandList.join(','))
+    if (view === 'starlink') params.set('view', 'starlink')
+    else params.delete('view')
     const search = params.toString()
     const url = `${window.location.pathname}${search ? `?${search}` : ''}${window.location.hash}`
     window.history.replaceState(window.history.state, '', url)
@@ -838,6 +845,10 @@ export default function MuskConstellation() {
   // Lazy initializers read the URL exactly once on first render so the
   // first paint already reflects the shared state.
   const initialUrl = useMemo(() => readUrlState(), [])
+  // Top-level view router. ?view=starlink loads the Earth scene
+  // instead of the constellation graph. Defaults to constellation
+  // for any other value (or no param at all).
+  const [currentView, setCurrentView] = useState<AppView>(initialUrl.view)
   const [selectedId, setSelectedId] = useState<string | null>(initialUrl.node)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
     // If a deep-linked node is a sub, auto-expand its parent so the
@@ -901,8 +912,8 @@ export default function MuskConstellation() {
   // click to add a history entry. Back-button restoration is handled by
   // the popstate effect below, which fires on user navigation only.
   useEffect(() => {
-    writeUrlState(selectedId, expandedIds)
-  }, [selectedId, expandedIds])
+    writeUrlState(selectedId, expandedIds, currentView)
+  }, [selectedId, expandedIds, currentView])
 
   // Restore state when the user hits back/forward (e.g. after opening
   // the site from a Slack preview, fly-to'ing a few nodes, and going
@@ -912,6 +923,7 @@ export default function MuskConstellation() {
     if (typeof window === 'undefined') return
     const onPopState = () => {
       const next = readUrlState()
+      setCurrentView(next.view)
       setSelectedId(next.node)
       const baseExpand = next.expand ?? DEFAULT_EXPANDED_IDS
       const set = new Set(baseExpand)
@@ -1137,6 +1149,20 @@ export default function MuskConstellation() {
     '--sidebar-visual-w': showLeftSidebar ? '288px' : '0px',
   } as React.CSSProperties
 
+  // Top-level view router. The Starlink view is fully self-contained
+  // (own chrome, own canvas) so it bypasses the constellation tree
+  // entirely — much simpler than trying to share layout primitives
+  // between two views with very different needs.
+  if (currentView === 'starlink') {
+    return (
+      <MotionConfig reducedMotion="user">
+        <Suspense fallback={<div className="starlink-view" />}>
+          <StarlinkView onBack={() => setCurrentView('constellation')} />
+        </Suspense>
+      </MotionConfig>
+    )
+  }
+
   return (
     <MotionConfig reducedMotion="user">
       <div
@@ -1202,6 +1228,14 @@ export default function MuskConstellation() {
 
           <nav aria-label="Constellation controls" className="topnav-actions">
             <div className="topnav-actions-desktop hidden md:flex">
+              <button
+                type="button"
+                onClick={() => setCurrentView('starlink')}
+                className="btn btn-primary"
+                title="Open the Starlink constellation view"
+              >
+                <Satellite className="h-3.5 w-3.5" aria-hidden="true" /> STARLINK
+              </button>
               <button type="button" onClick={resetView} className="btn" title="Reset to home view — camera + selection (R)">
                 <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> RESET
               </button>
@@ -1271,6 +1305,14 @@ export default function MuskConstellation() {
                   role="menu"
                   className="absolute right-0 top-full z-50 mt-2 min-w-[200px] rounded-xl border border-white/10 bg-black/95 p-2 shadow-2xl backdrop-blur-xl"
                 >
+                  <button
+                    type="button"
+                    onClick={() => { setCurrentView('starlink'); setMobileMenuOpen(false) }}
+                    role="menuitem"
+                    className="btn btn-primary mb-1 w-full justify-start gap-1.5"
+                  >
+                    <Satellite className="h-3.5 w-3.5" aria-hidden="true" /> STARLINK
+                  </button>
                   <button
                     type="button"
                     onClick={() => { resetView(); setMobileMenuOpen(false) }}
