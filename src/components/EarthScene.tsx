@@ -31,12 +31,20 @@ const ATMOSPHERE_OUTER_RADIUS = EARTH_RADIUS * 1.22
 // CORS, no version-resolution guesswork — they're sourced from
 // three.js's own example suite (raw.githubusercontent.com pull)
 // but live in our static assets so we control delivery.
-type TextureKey = 'day' | 'normal' | 'night'
+type TextureKey = 'day' | 'normal' | 'night' | 'specular'
 const TEXTURES: Record<TextureKey, string> = {
   day: '/textures/planets/earth_atmos_2048.jpg',
   normal: '/textures/planets/earth_normal_2048.jpg',
   night: '/textures/planets/earth_lights_2048.png',
+  // Water mask from three.js's example suite — white = ocean,
+  // black = land. Drives the ocean-only specular highlight that
+  // gives Earth its signature sun-glint on the daylit hemisphere.
+  specular: '/textures/planets/earth_specular_2048.jpg',
 }
+
+// Linear-data textures (no sRGB decode). Normal map carries vectors,
+// specular map is a mask — both are data, not color.
+const LINEAR_TEXTURES = new Set<TextureKey>(['normal', 'specular'])
 
 // Load one texture with the right color-space config baked in at
 // load time so we never have to mutate the prop ref later. Returns
@@ -47,8 +55,7 @@ async function tryLoadTexture(key: TextureKey): Promise<THREE.Texture | null> {
   try {
     const tex = await loader.loadAsync(TEXTURES[key])
     tex.anisotropy = 8
-    // Day and night maps are color data; normal map is linear data.
-    tex.colorSpace = key === 'normal' ? THREE.NoColorSpace : THREE.SRGBColorSpace
+    tex.colorSpace = LINEAR_TEXTURES.has(key) ? THREE.NoColorSpace : THREE.SRGBColorSpace
     tex.needsUpdate = true
     return tex
   } catch (err) {
@@ -118,6 +125,147 @@ void main() {
   // Very low max alpha so the long fade looks like atmospheric
   // light scattering rather than a paint stroke.
   gl_FragColor = vec4(col, fres * 0.28);
+}
+`
+
+// ============================================
+// Photoreal Earth surface shader — drives the textured sphere
+// when all real-image maps load. Custom shader (rather than
+// meshStandardMaterial) so we can:
+//   - Apply ocean-only specular highlights via the water mask
+//   - Smoothly cross-fade day → night at the terminator instead
+//     of the abrupt cut meshStandardMaterial.emissiveMap produces
+//   - Mix a faint blue Rayleigh-style veil into the limb so the
+//     surface itself appears to be lit through atmosphere
+// ============================================
+const SURFACE_VERT = /* glsl */ `
+varying vec3 vNormal;
+varying vec3 vWorldPos;
+varying vec3 vObjectNormal;
+varying vec2 vUv;
+void main() {
+  vNormal = normalize(normalMatrix * normal);
+  vObjectNormal = normal;
+  vec4 worldPos = modelMatrix * vec4(position, 1.0);
+  vWorldPos = worldPos.xyz;
+  vUv = uv;
+  gl_Position = projectionMatrix * viewMatrix * worldPos;
+}
+`
+
+const SURFACE_FRAG = /* glsl */ `
+uniform sampler2D uDayMap;
+uniform sampler2D uNightMap;
+uniform sampler2D uNormalMap;
+uniform sampler2D uSpecularMap;
+uniform vec3 uSunDir;
+uniform float uHasNormal;
+uniform float uHasNight;
+uniform float uHasSpecular;
+uniform float uNormalStrength;
+uniform float uNightIntensity;
+uniform float uAtmosphereStrength;
+
+varying vec3 vNormal;
+varying vec3 vWorldPos;
+varying vec3 vObjectNormal;
+varying vec2 vUv;
+
+// Approximate world-space normal perturbation from a tangent-space
+// normal map without an explicit tangent attribute. Cheap and good
+// enough for a sphere — relief shows up nicely on continents.
+vec3 perturbNormal(vec3 N, vec3 V, vec2 uv) {
+  vec3 q0 = dFdx(V);
+  vec3 q1 = dFdy(V);
+  vec2 st0 = dFdx(uv);
+  vec2 st1 = dFdy(uv);
+  vec3 S = normalize(q0 * st1.t - q1 * st0.t);
+  vec3 T = normalize(-q0 * st1.s + q1 * st0.s);
+  mat3 tsn = mat3(S, T, N);
+  vec3 mapN = texture2D(uNormalMap, uv).xyz * 2.0 - 1.0;
+  mapN.xy *= uNormalStrength;
+  return normalize(tsn * mapN);
+}
+
+void main() {
+  vec3 viewDir = normalize(cameraPosition - vWorldPos);
+  vec3 sunDir = normalize(uSunDir);
+
+  // World normal, perturbed by the normal map if loaded.
+  vec3 N = normalize(vNormal);
+  if (uHasNormal > 0.5) {
+    N = perturbNormal(N, -viewDir, vUv);
+  }
+
+  // Lambert sun term — cosine of angle between surface and sun.
+  float NdotL = dot(N, sunDir);
+
+  // Day color + a faint ambient so the night side isn't dead black
+  // when no city-lights texture is available.
+  vec3 dayColor = texture2D(uDayMap, vUv).rgb;
+
+  // ============================================
+  // OCEAN SPECULAR — the realism killer feature.
+  // Blinn-Phong style highlight, gated by the water mask so only
+  // the oceans glint. Tightened exponent + boosted intensity so the
+  // glint reads sharp against the matte continents.
+  // ============================================
+  vec3 specularLit = vec3(0.0);
+  if (uHasSpecular > 0.5) {
+    float waterMask = texture2D(uSpecularMap, vUv).r;
+    vec3 halfDir = normalize(sunDir + viewDir);
+    float specAngle = max(0.0, dot(N, halfDir));
+    // Tight highlight (high exponent) so it reads as a real sun
+    // glint, not a generic sheen. ~32-shininess gives a soft disk.
+    float spec = pow(specAngle, 48.0);
+    // Only on the lit side, and only on water. The sunny-side
+    // smoothstep prevents specular bleeding past the terminator.
+    float litFactor = smoothstep(-0.05, 0.25, NdotL);
+    specularLit = vec3(1.0, 0.96, 0.86) * spec * waterMask * litFactor * 1.6;
+  }
+
+  // ============================================
+  // DAY/NIGHT BLEND — smooth terminator
+  // Use a soft transition zone (a few degrees wide) instead of
+  // multiplying by max(0, NdotL), which produces a hard line.
+  // ============================================
+  // Day weight: full at NdotL >= 0.1, fades to 0 by NdotL = -0.15.
+  float dayWeight = smoothstep(-0.15, 0.10, NdotL);
+  // Lambert-shaded day color, with a tiny ambient lift so even
+  // the dim near-terminator zone isn't pitch black.
+  vec3 dayLit = dayColor * (0.06 + 0.94 * max(0.0, NdotL));
+
+  // Night side: city lights from the emissive map. Boost intensity
+  // and feather into the terminator so lights "turn on" as the
+  // sun sets rather than snapping. Squared for falloff bias.
+  vec3 nightLit = vec3(0.0);
+  if (uHasNight > 0.5) {
+    vec3 lightsTex = texture2D(uNightMap, vUv).rgb;
+    // Warmer tint than raw emissive — matches NASA night-side imagery.
+    vec3 cityColor = lightsTex * vec3(1.05, 0.92, 0.62);
+    // Night weight: 1 on full dark side, 0 on lit side, smooth between.
+    float nightWeight = 1.0 - smoothstep(-0.18, 0.02, NdotL);
+    // Square for sharper falloff so glow concentrates on dark side.
+    nightWeight *= nightWeight;
+    nightLit = cityColor * nightWeight * uNightIntensity;
+  }
+
+  // Combine: day + lifted near-terminator + night lights + specular.
+  vec3 color = dayLit * dayWeight + nightLit + specularLit;
+
+  // ============================================
+  // ATMOSPHERIC HAZE — Rayleigh-style limb tint
+  // Surfaces near the limb are viewed through more atmosphere,
+  // so they pick up a faint blue scatter. Modulated by sun light
+  // so the night side doesn't fluoresce blue.
+  // ============================================
+  float fres = pow(1.0 - max(0.0, dot(N, viewDir)), 2.4);
+  // Only haze the lit side — atmospheric scattering needs sunlight.
+  float hazeLit = smoothstep(-0.10, 0.40, NdotL);
+  vec3 hazeColor = vec3(0.40, 0.62, 1.00);
+  color = mix(color, hazeColor, fres * hazeLit * uAtmosphereStrength);
+
+  gl_FragColor = vec4(color, 1.0);
 }
 `
 
@@ -242,6 +390,7 @@ interface LoadedTextures {
   day: THREE.Texture | null
   normal: THREE.Texture | null
   night: THREE.Texture | null
+  specular: THREE.Texture | null
 }
 
 function Earth({
@@ -274,6 +423,34 @@ function Earth({
     [],
   )
 
+  // Uniforms for the photoreal surface shader. Keyed on the
+  // textures object so the uniforms (and material) rebuild when
+  // textures arrive from disk — cheap, happens once at startup.
+  // sunDir is mutated per-frame in useFrame, which is exempt from
+  // the react-hooks immutability rule (it's not a tracked hook).
+  const surfaceUniforms = useMemo(
+    () => ({
+      uDayMap: { value: textures.day },
+      uNightMap: { value: textures.night },
+      uNormalMap: { value: textures.normal },
+      uSpecularMap: { value: textures.specular },
+      uSunDir: { value: new THREE.Vector3(1, 0.25, 0.6).normalize() },
+      uHasNormal: { value: textures.normal ? 1.0 : 0.0 },
+      uHasNight: { value: textures.night ? 1.0 : 0.0 },
+      uHasSpecular: { value: textures.specular ? 1.0 : 0.0 },
+      // Stronger relief than the old meshStandardMaterial setting
+      // (was 0.85) — exaggerates mountain ranges so they catch the
+      // grazing sun light near the terminator.
+      uNormalStrength: { value: 1.2 },
+      // City lights — punched up from the old 0.7 emissiveIntensity
+      // so the night hemisphere really pops on the dark side.
+      uNightIntensity: { value: 1.35 },
+      // Limb haze contribution — subtle. Peak ~0.22 at the rim.
+      uAtmosphereStrength: { value: 0.22 },
+    }),
+    [textures],
+  )
+
   // Per-frame: update sun direction from real UTC, point the
   // directional light at Earth from the new sun direction, and
   // propagate the same vector into both shaders. Earth does NOT
@@ -287,6 +464,7 @@ function Earth({
     atmoInnerUniforms.uSunDir.value.copy(sunDir)
     atmoOuterUniforms.uSunDir.value.copy(sunDir)
     procUniforms.uSunDir.value.copy(sunDir)
+    surfaceUniforms.uSunDir.value.copy(sunDir)
     if (sunLightRef.current) {
       // Light far away in the sun direction so it acts directional.
       sunLightRef.current.position.copy(sunDir).multiplyScalar(50)
@@ -298,15 +476,13 @@ function Earth({
       <mesh ref={earthRef}>
         <sphereGeometry args={[EARTH_RADIUS, 128, 128]} />
         {hasDayTexture ? (
-          <meshStandardMaterial
-            map={textures.day!}
-            normalMap={textures.normal ?? undefined}
-            normalScale={new THREE.Vector2(0.85, 0.85)}
-            emissiveMap={textures.night ?? undefined}
-            emissive={new THREE.Color('#ffe8b0')}
-            emissiveIntensity={textures.night ? 0.7 : 0}
-            roughness={0.9}
-            metalness={0.0}
+          /* Photoreal path — custom shader for ocean specular, smooth
+             terminator, punched-up city lights, and a faint blue
+             Rayleigh haze near the limb. See SURFACE_FRAG above. */
+          <shaderMaterial
+            vertexShader={SURFACE_VERT}
+            fragmentShader={SURFACE_FRAG}
+            uniforms={surfaceUniforms}
           />
         ) : (
           /* Procedural fallback — never fails. */
@@ -371,6 +547,7 @@ export default function EarthScene({
     day: null,
     normal: null,
     night: null,
+    specular: null,
   })
   const [loadStatus, setLoadStatus] = useState<'loading' | 'done' | 'fallback'>('loading')
 
@@ -383,13 +560,14 @@ export default function EarthScene({
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const [day, normal, night] = await Promise.all([
+      const [day, normal, night, specular] = await Promise.all([
         tryLoadTexture('day'),
         tryLoadTexture('normal'),
         tryLoadTexture('night'),
+        tryLoadTexture('specular'),
       ])
       if (cancelled) return
-      setTextures({ day, normal, night })
+      setTextures({ day, normal, night, specular })
       setLoadStatus(day ? 'done' : 'fallback')
       if (!day) {
         console.warn('[EarthScene] All texture loads failed — falling back to procedural Earth')
