@@ -1,11 +1,7 @@
-import { Suspense, useRef, useMemo, useEffect } from 'react'
-import { Canvas, useFrame, useLoader } from '@react-three/fiber'
+import { Suspense, useRef, useMemo, useEffect, useState } from 'react'
+import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, Stars as DreiStars } from '@react-three/drei'
 import * as THREE from 'three'
-
-// Three.js's TextureLoader defaults to crossOrigin='anonymous'
-// so CDN textures upload to the GL texture unit without being
-// tainted. No setup needed beyond using TextureLoader directly.
 
 // ============================================
 // PHOTOREAL EARTH SCENE
@@ -15,35 +11,60 @@ import * as THREE from 'three'
 //   Shell 1 (550 km)  → orbit radius ≈ 5.43
 //   Shell 2 (570 km)  → orbit radius ≈ 5.45
 //   Shell 3 (340 km)  → orbit radius ≈ 5.27
-// Textures pulled from a public CDN (jsDelivr) so we don't have to
-// ship 10MB of binary assets in the repo. Suspense around the
-// scene handles the load gracefully — falls back to nothing while
-// fetching, never block-renders.
+//
+// Textures load with a multi-CDN fallback chain. If ALL CDNs fail
+// (offline, blocked, every endpoint down), we fall back to a
+// procedural shader Earth so the user NEVER sees a broken page.
 
 const EARTH_RADIUS = 5
 const CLOUDS_RADIUS = EARTH_RADIUS * 1.008
 const ATMOSPHERE_RADIUS = EARTH_RADIUS * 1.065
 
-// Textures come from three.js's own examples folder, bundled in
-// the three npm package (which is already a project dep). jsDelivr
-// serves npm packages reliably — no GitHub branch guesswork, no
-// 404s. These are the same textures three.js's official planet
-// demos use: NASA Blue Marble color, normal map for relief,
-// nighttime city lights, and a cloud sheet.
-const TEX_URL = 'https://cdn.jsdelivr.net/npm/three@0.184.0/examples/textures/planets'
-const TEXTURES = {
-  day: `${TEX_URL}/earth_atmos_2048.jpg`,
-  normal: `${TEX_URL}/earth_normal_2048.jpg`,
-  night: `${TEX_URL}/earth_lights_2048.png`,
-  clouds: `${TEX_URL}/earth_clouds_1024.png`,
+// Three.js's classic example Earth textures. Both jsDelivr's
+// gh endpoint (serves any file from the repo) and the unpkg
+// equivalent are tried in order — whichever responds first
+// wins. The dev branch always has these files; they've been part
+// of three.js's example suite for a decade.
+type TextureKey = 'day' | 'normal' | 'night' | 'clouds'
+const TEXTURE_PATHS: Record<TextureKey, string> = {
+  day: 'examples/textures/planets/earth_atmos_2048.jpg',
+  normal: 'examples/textures/planets/earth_normal_2048.jpg',
+  night: 'examples/textures/planets/earth_lights_2048.png',
+  clouds: 'examples/textures/planets/earth_clouds_1024.png',
+}
+const CDN_BASES = [
+  'https://cdn.jsdelivr.net/gh/mrdoob/three.js@dev',
+  'https://raw.githubusercontent.com/mrdoob/three.js/dev',
+]
+
+// Try each CDN base in sequence until one succeeds for a given
+// texture key. Returns null if every base failed. Color/sampling
+// config is applied on the freshly-loaded texture here so the
+// component never has to mutate props.
+async function tryLoadTexture(key: TextureKey): Promise<THREE.Texture | null> {
+  const loader = new THREE.TextureLoader()
+  loader.setCrossOrigin('anonymous')
+  for (const base of CDN_BASES) {
+    const url = `${base}/${TEXTURE_PATHS[key]}`
+    try {
+      const tex = await loader.loadAsync(url)
+      tex.anisotropy = 8
+      // Day and night maps are color data; normal map is linear data.
+      tex.colorSpace = key === 'normal' ? THREE.NoColorSpace : THREE.SRGBColorSpace
+      tex.needsUpdate = true
+      return tex
+    } catch (err) {
+      console.warn(`[EarthScene] ${key} failed at ${base}:`, err)
+    }
+  }
+  return null
 }
 
 // ============================================
-// Atmosphere shader — fresnel rim glow that's strongest at
-// the limb and falls off to nothing at the dead center. The
-// material renders on the INSIDE of a slightly larger sphere
-// (side: BackSide) so the back-faces compose the halo seen from
-// the camera — classic technique.
+// Atmosphere shader — fresnel rim glow on a BackSide-rendered
+// outer sphere. Warm-tinted on the sun-facing limb, cool blue
+// elsewhere. This is the same technique used in every famous
+// "Earth from space" tutorial — back-faces compose the halo.
 // ============================================
 const ATMOSPHERE_VERT = /* glsl */ `
 varying vec3 vNormal;
@@ -62,9 +83,7 @@ varying vec3 vNormal;
 varying vec3 vWorldPos;
 void main() {
   vec3 viewDir = normalize(cameraPosition - vWorldPos);
-  // Fresnel — bright at glancing angles, dim head-on.
   float fres = pow(1.0 - dot(vNormal, viewDir), 2.4);
-  // Tint warmer on the sun-facing limb, cooler on the night side.
   float sun = max(0.0, dot(vNormal, normalize(uSunDir)));
   vec3 cool = vec3(0.30, 0.62, 1.10);
   vec3 warm = vec3(0.95, 0.78, 0.60);
@@ -74,96 +93,162 @@ void main() {
 `
 
 // ============================================
-// EARTH MESH
+// Procedural Earth shader — fallback when no CDN texture loads.
+// Continents emerge from fbm noise, polar caps from latitude,
+// city lights from inverse-day shading. Not photoreal, but
+// always renders, never fails, no network needed.
 // ============================================
-function Earth() {
+const PROC_EARTH_VERT = /* glsl */ `
+varying vec3 vNormal;
+varying vec3 vPos;
+varying vec2 vUv;
+void main() {
+  vNormal = normalize(normalMatrix * normal);
+  vPos = position;
+  vUv = uv;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}
+`
+
+const PROC_EARTH_FRAG = /* glsl */ `
+uniform vec3 uSunDir;
+varying vec3 vNormal;
+varying vec3 vPos;
+varying vec2 vUv;
+
+// Simplex-ish 3D noise (Inigo Quilez style).
+vec3 hash3(vec3 p) {
+  p = vec3(dot(p, vec3(127.1, 311.7, 74.7)),
+           dot(p, vec3(269.5, 183.3, 246.1)),
+           dot(p, vec3(113.5, 271.9, 124.6)));
+  return fract(sin(p) * 43758.5453123) - 0.5;
+}
+float noise3(vec3 p) {
+  vec3 i = floor(p);
+  vec3 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(
+    mix(mix(dot(hash3(i + vec3(0,0,0)), f - vec3(0,0,0)),
+            dot(hash3(i + vec3(1,0,0)), f - vec3(1,0,0)), f.x),
+        mix(dot(hash3(i + vec3(0,1,0)), f - vec3(0,1,0)),
+            dot(hash3(i + vec3(1,1,0)), f - vec3(1,1,0)), f.x), f.y),
+    mix(mix(dot(hash3(i + vec3(0,0,1)), f - vec3(0,0,1)),
+            dot(hash3(i + vec3(1,0,1)), f - vec3(1,0,1)), f.x),
+        mix(dot(hash3(i + vec3(0,1,1)), f - vec3(0,1,1)),
+            dot(hash3(i + vec3(1,1,1)), f - vec3(1,1,1)), f.x), f.y),
+    f.z);
+}
+float fbm(vec3 p) {
+  float v = 0.0; float a = 0.5;
+  for (int i = 0; i < 5; i++) {
+    v += a * noise3(p);
+    p *= 2.0; a *= 0.5;
+  }
+  return v;
+}
+
+void main() {
+  // Continent noise.
+  vec3 p = vPos * 0.7;
+  float n = fbm(p);
+  float land = smoothstep(-0.02, 0.08, n);
+
+  // Polar caps via latitude (y-axis = up).
+  float lat = abs(normalize(vPos).y);
+  float ice = smoothstep(0.75, 0.92, lat);
+
+  vec3 ocean = vec3(0.04, 0.18, 0.42);
+  vec3 landCol = mix(vec3(0.20, 0.42, 0.14), vec3(0.55, 0.43, 0.25), fbm(p * 2.5) + 0.3);
+  vec3 surface = mix(ocean, landCol, land);
+  surface = mix(surface, vec3(0.95, 0.96, 0.98), ice);
+
+  // Sun shading (Lambert).
+  float sun = max(0.0, dot(vNormal, normalize(uSunDir)));
+  vec3 lit = surface * (0.15 + 0.85 * sun);
+
+  // City lights on the night side — sparse pinpricks.
+  float night = 1.0 - sun;
+  float lightsNoise = fbm(p * 8.0);
+  float lights = step(0.18, lightsNoise) * land * night * night;
+  lit += vec3(1.0, 0.85, 0.5) * lights * 0.6;
+
+  gl_FragColor = vec4(lit, 1.0);
+}
+`
+
+// ============================================
+// EARTH (textured if loaded, procedural fallback otherwise)
+// ============================================
+interface LoadedTextures {
+  day: THREE.Texture | null
+  normal: THREE.Texture | null
+  night: THREE.Texture | null
+  clouds: THREE.Texture | null
+}
+
+function Earth({ textures, sunDir }: { textures: LoadedTextures; sunDir: THREE.Vector3 }) {
   const earthRef = useRef<THREE.Mesh>(null)
   const cloudsRef = useRef<THREE.Mesh>(null)
-  const atmoRef = useRef<THREE.ShaderMaterial>(null)
 
-  // useLoader throws a Promise during render until textures resolve,
-  // which Suspense catches. All 4 load in parallel.
-  const [dayMap, normalMap, nightMap, cloudsMap] = useLoader(THREE.TextureLoader, [
-    TEXTURES.day,
-    TEXTURES.normal,
-    TEXTURES.night,
-    TEXTURES.clouds,
-  ])
-
-  // Sharper texture sampling. useEffect (not render-time) avoids
-  // re-mutating every frame; the textures are stable refs from
-  // useLoader so deps need only be [dayMap, nightMap].
-  useEffect(() => {
-    for (const m of [dayMap, nightMap]) {
-      m.anisotropy = 8
-      m.colorSpace = THREE.SRGBColorSpace
-      m.needsUpdate = true
-    }
-  }, [dayMap, nightMap])
-
-  // Sun direction — drives both the directional light and the
-  // atmosphere shader so the warm-side glow lines up with daylight.
-  const sunDir = useMemo(() => new THREE.Vector3(1, 0.25, 0.6).normalize(), [])
+  const hasDayTexture = !!textures.day
 
   const atmoUniforms = useMemo(
-    () => ({
-      uSunDir: { value: sunDir.clone() },
-    }),
+    () => ({ uSunDir: { value: sunDir.clone() } }),
+    [sunDir],
+  )
+
+  const procUniforms = useMemo(
+    () => ({ uSunDir: { value: sunDir.clone() } }),
     [sunDir],
   )
 
   useFrame((_, delta) => {
-    // Slow axial spin — about one full rotation every 4 minutes of
-    // real time. Slow enough to feel grand, fast enough that you
-    // can see continents move during a session.
     if (earthRef.current) earthRef.current.rotation.y += delta * 0.026
-    // Clouds drift slightly faster than the surface for parallax.
     if (cloudsRef.current) cloudsRef.current.rotation.y += delta * 0.032
   })
 
   return (
     <group>
-      {/* The Earth itself. Day map for color, RGB normal map for
-          proper per-pixel relief that catches limb light correctly.
-          emissiveMap = night-side city lights which kick in on the
-          unlit hemisphere because emissive ignores scene lighting. */}
       <mesh ref={earthRef}>
         <sphereGeometry args={[EARTH_RADIUS, 128, 128]} />
-        <meshStandardMaterial
-          map={dayMap}
-          normalMap={normalMap}
-          normalScale={new THREE.Vector2(0.85, 0.85)}
-          emissiveMap={nightMap}
-          emissive={new THREE.Color('#ffe8b0')}
-          emissiveIntensity={0.7}
-          roughness={0.9}
-          metalness={0.0}
-        />
+        {hasDayTexture ? (
+          <meshStandardMaterial
+            map={textures.day!}
+            normalMap={textures.normal ?? undefined}
+            normalScale={new THREE.Vector2(0.85, 0.85)}
+            emissiveMap={textures.night ?? undefined}
+            emissive={new THREE.Color('#ffe8b0')}
+            emissiveIntensity={textures.night ? 0.7 : 0}
+            roughness={0.9}
+            metalness={0.0}
+          />
+        ) : (
+          /* Procedural fallback — never fails. */
+          <shaderMaterial
+            vertexShader={PROC_EARTH_VERT}
+            fragmentShader={PROC_EARTH_FRAG}
+            uniforms={procUniforms}
+          />
+        )}
       </mesh>
 
-      {/* Cloud sheet floating just above the surface. The
-          alpha-mask cloud texture from three-globe is a luminance
-          map, so we wire it as alphaMap + a white base for clean
-          edges. depthWrite false so atmospherics behind it still
-          composite. */}
-      <mesh ref={cloudsRef}>
-        <sphereGeometry args={[CLOUDS_RADIUS, 96, 96]} />
-        <meshStandardMaterial
-          alphaMap={cloudsMap}
-          color="#ffffff"
-          transparent
-          opacity={0.6}
-          depthWrite={false}
-        />
-      </mesh>
+      {textures.clouds && (
+        <mesh ref={cloudsRef}>
+          <sphereGeometry args={[CLOUDS_RADIUS, 96, 96]} />
+          <meshStandardMaterial
+            alphaMap={textures.clouds}
+            color="#ffffff"
+            transparent
+            opacity={0.6}
+            depthWrite={false}
+          />
+        </mesh>
+      )}
 
-      {/* Atmosphere halo — BackSide rendering on a larger sphere
-          so only the rim-facing back-faces compose, producing the
-          characteristic blue limb glow seen from orbit. */}
+      {/* Atmosphere always renders — pure shader, no dependencies. */}
       <mesh>
         <sphereGeometry args={[ATMOSPHERE_RADIUS, 96, 96]} />
         <shaderMaterial
-          ref={atmoRef}
           vertexShader={ATMOSPHERE_VERT}
           fragmentShader={ATMOSPHERE_FRAG}
           uniforms={atmoUniforms}
@@ -178,86 +263,90 @@ function Earth() {
 }
 
 // ============================================
-// FALLBACK while textures load
-// ============================================
-function LoadingPlanet() {
-  return (
-    <mesh>
-      <sphereGeometry args={[EARTH_RADIUS, 32, 32]} />
-      <meshBasicMaterial color="#0a1a3a" wireframe />
-    </mesh>
-  )
-}
-
-// ============================================
-// SCENE
+// SCENE — loads textures imperatively + renders
 // ============================================
 export default function EarthScene() {
+  const [textures, setTextures] = useState<LoadedTextures>({
+    day: null,
+    normal: null,
+    night: null,
+    clouds: null,
+  })
+  const [loadStatus, setLoadStatus] = useState<'loading' | 'done' | 'fallback'>('loading')
+
+  const sunDir = useMemo(() => new THREE.Vector3(1, 0.25, 0.6).normalize(), [])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const [day, normal, night, clouds] = await Promise.all([
+        tryLoadTexture('day'),
+        tryLoadTexture('normal'),
+        tryLoadTexture('night'),
+        tryLoadTexture('clouds'),
+      ])
+      if (cancelled) return
+      setTextures({ day, normal, night, clouds })
+      setLoadStatus(day ? 'done' : 'fallback')
+      if (!day) {
+        console.warn('[EarthScene] All CDN textures failed — falling back to procedural Earth')
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   return (
-    <Canvas
-      camera={{ position: [0, 1.5, 14], fov: 42 }}
-      gl={{
-        antialias: true,
-        powerPreference: 'high-performance',
-      }}
-      dpr={[1, 2]}
-      onCreated={({ gl }) => {
-        // Set tone mapping + color space after renderer construction
-        // (more reliable than passing in gl props, which some r3f
-        // versions don't forward correctly).
-        gl.toneMapping = THREE.ACESFilmicToneMapping
-        gl.outputColorSpace = THREE.SRGBColorSpace
-      }}
-    >
-      {/* Deep-space backdrop — nearly black with a hint of blue. */}
-      <color attach="background" args={['#020208']} />
+    <>
+      <Canvas
+        camera={{ position: [0, 1.5, 14], fov: 42 }}
+        gl={{ antialias: true, powerPreference: 'high-performance' }}
+        dpr={[1, 2]}
+        onCreated={({ gl }) => {
+          gl.toneMapping = THREE.ACESFilmicToneMapping
+          gl.outputColorSpace = THREE.SRGBColorSpace
+        }}
+      >
+        <color attach="background" args={['#020208']} />
 
-      {/* Ambient just enough to keep the night side faintly readable
-          beyond the city-light emissive. */}
-      <ambientLight intensity={0.08} color="#7080a0" />
+        <ambientLight intensity={0.08} color="#7080a0" />
+        <directionalLight position={[24, 6, 14]} intensity={2.4} color="#fff7d6" />
+        <directionalLight position={[-18, -4, -10]} intensity={0.12} color="#445080" />
 
-      {/* Directional sun light — angled to match the atmosphere
-          shader's sun direction so day/night terminator is
-          consistent between mesh shading and the limb glow. */}
-      <directionalLight
-        position={[24, 6, 14]}
-        intensity={2.4}
-        color="#fff7d6"
-      />
+        <Suspense fallback={null}>
+          <Earth textures={textures} sunDir={sunDir} />
+        </Suspense>
 
-      {/* Subtle backside fill so the night hemisphere doesn't go
-          dead-black. Pure rim light, no shadow casting. */}
-      <directionalLight
-        position={[-18, -4, -10]}
-        intensity={0.12}
-        color="#445080"
-      />
+        <DreiStars
+          radius={350}
+          depth={60}
+          count={6000}
+          factor={5}
+          saturation={0}
+          fade
+          speed={0.15}
+        />
 
-      <Suspense fallback={<LoadingPlanet />}>
-        <Earth />
-      </Suspense>
+        <OrbitControls
+          enableDamping
+          dampingFactor={0.06}
+          minDistance={7}
+          maxDistance={48}
+          rotateSpeed={0.4}
+          zoomSpeed={0.6}
+          enablePan={false}
+        />
+      </Canvas>
 
-      {/* Deep starfield, far enough away that camera dolly doesn't
-          parallax it weirdly. Saturation 0 = pure white pinpricks. */}
-      <DreiStars
-        radius={350}
-        depth={60}
-        count={6000}
-        factor={5}
-        saturation={0}
-        fade
-        speed={0.15}
-      />
-
-      <OrbitControls
-        enableDamping
-        dampingFactor={0.06}
-        minDistance={7}
-        maxDistance={48}
-        rotateSpeed={0.4}
-        zoomSpeed={0.6}
-        enablePan={false}
-      />
-    </Canvas>
+      {/* Status overlay — only shown briefly while loading or
+          when we had to fall back. Helps the user understand
+          what's happening. */}
+      {loadStatus === 'fallback' && (
+        <div className="earth-fallback-note">
+          Loading photoreal textures from CDN failed — rendering procedural Earth instead.
+        </div>
+      )}
+    </>
   )
 }
