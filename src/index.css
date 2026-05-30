@@ -2794,3 +2794,71 @@ body {
   color: rgba(255, 255, 255, 0.5);
   letter-spacing: 1px;
 }
+
+/* ===========================================================
+   Globe place labels — Apple-Maps style names on the 3D Earth.
+   Constant screen size (don't scale with zoom), no pointer
+   events (pure decoration), legible over bright + dark terrain
+   via a soft text shadow. Visibility + occlusion are managed
+   per-frame in GlobeLabels.tsx by mutating these nodes directly. */
+.globe-label-wrapper {
+  pointer-events: none;
+  user-select: none;
+}
+
+.globe-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  transform: translateZ(0);
+  will-change: opacity;
+}
+
+.globe-label-text {
+  font-family: var(--font-sans, system-ui, sans-serif);
+  line-height: 1;
+}
+
+/* Continents — uppercase, wide tracking, semi-bold white. */
+.globe-label--continent .globe-label-text {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 8px rgba(0, 0, 0, 0.6);
+}
+
+/* Oceans / seas — italic, cool blue, lighter weight. */
+.globe-label--ocean .globe-label-text {
+  font-size: 12px;
+  font-style: italic;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  color: rgba(150, 200, 235, 0.92);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+}
+
+/* Cities — white with a small dot marker. */
+.globe-label--city .globe-label-text {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 6px rgba(0, 0, 0, 0.7);
+}
+
+.globe-label-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.9);
+  flex-shrink: 0;
+}
+
+@media (max-width: 639px) {
+  .globe-label--continent .globe-label-text { font-size: 11px; letter-spacing: 2px; }
+  .globe-label--ocean .globe-label-text { font-size: 10px; }
+  .globe-label--city .globe-label-text { font-size: 10px; }
+}

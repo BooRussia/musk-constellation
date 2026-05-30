@@ -6,6 +6,7 @@ import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import SatelliteCloud from './SatelliteCloud'
 import MapEarth from './MapEarth'
 import KeyboardCameraControls from './KeyboardCameraControls'
+import GlobeLabels from './GlobeLabels'
 import type { SatelliteEntry, ConstellationKey } from '../lib/tle'
 
 export type EarthViewMode = 'satellite' | 'map'
@@ -732,6 +733,11 @@ export default function EarthScene({
             enabledConstellations={enabledConstellations}
           />
         )}
+
+        {/* Place-name labels (continents / oceans / cities) with
+            zoom level-of-detail + back-side occlusion. Geographic, so
+            shown in both Satellite and Map modes. */}
+        <GlobeLabels />
 
         <DreiStars
           radius={350}
