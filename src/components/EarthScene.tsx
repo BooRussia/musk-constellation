@@ -24,18 +24,18 @@ const EARTH_RADIUS = 5
 const CLOUDS_RADIUS = EARTH_RADIUS * 1.008
 const ATMOSPHERE_RADIUS = EARTH_RADIUS * 1.065
 
-// NASA Blue Marble + supporting maps, pulled directly from the
-// three-globe GitHub repo via jsDelivr (the npm @-tagged path
-// doesn't include the example/img/ assets, so jsdelivr/gh is the
-// reliable source). CORS-enabled, properly cached. The crossOrigin
-// flag below tells the texture loader to request anonymously so
-// the GL upload doesn't get tainted.
-const TEX_URL = 'https://cdn.jsdelivr.net/gh/vasturiano/three-globe@master/example/img'
+// Textures come from three.js's own examples folder, bundled in
+// the three npm package (which is already a project dep). jsDelivr
+// serves npm packages reliably — no GitHub branch guesswork, no
+// 404s. These are the same textures three.js's official planet
+// demos use: NASA Blue Marble color, normal map for relief,
+// nighttime city lights, and a cloud sheet.
+const TEX_URL = 'https://cdn.jsdelivr.net/npm/three@0.184.0/examples/textures/planets'
 const TEXTURES = {
-  day: `${TEX_URL}/earth-blue-marble.jpg`,
-  topology: `${TEX_URL}/earth-topology.png`,
-  night: `${TEX_URL}/earth-night.jpg`,
-  clouds: `${TEX_URL}/earth-water.png`,
+  day: `${TEX_URL}/earth_atmos_2048.jpg`,
+  normal: `${TEX_URL}/earth_normal_2048.jpg`,
+  night: `${TEX_URL}/earth_lights_2048.png`,
+  clouds: `${TEX_URL}/earth_clouds_1024.png`,
 }
 
 // ============================================
@@ -83,9 +83,9 @@ function Earth() {
 
   // useLoader throws a Promise during render until textures resolve,
   // which Suspense catches. All 4 load in parallel.
-  const [dayMap, topoMap, nightMap, cloudsMap] = useLoader(THREE.TextureLoader, [
+  const [dayMap, normalMap, nightMap, cloudsMap] = useLoader(THREE.TextureLoader, [
     TEXTURES.day,
-    TEXTURES.topology,
+    TEXTURES.normal,
     TEXTURES.night,
     TEXTURES.clouds,
   ])
@@ -123,21 +123,20 @@ function Earth() {
 
   return (
     <group>
-      {/* The Earth itself. Day map for color, topology as a
-          normal-style relief through bumpMap (subtle; just enough
-          to catch limb light). emissiveMap = night-side city lights
-          which kick in on the unlit hemisphere because emissive
-          ignores scene lighting. */}
+      {/* The Earth itself. Day map for color, RGB normal map for
+          proper per-pixel relief that catches limb light correctly.
+          emissiveMap = night-side city lights which kick in on the
+          unlit hemisphere because emissive ignores scene lighting. */}
       <mesh ref={earthRef}>
         <sphereGeometry args={[EARTH_RADIUS, 128, 128]} />
         <meshStandardMaterial
           map={dayMap}
-          bumpMap={topoMap}
-          bumpScale={0.06}
+          normalMap={normalMap}
+          normalScale={new THREE.Vector2(0.85, 0.85)}
           emissiveMap={nightMap}
           emissive={new THREE.Color('#ffe8b0')}
-          emissiveIntensity={0.55}
-          roughness={0.92}
+          emissiveIntensity={0.7}
+          roughness={0.9}
           metalness={0.0}
         />
       </mesh>
