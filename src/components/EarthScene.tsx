@@ -3,7 +3,10 @@ import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, Stars as DreiStars } from '@react-three/drei'
 import * as THREE from 'three'
 import SatelliteCloud from './SatelliteCloud'
+import MapEarth from './MapEarth'
 import type { SatelliteEntry, ConstellationKey } from '../lib/tle'
+
+export type EarthViewMode = 'satellite' | 'map'
 
 // ============================================
 // PHOTOREAL EARTH SCENE
@@ -384,6 +387,65 @@ function computeSunDirection(now: Date): THREE.Vector3 {
 }
 
 // ============================================
+// ATMOSPHERE — standalone halo used by Map mode
+// ============================================
+// The Satellite-mode Earth component embeds its own inner+outer
+// atmosphere meshes. When we swap to Map mode we render this
+// standalone duplicate so the halo stays present without forcing
+// us to touch the photoreal Earth internals. Same shaders, same
+// radii — visually identical to the haloes inside <Earth />.
+function Atmosphere({
+  sunDirRef,
+}: {
+  sunDirRef: React.MutableRefObject<THREE.Vector3>
+}) {
+  const innerUniforms = useMemo(
+    () => ({ uSunDir: { value: new THREE.Vector3(1, 0.25, 0.6).normalize() } }),
+    [],
+  )
+  const outerUniforms = useMemo(
+    () => ({ uSunDir: { value: new THREE.Vector3(1, 0.25, 0.6).normalize() } }),
+    [],
+  )
+  // Track the shared sun direction every frame so the halo's warm
+  // side aligns with the sun even though the Map Earth itself is
+  // unshaded.
+  useFrame(() => {
+    innerUniforms.uSunDir.value.copy(sunDirRef.current)
+    outerUniforms.uSunDir.value.copy(sunDirRef.current)
+  })
+
+  return (
+    <group>
+      <mesh>
+        <sphereGeometry args={[ATMOSPHERE_INNER_RADIUS, 96, 96]} />
+        <shaderMaterial
+          vertexShader={ATMOSPHERE_VERT}
+          fragmentShader={ATMOSPHERE_INNER_FRAG}
+          uniforms={innerUniforms}
+          transparent
+          side={THREE.BackSide}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </mesh>
+      <mesh>
+        <sphereGeometry args={[ATMOSPHERE_OUTER_RADIUS, 96, 96]} />
+        <shaderMaterial
+          vertexShader={ATMOSPHERE_VERT}
+          fragmentShader={ATMOSPHERE_OUTER_FRAG}
+          uniforms={outerUniforms}
+          transparent
+          side={THREE.BackSide}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </mesh>
+    </group>
+  )
+}
+
+// ============================================
 // EARTH (textured if loaded, procedural fallback otherwise)
 // ============================================
 interface LoadedTextures {
@@ -537,11 +599,19 @@ function Earth({
 interface EarthSceneProps {
   satellites?: SatelliteEntry[]
   enabledConstellations?: Set<ConstellationKey>
+  /**
+   * View mode: 'satellite' (default) renders the photoreal textured Earth;
+   * 'map' renders a stylized flat political-map style Earth. The
+   * atmosphere halo, satellite cloud, and starfield stay visible in
+   * both modes — only the Earth sphere swaps.
+   */
+  viewMode?: EarthViewMode
 }
 
 export default function EarthScene({
   satellites,
   enabledConstellations,
+  viewMode = 'satellite',
 }: EarthSceneProps) {
   const [textures, setTextures] = useState<LoadedTextures>({
     day: null,
@@ -602,13 +672,26 @@ export default function EarthScene({
         {/* Faint rim-fill so the night hemisphere isn't dead black. */}
         <directionalLight position={[-18, -4, -10]} intensity={0.12} color="#445080" />
 
-        <Suspense fallback={null}>
-          <Earth
-            textures={textures}
-            sunDirRef={sunDirRef}
-            sunLightRef={sunLightRef}
-          />
-        </Suspense>
+        {/* Earth sphere — swaps between photoreal (Satellite) and the
+            stylized flat political-map style (Map). Both modes render
+            inside Suspense so neither blocks the other. The Earth
+            component already includes the atmosphere halo meshes;
+            when in Map mode we render a standalone <Atmosphere /> so
+            the halo stays present without modifying Earth's body. */}
+        {viewMode === 'satellite' ? (
+          <Suspense fallback={null}>
+            <Earth
+              textures={textures}
+              sunDirRef={sunDirRef}
+              sunLightRef={sunLightRef}
+            />
+          </Suspense>
+        ) : (
+          <Suspense fallback={null}>
+            <MapEarth />
+            <Atmosphere sunDirRef={sunDirRef} />
+          </Suspense>
+        )}
 
         {satellites && satellites.length > 0 && (
           <SatelliteCloud

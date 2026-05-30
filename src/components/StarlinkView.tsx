@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
-import { ArrowLeft, Satellite } from 'lucide-react'
+import { ArrowLeft, Globe, Map as MapIcon, Satellite } from 'lucide-react'
 import { fetchAllConstellations, type ConstellationKey, type SatelliteEntry } from '../lib/tle'
 import type { SatelliteHit } from './SatelliteCloud'
 import {
@@ -12,6 +12,8 @@ import SatelliteTooltip from './SatelliteTooltip'
 import SatellitePinnedCard from './SatellitePinnedCard'
 
 const EarthScene = lazy(() => import('./EarthScene'))
+
+type ViewMode = 'satellite' | 'map'
 
 /** Earth scene errors fall back here instead of black-screening. */
 class EarthErrorBoundary extends React.Component<
@@ -69,6 +71,10 @@ export default function StarlinkView({ onBack }: Props) {
   const [enabledConstellations, setEnabledConstellations] = useState<Set<ConstellationKey>>(
     new Set(['starlink', 'oneweb']),
   )
+  // View mode: 'satellite' shows the photoreal textured Earth (default);
+  // 'map' swaps in a stylized flat political-map style sphere — mirrors
+  // Google Maps' Satellite / Map toggle.
+  const [viewMode, setViewMode] = useState<ViewMode>('satellite')
 
   // Fetch TLEs on mount. Stays alive in sessionStorage for 2 hours
   // so a tab reload doesn't refetch.
@@ -200,6 +206,35 @@ export default function StarlinkView({ onBack }: Props) {
           <h1 className="starlink-title">Orbital Constellation</h1>
         </div>
 
+        {/* View-mode toggle — Google Maps style segmented control.
+            Switches the Earth sphere between photoreal (Satellite)
+            and stylized flat political map (Map). Atmosphere, sats,
+            and stars persist in both. */}
+        <div
+          className="starlink-viewmode"
+          role="group"
+          aria-label="Earth view mode"
+        >
+          <button
+            type="button"
+            className={`starlink-viewmode-btn ${viewMode === 'satellite' ? 'starlink-viewmode-btn--on' : ''}`}
+            onClick={() => setViewMode('satellite')}
+            aria-pressed={viewMode === 'satellite'}
+          >
+            <Globe className="h-3 w-3" aria-hidden="true" />
+            <span>Satellite</span>
+          </button>
+          <button
+            type="button"
+            className={`starlink-viewmode-btn ${viewMode === 'map' ? 'starlink-viewmode-btn--on' : ''}`}
+            onClick={() => setViewMode('map')}
+            aria-pressed={viewMode === 'map'}
+          >
+            <MapIcon className="h-3 w-3" aria-hidden="true" />
+            <span>Map</span>
+          </button>
+        </div>
+
         <div className="starlink-status">
           <Satellite className="h-3 w-3" aria-hidden="true" />
           <span className="starlink-status-count">
@@ -215,6 +250,7 @@ export default function StarlinkView({ onBack }: Props) {
             <EarthScene
               satellites={satellites}
               enabledConstellations={enabledConstellations}
+              viewMode={viewMode}
             />
           </Suspense>
         </EarthErrorBoundary>
