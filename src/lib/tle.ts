@@ -78,22 +78,43 @@ function parseTleText(tleText: string, constellation: ConstellationKey): Satelli
   return out
 }
 
-/** Fetch + parse one constellation. Cached for 2h in sessionStorage. */
+/** Fetch + parse one constellation. Cached for 2h in sessionStorage.
+ *  Hits /api/tle/<group> which Netlify proxies to CelesTrak — keeps
+ *  the fetch same-origin so CORS and corporate-network filters can't
+ *  break it. Dev (vite dev server) doesn't proxy, so we fall back to
+ *  CelesTrak directly when localhost. */
 export async function fetchConstellation(
   group: ConstellationKey,
 ): Promise<SatelliteEntry[]> {
   let tleText = readCache(group)
   if (!tleText) {
-    const url = `https://celestrak.org/NORAD/elements/gp.php?GROUP=${group}&FORMAT=tle`
-    const res = await fetch(url, { mode: 'cors' })
+    // Use the same-origin proxy on deployed builds. On localhost dev
+    // the _redirects file doesn't apply, so go direct to CelesTrak
+    // (which has CORS * — the issue is corp networks blocking the
+    // domain, not CORS itself).
+    const isDev = typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' ||
+       window.location.hostname === '127.0.0.1')
+    const url = isDev
+      ? `https://celestrak.org/NORAD/elements/gp.php?GROUP=${group}&FORMAT=tle`
+      : `/api/tle/${group}`
+    let res: Response
+    try {
+      res = await fetch(url)
+    } catch (err) {
+      // Network-level failure (DNS, refused, CORS preflight rejected).
+      // Surface a clear message instead of the opaque "Failed to fetch".
+      const msg = err instanceof Error ? err.message : String(err)
+      throw new Error(`TLE fetch network error for ${group}: ${msg}`, { cause: err })
+    }
     if (!res.ok) {
-      throw new Error(`CelesTrak ${group} responded ${res.status}`)
+      throw new Error(`TLE proxy returned ${res.status} for ${group}`)
     }
     tleText = await res.text()
-    // CelesTrak sometimes responds with a "no update" notice — detect
-    // it and treat as transient (caller can retry, but for now we
-    // surface an empty set instead of a parse error).
+    // CelesTrak occasionally returns a "no update" notice instead of
+    // data — treat as empty rather than a parse failure.
     if (tleText.includes('GP data has not updated')) {
+      console.warn(`[tle] CelesTrak returned no-update notice for ${group}`)
       return []
     }
     writeCache(group, tleText)

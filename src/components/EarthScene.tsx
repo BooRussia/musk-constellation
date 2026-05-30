@@ -19,7 +19,6 @@ import type { SatelliteEntry, ConstellationKey } from '../lib/tle'
 // procedural shader Earth so the user NEVER sees a broken page.
 
 const EARTH_RADIUS = 5
-const CLOUDS_RADIUS = EARTH_RADIUS * 1.008
 const ATMOSPHERE_RADIUS = EARTH_RADIUS * 1.065
 
 // Textures are committed to the repo at public/textures/planets/
@@ -27,12 +26,11 @@ const ATMOSPHERE_RADIUS = EARTH_RADIUS * 1.065
 // CORS, no version-resolution guesswork — they're sourced from
 // three.js's own example suite (raw.githubusercontent.com pull)
 // but live in our static assets so we control delivery.
-type TextureKey = 'day' | 'normal' | 'night' | 'clouds'
+type TextureKey = 'day' | 'normal' | 'night'
 const TEXTURES: Record<TextureKey, string> = {
   day: '/textures/planets/earth_atmos_2048.jpg',
   normal: '/textures/planets/earth_normal_2048.jpg',
   night: '/textures/planets/earth_lights_2048.png',
-  clouds: '/textures/planets/earth_clouds_1024.png',
 }
 
 // Load one texture with the right color-space config baked in at
@@ -207,7 +205,6 @@ interface LoadedTextures {
   day: THREE.Texture | null
   normal: THREE.Texture | null
   night: THREE.Texture | null
-  clouds: THREE.Texture | null
 }
 
 function Earth({
@@ -220,7 +217,6 @@ function Earth({
   sunLightRef: React.RefObject<THREE.DirectionalLight | null>
 }) {
   const earthRef = useRef<THREE.Mesh>(null)
-  const cloudsRef = useRef<THREE.Mesh>(null)
 
   const hasDayTexture = !!textures.day
 
@@ -241,7 +237,7 @@ function Earth({
   // and the sun position rotates over time instead. This is also
   // what makes the satellite ECF positions land over the right
   // continents.
-  useFrame((_, delta) => {
+  useFrame(() => {
     const sunDir = computeSunDirection(new Date())
     sunDirRef.current.copy(sunDir)
     atmoUniforms.uSunDir.value.copy(sunDir)
@@ -250,9 +246,6 @@ function Earth({
       // Light far away in the sun direction so it acts directional.
       sunLightRef.current.position.copy(sunDir).multiplyScalar(50)
     }
-    // Clouds get a gentle cosmetic drift so the scene doesn't read
-    // as fully static. Not tied to real cloud motion.
-    if (cloudsRef.current) cloudsRef.current.rotation.y += delta * 0.012
   })
 
   return (
@@ -280,18 +273,10 @@ function Earth({
         )}
       </mesh>
 
-      {textures.clouds && (
-        <mesh ref={cloudsRef}>
-          <sphereGeometry args={[CLOUDS_RADIUS, 96, 96]} />
-          <meshStandardMaterial
-            alphaMap={textures.clouds}
-            color="#ffffff"
-            transparent
-            opacity={0.6}
-            depthWrite={false}
-          />
-        </mesh>
-      )}
+      {/* Clouds removed — the alpha-mask cloud texture from three.js's
+          example suite was a stylized illustration that read as
+          patchy lichen against the Blue Marble surface. Phase 4
+          could integrate real-time cloud imagery if desired. */}
 
       {/* Atmosphere always renders — pure shader, no dependencies. */}
       <mesh>
@@ -326,7 +311,6 @@ export default function EarthScene({
     day: null,
     normal: null,
     night: null,
-    clouds: null,
   })
   const [loadStatus, setLoadStatus] = useState<'loading' | 'done' | 'fallback'>('loading')
 
@@ -339,14 +323,13 @@ export default function EarthScene({
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const [day, normal, night, clouds] = await Promise.all([
+      const [day, normal, night] = await Promise.all([
         tryLoadTexture('day'),
         tryLoadTexture('normal'),
         tryLoadTexture('night'),
-        tryLoadTexture('clouds'),
       ])
       if (cancelled) return
-      setTextures({ day, normal, night, clouds })
+      setTextures({ day, normal, night })
       setLoadStatus(day ? 'done' : 'fallback')
       if (!day) {
         console.warn('[EarthScene] All texture loads failed — falling back to procedural Earth')

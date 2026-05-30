@@ -69,16 +69,23 @@ export default function StarlinkView({ onBack }: Props) {
       .then(({ satellites, errors }) => {
         if (cancelled) return
         setSatellites(satellites)
+        // Verbose errors in console for debugging, concise UI string.
+        if (errors.length > 0) {
+          for (const e of errors) console.warn(`[StarlinkView] ${e.group} failed:`, e.error)
+        }
         if (satellites.length === 0) {
           setLoadState('error')
-          setErrorMsg(
-            errors[0]?.error instanceof Error
-              ? errors[0].error.message
-              : 'TLE feeds returned no data',
-          )
+          const first = errors[0]?.error
+          const msg = first instanceof Error
+            ? first.message
+            : typeof first === 'string'
+              ? first
+              : 'CelesTrak returned no data'
+          setErrorMsg(msg)
         } else if (errors.length > 0) {
           setLoadState('partial')
-          setErrorMsg(`${errors.length} of ${errors.length + 1} feeds failed`)
+          const failed = errors.map(e => e.group).join(', ')
+          setErrorMsg(`${failed} unavailable`)
         } else {
           setLoadState('ready')
         }
