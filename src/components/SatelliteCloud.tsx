@@ -31,11 +31,14 @@ const EARTH_RADIUS_KM = 6371
 const EARTH_RADIUS_SCENE = 5
 const KM_TO_SCENE = EARTH_RADIUS_SCENE / EARTH_RADIUS_KM
 
-// Brand colors per constellation. Starlink white, OneWeb gold so
-// the user can see at a glance which network they're looking at.
+// Brand colors per constellation. Starlink cool blue-white,
+// OneWeb warm gold. Toned down from the previous near-pure values
+// so additive blending doesn't saturate to white when 50 sats stack
+// in the same screen-pixel region. Each individual sat reads as
+// a clean tinted dot; clusters glow without bleaching out.
 const CONSTELLATION_COLOR: Record<ConstellationKey, THREE.Color> = {
-  starlink: new THREE.Color('#e8f1ff'),
-  oneweb: new THREE.Color('#ffc94a'),
+  starlink: new THREE.Color('#7ab8ff'),
+  oneweb: new THREE.Color('#ffa838'),
 }
 
 // How many sats to propagate per frame. With 60fps that's 16ms/frame
@@ -80,7 +83,9 @@ export default function SatelliteCloud({
       colors[i * 3 + 0] = isHighlight ? 1 : c.r
       colors[i * 3 + 1] = isHighlight ? 0.6 : c.g
       colors[i * 3 + 2] = isHighlight ? 0.2 : c.b
-      sizes[i] = isHighlight ? 14 : 4
+      // Sized so a typical sat is ~4-5 screen pixels at default zoom
+      // — readable as an individual dot, doesn't bleed into neighbors.
+      sizes[i] = isHighlight ? 4.5 : 1.4
     }
     return { positions, colors, sizes }
   }, [visibleSats, count, highlightedNoradId])
@@ -204,19 +209,24 @@ void main() {
   vColor = color;
   vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
   gl_Position = projectionMatrix * mvPos;
-  // Scale point size by inverse depth so close sats are bigger.
-  gl_PointSize = size * (240.0 / -mvPos.z);
+  // Scale point size by inverse depth, clamped so far-away sats
+  // don't disappear and close ones don't take over the screen.
+  float scale = clamp(60.0 / -mvPos.z, 1.0, 12.0);
+  gl_PointSize = size * scale;
 }
 `
 
 const SAT_FRAG = /* glsl */ `
 varying vec3 vColor;
 void main() {
-  // Soft radial falloff — center bright, edges fade to alpha 0.
+  // Tight radial falloff — bright center with a small subtle halo.
+  // The pow exponent is high so each dot reads as a hard pixel
+  // rather than a wide glowing blob; clusters still hint at density
+  // via additive blending without bleaching to white.
   vec2 uv = gl_PointCoord - vec2(0.5);
   float d = length(uv) * 2.0;
   if (d > 1.0) discard;
-  float alpha = pow(1.0 - d, 2.2);
+  float alpha = pow(1.0 - d, 4.0) * 0.85;
   gl_FragColor = vec4(vColor, alpha);
 }
 `
