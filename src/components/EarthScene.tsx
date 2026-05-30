@@ -26,12 +26,6 @@ export type EarthViewMode = 'satellite' | 'map'
 // procedural shader Earth so the user NEVER sees a broken page.
 
 const EARTH_RADIUS = 5
-// Two-layer atmosphere — an inner halo right at Earth's edge for
-// the visible "lit limb" and an outer halo that fades into space
-// for the smooth gradient. Together they produce the soft glow
-// you see in NASA "Earth from orbit" shots.
-const ATMOSPHERE_INNER_RADIUS = EARTH_RADIUS * 1.025
-const ATMOSPHERE_OUTER_RADIUS = EARTH_RADIUS * 1.14
 
 // Textures are committed to the repo at public/textures/planets/
 // and served same-origin. CRITICAL: paths must be prefixed with
@@ -79,72 +73,6 @@ async function tryLoadTexture(key: TextureKey): Promise<THREE.Texture | null> {
     return null
   }
 }
-
-// ============================================
-// Atmosphere shader — fresnel rim glow on a BackSide-rendered
-// outer sphere. Warm-tinted on the sun-facing limb, cool blue
-// elsewhere. This is the same technique used in every famous
-// "Earth from space" tutorial — back-faces compose the halo.
-// ============================================
-const ATMOSPHERE_VERT = /* glsl */ `
-varying vec3 vNormal;
-varying vec3 vWorldPos;
-void main() {
-  // World-space normal (see SURFACE_VERT) so the sun-tinted warm side
-  // of the halo aligns with the real sub-solar point, not the camera.
-  vNormal = normalize(mat3(modelMatrix) * normal);
-  vec4 worldPos = modelMatrix * vec4(position, 1.0);
-  vWorldPos = worldPos.xyz;
-  gl_Position = projectionMatrix * viewMatrix * worldPos;
-}
-`
-
-// Inner halo — bright glow right at Earth's lit limb. Tight
-// fresnel exponent and clamped output so it never saturates.
-const ATMOSPHERE_INNER_FRAG = /* glsl */ `
-uniform vec3 uSunDir;
-varying vec3 vNormal;
-varying vec3 vWorldPos;
-void main() {
-  vec3 viewDir = normalize(cameraPosition - vWorldPos);
-  // max(0, ...) clamp prevents overshoot when the view points
-  // through to the far side of the sphere — without it, alpha
-  // pinned to 1.0 across the whole back-face, which read as a
-  // hard band in the previous version.
-  float ndv = max(0.0, dot(vNormal, viewDir));
-  float fres = pow(1.0 - ndv, 1.8);
-  float sun = max(0.0, dot(vNormal, normalize(uSunDir)));
-  vec3 cool = vec3(0.35, 0.68, 1.10);
-  vec3 warm = vec3(0.95, 0.78, 0.60);
-  vec3 col = mix(cool, warm, sun * 0.55);
-  // Subtle — a real Earth limb glow is a thin faint band, not a
-  // bright ring. Cut to 0.30 so it reads as atmosphere, not neon.
-  gl_FragColor = vec4(col, fres * 0.30);
-}
-`
-
-// Outer halo — much wider sphere, soft long-tail fade into space.
-// This is the gradient the user wants — it falls off gradually
-// from the inner limb all the way to the outer atmosphere edge.
-const ATMOSPHERE_OUTER_FRAG = /* glsl */ `
-uniform vec3 uSunDir;
-varying vec3 vNormal;
-varying vec3 vWorldPos;
-void main() {
-  vec3 viewDir = normalize(cameraPosition - vWorldPos);
-  float ndv = max(0.0, dot(vNormal, viewDir));
-  // Softer fresnel exponent → wider gradient that smoothly
-  // tapers into transparent space.
-  float fres = pow(1.0 - ndv, 1.1);
-  float sun = max(0.0, dot(vNormal, normalize(uSunDir)));
-  vec3 cool = vec3(0.30, 0.55, 1.00);
-  vec3 warm = vec3(0.85, 0.65, 0.45);
-  vec3 col = mix(cool, warm, sun * 0.4);
-  // Whisper-faint outer corona — barely-there scatter that fades
-  // into space. 0.12 keeps it from forming a visible second ring.
-  gl_FragColor = vec4(col, fres * 0.12);
-}
-`
 
 // ============================================
 // Photoreal Earth surface shader — drives the textured sphere
@@ -354,9 +282,9 @@ function computeSunDirection(now: Date, out: THREE.Vector3): THREE.Vector3 {
 // Renders nothing; runs one useFrame that writes the live real-time
 // sub-solar direction into the shared sunDirRef + aims the
 // directional light. Always mounted (both view modes) so the
-// terminator + halo stay correct even in Map mode where <Earth>
-// isn't rendered. Earth, Atmosphere, and the procedural fallback all
-// READ sunDirRef — this is the only writer.
+// terminator stays correct even in Map mode where <Earth>
+// isn't rendered. Earth's surface shader READS sunDirRef — this is
+// the only writer.
 function SunDriver({
   sunDirRef,
   sunLightRef,
@@ -371,64 +299,6 @@ function SunDriver({
     }
   })
   return null
-}
-
-// ============================================
-// ATMOSPHERE — standalone halo, rendered once in both view modes
-// ============================================
-// Inner bright halo at the lit limb + outer wide halo that fades
-// into space. Reads the shared sunDirRef each frame so the warm
-// side aligns with daylight. Rendered as a sibling of Earth/MapEarth
-// so the halo is identical regardless of which Earth style is shown.
-function Atmosphere({
-  sunDirRef,
-}: {
-  sunDirRef: React.MutableRefObject<THREE.Vector3>
-}) {
-  const innerUniforms = useMemo(
-    () => ({ uSunDir: { value: new THREE.Vector3(1, 0.25, 0.6).normalize() } }),
-    [],
-  )
-  const outerUniforms = useMemo(
-    () => ({ uSunDir: { value: new THREE.Vector3(1, 0.25, 0.6).normalize() } }),
-    [],
-  )
-  // Track the shared sun direction every frame so the halo's warm
-  // side aligns with the sun even though the Map Earth itself is
-  // unshaded.
-  useFrame(() => {
-    innerUniforms.uSunDir.value.copy(sunDirRef.current)
-    outerUniforms.uSunDir.value.copy(sunDirRef.current)
-  })
-
-  return (
-    <group>
-      <mesh>
-        <sphereGeometry args={[ATMOSPHERE_INNER_RADIUS, 96, 96]} />
-        <shaderMaterial
-          vertexShader={ATMOSPHERE_VERT}
-          fragmentShader={ATMOSPHERE_INNER_FRAG}
-          uniforms={innerUniforms}
-          transparent
-          side={THREE.BackSide}
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-        />
-      </mesh>
-      <mesh>
-        <sphereGeometry args={[ATMOSPHERE_OUTER_RADIUS, 96, 96]} />
-        <shaderMaterial
-          vertexShader={ATMOSPHERE_VERT}
-          fragmentShader={ATMOSPHERE_OUTER_FRAG}
-          uniforms={outerUniforms}
-          transparent
-          side={THREE.BackSide}
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-        />
-      </mesh>
-    </group>
-  )
 }
 
 // ============================================
@@ -516,11 +386,10 @@ function Earth({
         )}
       </mesh>
 
-      {/* Atmosphere halo is rendered as a sibling <Atmosphere /> in
-          the scene (not here) so it's shared identically between
-          Satellite and Map view modes. Clouds were removed — the
-          example cloud texture read as patchy lichen against the
-          Blue Marble surface. */}
+      {/* No atmosphere halo — the additive blue glow was removed
+          because it washed out satellite contrast near the limb.
+          Clouds were removed too — the example cloud texture read as
+          patchy lichen against the surface. */}
     </group>
   )
 }
@@ -611,12 +480,12 @@ export default function EarthScene({
         {/* Faint rim-fill so the night hemisphere isn't dead black. */}
         <directionalLight position={[-18, -4, -10]} intensity={0.14} color="#445080" />
 
-        {/* Sun driver + atmosphere halo are always mounted, so the
-            day/night terminator and limb glow stay live in BOTH view
-            modes. Earth's surface shader (Satellite) and MapEarth
-            (unshaded flat map) swap underneath. */}
+        {/* Sun driver is always mounted so the day/night terminator
+            stays live in BOTH view modes. Earth's surface shader
+            (Satellite) and MapEarth (unshaded flat map) swap
+            underneath. The blue atmosphere halo was removed — its
+            additive glow washed out satellite contrast near the limb. */}
         <SunDriver sunDirRef={sunDirRef} sunLightRef={sunLightRef} />
-        <Atmosphere sunDirRef={sunDirRef} />
 
         {viewMode === 'satellite' ? (
           <Suspense fallback={null}>
