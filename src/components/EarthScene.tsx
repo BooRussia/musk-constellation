@@ -169,60 +169,16 @@ float fbm(vec3 p) {
 
 void main() {
   vec3 dir = normalize(vDir);
-  // Deep-space base — a hair above pure black so it never banishes
-  // contrast but still reads as space.
-  vec3 col = vec3(0.011, 0.013, 0.026);
-
-  // ============================================
-  // MILKY WAY — a defined galactic band across the sky.
-  // ============================================
-  // Plane the band wraps around, and the direction of the bright
-  // galactic-centre bulge (a point lying in that band).
+  // Deep space — near-black. The Milky Way is rendered as actual STARS
+  // (a dense band of points, see MilkyWayStars), NOT painted gas clouds.
+  // The skydome only adds a very faint, smooth luminous floor along the
+  // galactic plane so the band isn't dead black between the stars —
+  // no cloud structure, no dust lanes, no nebula.
+  vec3 col = vec3(0.010, 0.012, 0.024);
   vec3 bandN = normalize(vec3(0.32, 1.0, 0.22));
-  float d = dot(dir, bandN);                       // 0 = on the band
-  vec3 coreDir = normalize(vec3(0.74, -0.18, -0.62));
-  float core = max(0.0, dot(dir, coreDir));
-
-  // A bright defined core stripe (~±20°) plus a narrow faint halo.
-  float bandTight = exp(-d * d * 18.0);
-  float bandWide  = exp(-d * d * 5.0);
-
-  // Mottled cloud structure along the band (the unresolved star haze) —
-  // finer frequency reads as more detailed, defined cloudbanks.
-  float clouds = fbm(dir * 6.0 + 9.0);
-  clouds = pow(clamp(clouds, 0.0, 1.0), 1.3);
-
-  // Dark dust lanes — fine rifts carving through the band, the signature
-  // Milky Way silhouette detail. Strong so the band looks structured.
-  float dust = fbm(dir * 9.0 - 4.0);
-  float lane = smoothstep(0.38, 0.68, dust);
-
-  // Bright galactic-centre bulge — TIGHT and concentrated at coreDir so
-  // it's a glowing knot, not a half-sky haze.
-  float bulge = exp(-d * d * 14.0) * pow(core, 8.0);
-
-  // Assemble: a defined, cloud-structured core stripe carved by dust
-  // lanes, a tiny wide halo, and a tight bulge. Brightness concentrated
-  // in the narrow stripe so it reads as a band, not a fog.
-  float mw = bandWide * 0.05 + bandTight * (0.30 + 1.05 * clouds);
-  mw *= (1.0 - 0.85 * lane);
-  mw += bulge * 0.70;
-  mw = max(mw, 0.0);
-
-  // Colour: cool silver-blue arms, warming to gold ONLY at the tight
-  // galactic centre (keeps the arms from going muddy brown).
-  float warm = clamp(bulge * 2.0, 0.0, 1.0);
-  vec3 mwCol = mix(vec3(0.48, 0.55, 0.74), vec3(0.98, 0.84, 0.60), warm);
-  col += mwCol * mw * 0.55;
-
-  // One clean nebula, masked to a single background region so it reads
-  // as "off in the distance" rather than smeared across the whole sky.
-  float nb = fbm(dir * 2.4 - 19.0);
-  float region = smoothstep(0.05, 0.92, dot(dir, normalize(vec3(-0.65, 0.15, 0.74))));
-  float neb = smoothstep(0.42, 0.95, nb) * region;
-  vec3 nebCol = mix(vec3(0.12, 0.30, 0.52), vec3(0.42, 0.15, 0.48), smoothstep(0.5, 1.0, nb));
-  col += nebCol * neb * 0.30;
-
+  float d = dot(dir, bandN);
+  float band = exp(-d * d * 7.0);
+  col += vec3(0.05, 0.06, 0.09) * band * 0.32;
   gl_FragColor = vec4(col, 1.0);
 }
 `
@@ -561,14 +517,15 @@ function LimbGlow({
 }
 
 // ============================================
-// GALAXY — procedural Milky Way + nebula backdrop sphere
+// GALAXY — deep-space backdrop sphere (faint galactic-plane floor)
 // ============================================
 // A huge inverted sphere painted by the galaxy shader. Rendered first
-// (renderOrder -1, no depth test/write) so it's pure backdrop behind
-// every other object; the crisp drei star points draw on top of it.
+// (renderOrder -2, no depth test/write) so it's pure backdrop behind
+// every other object; the star points (MilkyWayStars + drei) draw on
+// top of it.
 function Galaxy() {
   return (
-    <mesh renderOrder={-1} scale={[GALAXY_RADIUS, GALAXY_RADIUS, GALAXY_RADIUS]}>
+    <mesh renderOrder={-2} scale={[GALAXY_RADIUS, GALAXY_RADIUS, GALAXY_RADIUS]}>
       <sphereGeometry args={[1, 48, 48]} />
       <shaderMaterial
         vertexShader={GALAXY_VERT}
@@ -578,6 +535,135 @@ function Galaxy() {
         depthTest={false}
       />
     </mesh>
+  )
+}
+
+// ============================================
+// MILKY WAY STARS — the galaxy as actual star points, not clouds
+// ============================================
+// A custom Points cloud whose stars are heavily concentrated along the
+// galactic plane (and brighter/denser toward the galactic centre), so
+// the Milky Way reads as a dense river of stars — the real thing —
+// instead of painted gas. A uniform fraction is sprinkled everywhere
+// else for the general star field.
+const STAR_VERT = /* glsl */ `
+attribute float size;
+attribute vec3 color;
+varying vec3 vColor;
+void main() {
+  vColor = color;
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  // Perspective size attenuation, clamped so distant stars stay visible.
+  gl_PointSize = max(1.0, size * (320.0 / -mv.z));
+  gl_Position = projectionMatrix * mv;
+}
+`
+const STAR_FRAG = /* glsl */ `
+precision mediump float;
+varying vec3 vColor;
+void main() {
+  // Round soft point with a tight bright core + gentle halo.
+  vec2 uv = gl_PointCoord - 0.5;
+  float r = length(uv);
+  float a = smoothstep(0.5, 0.0, r);
+  a = pow(a, 1.6);
+  gl_FragColor = vec4(vColor, a);
+}
+`
+
+const GALAXY_STARS_RADIUS = 400
+
+// Build the static star buffers ONCE at module load — outside React, so
+// the render purity/immutability lint rules don't apply and we can use a
+// small mutable PRNG. The field is deterministic (fixed seed), so it
+// never changes between renders or reloads.
+const GALAXY_STARS = (() => {
+  const N = 26000
+  const positions = new Float32Array(N * 3)
+  const colors = new Float32Array(N * 3)
+  const sizes = new Float32Array(N)
+
+  const bandN = new THREE.Vector3(0.32, 1.0, 0.22).normalize()
+  // Orthonormal basis spanning the galactic plane.
+  const u = new THREE.Vector3(1, 0, 0)
+  if (Math.abs(bandN.x) > 0.9) u.set(0, 1, 0)
+  u.crossVectors(bandN, u).normalize()
+  const v = new THREE.Vector3().crossVectors(bandN, u).normalize()
+  const coreDir = new THREE.Vector3(0.74, -0.18, -0.62).normalize()
+  const dir = new THREE.Vector3()
+
+  // mulberry32 — deterministic PRNG so the field is fixed.
+  let seed = 0x9e3779b9 >>> 0
+  const rand = () => {
+    seed = (seed + 0x6d2b79f5) >>> 0
+    let t = seed
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+
+  for (let i = 0; i < N; i++) {
+    const isBand = rand() < 0.8
+    if (isBand) {
+      // Concentrate near the plane: small offset angle with a power-law
+      // so density peaks on the band and falls off fast.
+      const phi = rand() * Math.PI * 2
+      const t = Math.pow(rand(), 3.0)
+      const theta = (rand() < 0.5 ? -1 : 1) * t * 0.30 // ≤ ~17°
+      const ct = Math.cos(theta), st = Math.sin(theta)
+      dir.copy(u).multiplyScalar(Math.cos(phi) * ct)
+        .addScaledVector(v, Math.sin(phi) * ct)
+        .addScaledVector(bandN, st)
+        .normalize()
+    } else {
+      // Uniform on the sphere.
+      const z = rand() * 2 - 1
+      const a = rand() * Math.PI * 2
+      const rr = Math.sqrt(Math.max(0, 1 - z * z))
+      dir.set(rr * Math.cos(a), rr * Math.sin(a), z)
+    }
+    positions[i * 3] = dir.x * GALAXY_STARS_RADIUS
+    positions[i * 3 + 1] = dir.y * GALAXY_STARS_RADIUS
+    positions[i * 3 + 2] = dir.z * GALAXY_STARS_RADIUS
+
+    // Colour: mostly cool white, warming toward the galactic centre.
+    const core = Math.max(0, dir.dot(coreDir))
+    const warm = isBand ? core * 0.5 : 0
+    let cr = 0.78 + rand() * 0.22
+    let cg = 0.80 + rand() * 0.20
+    let cb = 0.90 + rand() * 0.10
+    cr = cr * (1 - warm) + 1.0 * warm
+    cg = cg * (1 - warm) + 0.85 * warm
+    cb = cb * (1 - warm) + 0.62 * warm
+    // A few bright stars, the rest faint — gives the band its texture.
+    const bright = rand() < 0.06 ? 0.95 + rand() * 0.45 : 0.34 + rand() * 0.42
+    colors[i * 3] = cr * bright
+    colors[i * 3 + 1] = cg * bright
+    colors[i * 3 + 2] = cb * bright
+    sizes[i] = rand() < 0.05 ? 2.0 + rand() * 1.8 : 0.7 + rand() * 1.1
+  }
+  return { positions, colors, sizes }
+})()
+
+function MilkyWayStars() {
+  const { positions, colors, sizes } = GALAXY_STARS
+
+  return (
+    <points renderOrder={-1}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        <bufferAttribute attach="attributes-color" args={[colors, 3]} />
+        <bufferAttribute attach="attributes-size" args={[sizes, 1]} />
+      </bufferGeometry>
+      <shaderMaterial
+        vertexShader={STAR_VERT}
+        fragmentShader={STAR_FRAG}
+        transparent
+        depthWrite={false}
+        depthTest={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </points>
   )
 }
 
@@ -763,9 +849,11 @@ export default function EarthScene({
       >
         <color attach="background" args={['#020208']} />
 
-        {/* Procedural Milky Way + nebula backdrop — dim, fixed in space,
-            behind everything. Adds depth without competing with sats. */}
+        {/* Deep-space backdrop + the Milky Way as a dense band of actual
+            star points (not painted clouds), fixed in space behind
+            everything. Adds depth without competing with the sats. */}
         <Galaxy />
+        <MilkyWayStars />
 
         <ambientLight intensity={0.12} color="#7080a0" />
         {/* Sun — positioned per-frame by SunDriver, which keeps it
