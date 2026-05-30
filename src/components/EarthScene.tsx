@@ -1,5 +1,5 @@
 import { Suspense, useRef, useMemo, useEffect, useState } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Stars as DreiStars } from '@react-three/drei'
 import * as THREE from 'three'
 import SatelliteCloud from './SatelliteCloud'
@@ -369,36 +369,6 @@ void main() {
 `
 
 // ============================================
-// Real-time sun direction (ECEF)
-// ============================================
-// Sub-solar point at any UTC time: longitude where the sun is
-// directly overhead. At 12:00 UTC sun is at 0° (Greenwich). At
-// 00:00 UTC sun is at 180° (Pacific). Latitude approximated via
-// axial-tilt × sine of day-of-year.
-function computeSunDirection(now: Date): THREE.Vector3 {
-  const utcHours = now.getUTCHours() + now.getUTCMinutes() / 60 + now.getUTCSeconds() / 3600
-  // Sub-solar longitude in radians (positive west since sun
-  // "moves" west as Earth spins east).
-  const lonRad = -((utcHours - 12) / 24) * 2 * Math.PI
-
-  // Day-of-year approximation for axial-tilt latitude offset.
-  const start = Date.UTC(now.getUTCFullYear(), 0, 0)
-  const dayOfYear = (now.getTime() - start) / (1000 * 60 * 60 * 24)
-  const TILT_DEG = 23.44
-  // Solar declination — angle of sub-solar point from equator.
-  const declRad = (TILT_DEG * Math.PI / 180) * Math.sin(2 * Math.PI * (dayOfYear - 81) / 365)
-
-  // Lat/Lon to unit vector in geographic frame.
-  const cosLat = Math.cos(declRad)
-  const x = cosLat * Math.cos(lonRad)
-  const y = cosLat * Math.sin(lonRad)
-  const z = Math.sin(declRad)
-  // Same axis-remap as SatelliteCloud: ECEF (x, y, z) → scene
-  // (x, z, -y). Keeps sun, Earth, and satellites coordinated.
-  return new THREE.Vector3(x, z, -y).normalize()
-}
-
-// ============================================
 // SUN DRIVER — single source of sun-direction truth
 // ============================================
 // Renders nothing; just runs one useFrame that computes the live
@@ -414,12 +384,22 @@ function SunDriver({
   sunDirRef: React.MutableRefObject<THREE.Vector3>
   sunLightRef: React.RefObject<THREE.DirectionalLight | null>
 }) {
+  const { camera } = useThree()
+  const tmp = useRef(new THREE.Vector3())
   useFrame(() => {
-    const sunDir = computeSunDirection(new Date())
-    sunDirRef.current.copy(sunDir)
+    // Sun follows the camera so the hemisphere you're looking at is
+    // always lit — you can actually read which side of Earth you're
+    // viewing. A small world-space offset (up + slightly left of the
+    // view axis) keeps a gentle terminator for 3D dimensionality
+    // rather than a dead-flat headlight. (We trade real-time accuracy
+    // of the terminator for legibility, which is what the scene needs.)
+    const dir = tmp.current.copy(camera.position).normalize()
+    dir.x -= 0.18
+    dir.y += 0.28
+    dir.normalize()
+    sunDirRef.current.copy(dir)
     if (sunLightRef.current) {
-      // Light far away in the sun direction so it acts directional.
-      sunLightRef.current.position.copy(sunDir).multiplyScalar(50)
+      sunLightRef.current.position.copy(dir).multiplyScalar(50)
     }
   })
   return null
@@ -649,16 +629,16 @@ export default function EarthScene({
       >
         <color attach="background" args={['#020208']} />
 
-        <ambientLight intensity={0.08} color="#7080a0" />
-        {/* Sun — positioned per-frame from computeSunDirection so the
-            day/night terminator on the Earth matches real UTC time. */}
+        <ambientLight intensity={0.12} color="#7080a0" />
+        {/* Sun — positioned per-frame by SunDriver, which keeps it
+            aligned to the camera so the visible hemisphere stays lit. */}
         <directionalLight
           ref={sunLightRef}
           intensity={2.4}
           color="#fff7d6"
         />
         {/* Faint rim-fill so the night hemisphere isn't dead black. */}
-        <directionalLight position={[-18, -4, -10]} intensity={0.12} color="#445080" />
+        <directionalLight position={[-18, -4, -10]} intensity={0.14} color="#445080" />
 
         {/* Sun driver + atmosphere halo are always mounted, so the
             day/night terminator and limb glow stay live in BOTH view

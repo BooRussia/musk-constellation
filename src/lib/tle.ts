@@ -24,32 +24,62 @@ export interface SatelliteEntry {
   constellation: ConstellationKey
 }
 
-const CACHE_KEY_PREFIX = 'mc.tle.'
-// Match CelesTrak's update cadence (2 hours) so we don't hammer
-// their servers from a tab reload.
-const CACHE_TTL_MS = 2 * 60 * 60 * 1000
+// v2 cache key — bumped to invalidate any poisoned entries from the
+// proxy-era (which could have cached 404 HTML).
+const CACHE_KEY_PREFIX = 'mc.tle.v2.'
+// "Fresh" window — if cached data is younger than this we skip the
+// network entirely. 6h keeps us well under CelesTrak's throttle while
+// still picking up new launches within a day. TLEs stay accurate for
+// days regardless, so even much older cache is usable as a fallback.
+const CACHE_FRESH_MS = 6 * 60 * 60 * 1000
+// Hard cap on how stale a cached TLE we'll still fall back to when
+// CelesTrak refuses a re-download (its "GP data has not updated"
+// throttle). 3 days — orbital elements drift slowly enough that
+// positions are still visually fine.
+const CACHE_MAX_FALLBACK_MS = 3 * 24 * 60 * 60 * 1000
 
 interface CachedEntry {
   fetchedAt: number
   tleText: string
 }
 
-function readCache(group: ConstellationKey): string | null {
+// localStorage (not sessionStorage) so the cache survives a tab close
+// — critical because CelesTrak throttles repeat downloads per-IP for
+// 2 hours, so a returning visitor must fall back to persisted data
+// rather than getting an empty sky.
+function rawReadCache(group: ConstellationKey): CachedEntry | null {
   try {
-    const raw = sessionStorage.getItem(CACHE_KEY_PREFIX + group)
+    const raw = localStorage.getItem(CACHE_KEY_PREFIX + group)
     if (!raw) return null
-    const parsed: CachedEntry = JSON.parse(raw)
-    if (Date.now() - parsed.fetchedAt > CACHE_TTL_MS) return null
-    return parsed.tleText
+    return JSON.parse(raw) as CachedEntry
   } catch {
     return null
   }
 }
 
+/** Returns cached TLE text only if it's still "fresh" (< 6h). Used
+ *  to short-circuit the network on a quick reload. */
+function readFreshCache(group: ConstellationKey): string | null {
+  const entry = rawReadCache(group)
+  if (!entry) return null
+  if (Date.now() - entry.fetchedAt > CACHE_FRESH_MS) return null
+  return entry.tleText
+}
+
+/** Returns cached TLE text if it exists and is within the hard
+ *  fallback window (< 3 days), regardless of freshness. Used when
+ *  CelesTrak refuses a re-download. */
+function readFallbackCache(group: ConstellationKey): string | null {
+  const entry = rawReadCache(group)
+  if (!entry) return null
+  if (Date.now() - entry.fetchedAt > CACHE_MAX_FALLBACK_MS) return null
+  return entry.tleText
+}
+
 function writeCache(group: ConstellationKey, tleText: string) {
   try {
     const entry: CachedEntry = { fetchedAt: Date.now(), tleText }
-    sessionStorage.setItem(CACHE_KEY_PREFIX + group, JSON.stringify(entry))
+    localStorage.setItem(CACHE_KEY_PREFIX + group, JSON.stringify(entry))
   } catch {
     // Quota exceeded / private mode — silent, just no caching.
   }
@@ -78,46 +108,68 @@ function parseTleText(tleText: string, constellation: ConstellationKey): Satelli
   return out
 }
 
-/** Fetch + parse one constellation. Cached for 2h in sessionStorage.
- *  Hits /api/tle/<group> which Netlify proxies to CelesTrak — keeps
- *  the fetch same-origin so CORS and corporate-network filters can't
- *  break it. Dev (vite dev server) doesn't proxy, so we fall back to
- *  CelesTrak directly when localhost. */
+/** Fetch + parse one constellation, with a localStorage-backed cache
+ *  that's resilient to CelesTrak's per-IP download throttle.
+ *
+ *  CelesTrak refuses to re-send the same GROUP within a 2h window from
+ *  the same IP — it returns a "GP data has not updated since your last
+ *  successful download" notice instead of data. A returning visitor
+ *  (or anyone who reloads) would otherwise get an empty sky. So:
+ *    1. Fresh cache (< 6h)        → use it, skip the network entirely.
+ *    2. Otherwise fetch CelesTrak directly (CORS *, CSP-whitelisted).
+ *       - Real data → cache + return.
+ *       - "No update" throttle notice → fall back to cached data
+ *         (up to 3 days old — TLEs stay accurate for days).
+ *    3. Network/HTTP error → fall back to cached data if we have any,
+ *       else rethrow so the UI can show the real error. */
 export async function fetchConstellation(
   group: ConstellationKey,
 ): Promise<SatelliteEntry[]> {
-  let tleText = readCache(group)
-  if (!tleText) {
-    // Fetch CelesTrak directly. CelesTrak sends Access-Control-Allow-
-    // Origin: * so a browser fetch works cross-origin. We do NOT use a
-    // same-origin proxy because the live deploy is GitHub Pages, which
-    // is a static host with no rewrite engine — a /api/tle/* proxy
-    // only exists in (inert) Netlify config and would 404 on Pages.
-    // The one catch: a strict CSP connect-src would block this, so the
-    // Netlify CSP whitelists https://celestrak.org (GitHub Pages has no
-    // CSP header at all, so it's unaffected).
-    const url = `https://celestrak.org/NORAD/elements/gp.php?GROUP=${group}&FORMAT=tle`
-    let res: Response
-    try {
-      res = await fetch(url)
-    } catch (err) {
-      // Network-level failure (DNS, refused, CSP-blocked, offline).
-      // Surface a clear message instead of the opaque "Failed to fetch".
-      const msg = err instanceof Error ? err.message : String(err)
-      throw new Error(`TLE fetch network error for ${group}: ${msg}`, { cause: err })
+  // 1. Fresh cache short-circuit.
+  const fresh = readFreshCache(group)
+  if (fresh) return parseTleText(fresh, group)
+
+  const url = `https://celestrak.org/NORAD/elements/gp.php?GROUP=${group}&FORMAT=tle`
+  let res: Response
+  try {
+    res = await fetch(url)
+  } catch (err) {
+    // Network-level failure (DNS, refused, CSP-blocked, offline).
+    // Use any non-expired cached data before giving up.
+    const fallback = readFallbackCache(group)
+    if (fallback) {
+      console.warn(`[tle] ${group} fetch failed, using cached data`)
+      return parseTleText(fallback, group)
     }
-    if (!res.ok) {
-      throw new Error(`CelesTrak returned ${res.status} for ${group}`)
-    }
-    tleText = await res.text()
-    // CelesTrak occasionally returns a "no update" notice instead of
-    // data — treat as empty rather than a parse failure.
-    if (tleText.includes('GP data has not updated')) {
-      console.warn(`[tle] CelesTrak returned no-update notice for ${group}`)
-      return []
-    }
-    writeCache(group, tleText)
+    const msg = err instanceof Error ? err.message : String(err)
+    throw new Error(`TLE fetch network error for ${group}: ${msg}`, { cause: err })
   }
+
+  if (!res.ok) {
+    const fallback = readFallbackCache(group)
+    if (fallback) {
+      console.warn(`[tle] ${group} returned ${res.status}, using cached data`)
+      return parseTleText(fallback, group)
+    }
+    throw new Error(`CelesTrak returned ${res.status} for ${group}`)
+  }
+
+  const tleText = await res.text()
+
+  // CelesTrak's throttle notice — fall back to cached data.
+  if (tleText.includes('GP data has not updated')) {
+    const fallback = readFallbackCache(group)
+    if (fallback) {
+      console.warn(`[tle] ${group} throttled by CelesTrak, using cached data`)
+      return parseTleText(fallback, group)
+    }
+    // Cold start + throttled (rare — only if this IP already pulled
+    // recently with no local cache). Surface as empty.
+    console.warn(`[tle] ${group} throttled by CelesTrak and no cache available`)
+    return []
+  }
+
+  writeCache(group, tleText)
   return parseTleText(tleText, group)
 }
 

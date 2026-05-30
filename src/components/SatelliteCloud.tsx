@@ -124,9 +124,10 @@ export default function SatelliteCloud({
       colors[i * 3 + 0] = c.r
       colors[i * 3 + 1] = c.g
       colors[i * 3 + 2] = c.b
-      // Sized so a typical sat is ~4-5 screen pixels at default zoom
-      // — readable as an individual dot, doesn't bleed into neighbors.
-      sizes[i] = 1.4
+      // Base dot size — bumped so individual sats are comfortably
+      // visible at default zoom without the cluster bleeding to a
+      // solid sheet (the tight fragment falloff keeps them crisp).
+      sizes[i] = 2.6
     }
     return { positions, colors, sizes }
   }, [visibleSats, count])
@@ -444,8 +445,9 @@ void main() {
   vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
   gl_Position = projectionMatrix * mvPos;
   // Scale point size by inverse depth, clamped so far-away sats
-  // don't disappear and close ones don't take over the screen.
-  float scale = clamp(60.0 / -mvPos.z, 1.0, 12.0);
+  // stay visible (min raised so the far limb of the constellation
+  // doesn't shrink to invisibility) and close ones don't take over.
+  float scale = clamp(70.0 / -mvPos.z, 1.6, 14.0);
   gl_PointSize = size * scale;
 }
 `
