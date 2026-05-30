@@ -1,5 +1,5 @@
 import { Suspense, useRef, useMemo, useEffect, useState } from 'react'
-import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, Stars as DreiStars } from '@react-three/drei'
 import * as THREE from 'three'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
@@ -246,20 +246,23 @@ void main() {
   }
 
   // ============================================
-  // DAY/NIGHT BLEND — soft terminator + WRAP (half-Lambert) diffuse
-  // from the GEOMETRIC normal, so the whole sun-facing hemisphere —
-  // continents included — reads like real sunlight on a globe.
+  // DAY/NIGHT — bright daylit hemisphere, clean terminator, dark
+  // night side (Apple-Maps look). The sun is the REAL sub-solar
+  // point, so daytime here = daytime in real life.
   // ============================================
-  float dayWeight = smoothstep(-0.25, 0.0, NdotL);
-  float wrap = NdotL * 0.5 + 0.5;        // 0 at anti-sun → 1 at sub-solar
-  float diffuse = wrap * wrap;           // mild contrast
+  // Day brightness ramps across the terminator: full daylight where
+  // NdotL >= 0.28, easing to near-dark just past the terminator.
+  // Defined (not the old flat half-Lambert wash) so the day/night
+  // boundary reads crisply like the reference globe.
+  float dayShade = smoothstep(-0.06, 0.28, NdotL);
   // Subtle relief shading: mountains tilted toward the sun brighten a
-  // touch, away-facing slopes darken a touch — but CLAMPED so terrain
-  // relief can never black out the land. (reliefDot - NdotL) is the
-  // bump-vs-geometry delta; mapped into a tight [0.78, 1.22] band.
-  float reliefShade = clamp(1.0 + 0.6 * (reliefDot - NdotL), 0.78, 1.22);
-  // Ambient floor + diffuse — a brightly, evenly lit sunlit disk.
-  vec3 dayLit = dayColor * (0.30 + 1.30 * diffuse) * reliefShade;
+  // touch, away-facing slopes darken a touch — CLAMPED so terrain
+  // relief can never black out the land.
+  float reliefShade = clamp(1.0 + 0.6 * (reliefDot - NdotL), 0.80, 1.20);
+  // Low ambient floor (0.06) so the night side of the day texture is
+  // dark — faint earthshine only — letting the city lights dominate.
+  // Bright day gain (1.55) for a vivid sunlit hemisphere.
+  vec3 dayLit = dayColor * (0.06 + 1.55 * dayShade) * reliefShade;
 
   // Night side: city lights from the emissive map. Boost intensity
   // and feather into the terminator so lights "turn on" as the
@@ -276,8 +279,10 @@ void main() {
     nightLit = cityColor * nightWeight * uNightIntensity;
   }
 
-  // Combine: day + lifted near-terminator + night lights + specular.
-  vec3 color = dayLit * dayWeight + nightLit + specularLit;
+  // Combine: daylit surface + night-side city lights + ocean glint.
+  // dayShade already handles the terminator falloff, so no extra
+  // dayWeight multiply is needed.
+  vec3 color = dayLit + nightLit + specularLit;
 
   // ============================================
   // ATMOSPHERIC HAZE — Rayleigh-style limb tint
@@ -380,14 +385,38 @@ void main() {
 `
 
 // ============================================
+// Real-time sun direction (sub-solar point, ECEF → scene)
+// ============================================
+// Where the sun is directly overhead at the current UTC instant.
+// Sub-solar longitude: 0° (Greenwich) at 12:00 UTC, sweeping west
+// 15°/hour. Latitude (declination) from Earth's axial tilt × the
+// day-of-year. Returned in the SAME ECEF→scene frame the satellites
+// use — ECEF (x,y,z) → scene (x, z, -y) — so daytime on the globe
+// matches daytime in real life and the terminator lands correctly.
+function computeSunDirection(now: Date, out: THREE.Vector3): THREE.Vector3 {
+  const utcHours = now.getUTCHours() + now.getUTCMinutes() / 60 + now.getUTCSeconds() / 3600
+  const lonRad = -((utcHours - 12) / 24) * 2 * Math.PI
+
+  const start = Date.UTC(now.getUTCFullYear(), 0, 0)
+  const dayOfYear = (now.getTime() - start) / (1000 * 60 * 60 * 24)
+  const declRad = (23.44 * Math.PI / 180) * Math.sin(2 * Math.PI * (dayOfYear - 81) / 365)
+
+  const cosLat = Math.cos(declRad)
+  const x = cosLat * Math.cos(lonRad)
+  const y = cosLat * Math.sin(lonRad)
+  const z = Math.sin(declRad)
+  return out.set(x, z, -y).normalize()
+}
+
+// ============================================
 // SUN DRIVER — single source of sun-direction truth
 // ============================================
-// Renders nothing; just runs one useFrame that computes the live
-// sub-solar direction from UTC and writes it into the shared
-// sunDirRef + aims the directional light. Always mounted (both
-// view modes) so the terminator + halo stay correct even in Map
-// mode where <Earth> isn't rendered. Earth, Atmosphere, and the
-// procedural fallback all READ sunDirRef — this is the only writer.
+// Renders nothing; runs one useFrame that writes the live real-time
+// sub-solar direction into the shared sunDirRef + aims the
+// directional light. Always mounted (both view modes) so the
+// terminator + halo stay correct even in Map mode where <Earth>
+// isn't rendered. Earth, Atmosphere, and the procedural fallback all
+// READ sunDirRef — this is the only writer.
 function SunDriver({
   sunDirRef,
   sunLightRef,
@@ -395,20 +424,8 @@ function SunDriver({
   sunDirRef: React.MutableRefObject<THREE.Vector3>
   sunLightRef: React.RefObject<THREE.DirectionalLight | null>
 }) {
-  const { camera } = useThree()
-  const tmp = useRef(new THREE.Vector3())
   useFrame(() => {
-    // Sun follows the camera so the hemisphere you're looking at is
-    // always lit — you can actually read which side of Earth you're
-    // viewing. A small world-space offset (up + slightly left of the
-    // view axis) keeps a gentle terminator for 3D dimensionality
-    // rather than a dead-flat headlight. (We trade real-time accuracy
-    // of the terminator for legibility, which is what the scene needs.)
-    const dir = tmp.current.copy(camera.position).normalize()
-    dir.x -= 0.18
-    dir.y += 0.28
-    dir.normalize()
-    sunDirRef.current.copy(dir)
+    const dir = computeSunDirection(new Date(), sunDirRef.current)
     if (sunLightRef.current) {
       sunLightRef.current.position.copy(dir).multiplyScalar(50)
     }
