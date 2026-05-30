@@ -23,7 +23,7 @@ const EARTH_RADIUS = 5
 // BASE_URL prefix (not a root-absolute "/textures/...") so this
 // resolves under the GitHub Pages /musk-constellation/ base too.
 // Vite doesn't rewrite string-literal asset paths.
-const MAP_TEXTURE_PATH = `${import.meta.env.BASE_URL}textures/planets/earth_atmos_2048.jpg`
+const MAP_TEXTURE_PATH = `${import.meta.env.BASE_URL}textures/planets/earth_day_8k.jpg`
 
 const MAP_VERT = /* glsl */ `
 varying vec2 vUv;
@@ -94,7 +94,7 @@ export default function MapEarth({ onTextureFail }: MapEarthProps) {
       .loadAsync(MAP_TEXTURE_PATH)
       .then((tex) => {
         if (cancelled) return
-        tex.anisotropy = 8
+        tex.anisotropy = 16
         // We're sampling the texture purely as a data source for the
         // shader (luminance / channel comparisons), so leave it in
         // linear color space — sRGB conversion would shift the

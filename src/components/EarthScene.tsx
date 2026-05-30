@@ -42,12 +42,17 @@ const ATMOSPHERE_OUTER_RADIUS = EARTH_RADIUS * 1.14
 const BASE = import.meta.env.BASE_URL
 type TextureKey = 'day' | 'normal' | 'night' | 'specular'
 const TEXTURES: Record<TextureKey, string> = {
-  day: `${BASE}textures/planets/earth_atmos_2048.jpg`,
+  // 8K Solar System Scope daymap — bright, vivid, cloud-FREE, 4× the
+  // resolution of the old 2K Blue Marble (which was dark and had
+  // clouds baked in that read as shading). Flat daytime albedo, no
+  // terminator baked in — the day/night shading is all done live in
+  // the shader from the real sun position.
+  day: `${BASE}textures/planets/earth_day_8k.jpg`,
   normal: `${BASE}textures/planets/earth_normal_2048.jpg`,
-  night: `${BASE}textures/planets/earth_lights_2048.png`,
-  // Water mask from three.js's example suite — white = ocean,
-  // black = land. Drives the ocean-only specular highlight that
-  // gives Earth its signature sun-glint on the daylit hemisphere.
+  // 8K night map — crisp city lights that hold up when zoomed in.
+  night: `${BASE}textures/planets/earth_night_8k.jpg`,
+  // Water mask — white = ocean, black = land. Drives the ocean-only
+  // specular sheen on the daylit hemisphere.
   specular: `${BASE}textures/planets/earth_specular_2048.jpg`,
 }
 
@@ -63,7 +68,7 @@ async function tryLoadTexture(key: TextureKey): Promise<THREE.Texture | null> {
   const loader = new THREE.TextureLoader()
   try {
     const tex = await loader.loadAsync(TEXTURES[key])
-    tex.anisotropy = 8
+    tex.anisotropy = 16
     tex.colorSpace = LINEAR_TEXTURES.has(key) ? THREE.NoColorSpace : THREE.SRGBColorSpace
     tex.needsUpdate = true
     return tex
@@ -258,12 +263,12 @@ void main() {
   // Subtle relief shading from the bump normal — clamped so terrain
   // never darkens the land much.
   float reliefShade = clamp(1.0 + 0.5 * (reliefDot - NdotL), 0.88, 1.15);
-  // Strong gain so the darker Blue-Marble land reads as genuinely
-  // bright, vivid daylight after ACES tone mapping. A touch of
-  // saturation boost makes the greens/tans pop like the reference.
-  vec3 dayBase = dayColor * dayBright * 3.40 * reliefShade;
+  // Moderate gain — the 8K SSS daymap is already bright + saturated,
+  // so it needs far less push than the old dark Blue-Marble texture
+  // (which used 3.4×). Light saturation lift only.
+  vec3 dayBase = dayColor * dayBright * 1.55 * reliefShade;
   float dayLum = dot(dayBase, vec3(0.299, 0.587, 0.114));
-  vec3 dayLit = mix(vec3(dayLum), dayBase, 1.16);
+  vec3 dayLit = mix(vec3(dayLum), dayBase, 1.06);
 
   // Night side: city lights from the emissive map, warm-tinted.
   vec3 nightLit = vec3(0.0);
@@ -733,7 +738,7 @@ export default function EarthScene({
           ref={controlsRef}
           enableDamping
           dampingFactor={0.06}
-          minDistance={7}
+          minDistance={6}
           maxDistance={48}
           rotateSpeed={0.4}
           zoomSpeed={0.6}
