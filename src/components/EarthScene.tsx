@@ -26,6 +26,11 @@ export type EarthViewMode = 'satellite' | 'map'
 // procedural shader Earth so the user NEVER sees a broken page.
 
 const EARTH_RADIUS = 5
+// Thin limb-glow shell — a hair larger than Earth so its back-faces
+// form a crescent of light right at the silhouette edge. Sun-gated in
+// the shader so it only lights the sun-facing limb (the "sunrise
+// pouring around the edge" look), not a full contrast-killing halo.
+const LIMB_GLOW_RADIUS = EARTH_RADIUS * 1.035
 
 // Textures are committed to the repo at public/textures/planets/
 // and served same-origin. CRITICAL: paths must be prefixed with
@@ -73,6 +78,49 @@ async function tryLoadTexture(key: TextureKey): Promise<THREE.Texture | null> {
     return null
   }
 }
+
+// ============================================
+// Limb-glow shader — thin sun-gated rim at the planet's edge
+// ============================================
+// Back-side rim on a shell a hair larger than Earth. A tight fresnel
+// term lights only the silhouette edge; a sun-direction gate then
+// restricts that to the sun-facing limb, so from the night side you
+// see a thin crescent of light "pouring around" the planet (the
+// Apple-Maps terminator bleed) rather than a full halo.
+const RIM_VERT = /* glsl */ `
+varying vec3 vNormal;
+varying vec3 vWorldPos;
+void main() {
+  // World-space normal (see SURFACE_VERT) so the lit crescent tracks
+  // the real sub-solar point, not the camera.
+  vNormal = normalize(mat3(modelMatrix) * normal);
+  vec4 worldPos = modelMatrix * vec4(position, 1.0);
+  vWorldPos = worldPos.xyz;
+  gl_Position = projectionMatrix * viewMatrix * worldPos;
+}
+`
+
+const RIM_FRAG = /* glsl */ `
+uniform vec3 uSunDir;
+varying vec3 vNormal;
+varying vec3 vWorldPos;
+void main() {
+  vec3 N = normalize(vNormal);
+  vec3 V = normalize(cameraPosition - vWorldPos);
+  // Tight fresnel → glow concentrates in a thin band at the very edge.
+  float fres = pow(1.0 - max(0.0, dot(N, V)), 3.2);
+  // Sun gate: only the limb that faces the sun lights up, with a soft
+  // ramp through the terminator so it's a crescent, not a ring.
+  float sun = dot(N, normalize(uSunDir));
+  float gate = smoothstep(-0.15, 0.55, sun);
+  // Warm white where the sun is strong (the bright sunrise bleed),
+  // cooling to thin blue as it wraps toward the terminator.
+  vec3 warm = vec3(1.00, 0.90, 0.72);
+  vec3 cool = vec3(0.42, 0.64, 1.05);
+  vec3 col = mix(cool, warm, smoothstep(0.0, 0.7, sun));
+  gl_FragColor = vec4(col, fres * gate * 0.9);
+}
+`
 
 // ============================================
 // Photoreal Earth surface shader — drives the textured sphere
@@ -302,6 +350,42 @@ function SunDriver({
 }
 
 // ============================================
+// LIMB GLOW — thin sun-gated rim of light at the planet's edge
+// ============================================
+// One back-side shell a hair larger than Earth. The fresnel term lights
+// only the silhouette; the sun gate in RIM_FRAG restricts it to the
+// sun-facing limb, so from the night side you get a thin crescent of
+// light pouring around the edge (Apple-Maps style) without a full halo
+// that would wash out satellite contrast.
+function LimbGlow({
+  sunDirRef,
+}: {
+  sunDirRef: React.MutableRefObject<THREE.Vector3>
+}) {
+  const uniforms = useMemo(
+    () => ({ uSunDir: { value: new THREE.Vector3(1, 0.25, 0.6).normalize() } }),
+    [],
+  )
+  useFrame(() => {
+    uniforms.uSunDir.value.copy(sunDirRef.current)
+  })
+  return (
+    <mesh>
+      <sphereGeometry args={[LIMB_GLOW_RADIUS, 96, 96]} />
+      <shaderMaterial
+        vertexShader={RIM_VERT}
+        fragmentShader={RIM_FRAG}
+        uniforms={uniforms}
+        transparent
+        side={THREE.BackSide}
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </mesh>
+  )
+}
+
+// ============================================
 // EARTH (textured if loaded, procedural fallback otherwise)
 // ============================================
 interface LoadedTextures {
@@ -386,10 +470,10 @@ function Earth({
         )}
       </mesh>
 
-      {/* No atmosphere halo — the additive blue glow was removed
-          because it washed out satellite contrast near the limb.
-          Clouds were removed too — the example cloud texture read as
-          patchy lichen against the surface. */}
+      {/* The only edge glow is the thin sun-gated <LimbGlow /> sibling
+          in the scene (not here) — the old full blue halo that washed
+          out satellite contrast is gone. Clouds were removed too — the
+          example cloud texture read as patchy lichen on the surface. */}
     </group>
   )
 }
@@ -483,9 +567,11 @@ export default function EarthScene({
         {/* Sun driver is always mounted so the day/night terminator
             stays live in BOTH view modes. Earth's surface shader
             (Satellite) and MapEarth (unshaded flat map) swap
-            underneath. The blue atmosphere halo was removed — its
-            additive glow washed out satellite contrast near the limb. */}
+            underneath. The full blue atmosphere halo was removed (it
+            washed out satellite contrast); LimbGlow restores just a
+            thin sun-gated crescent of light at the edge. */}
         <SunDriver sunDirRef={sunDirRef} sunLightRef={sunLightRef} />
+        <LimbGlow sunDirRef={sunDirRef} />
 
         {viewMode === 'satellite' ? (
           <Suspense fallback={null}>
