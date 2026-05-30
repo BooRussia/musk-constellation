@@ -324,92 +324,6 @@ void main() {
 `
 
 // ============================================
-// Procedural Earth shader — fallback when no CDN texture loads.
-// Continents emerge from fbm noise, polar caps from latitude,
-// city lights from inverse-day shading. Not photoreal, but
-// always renders, never fails, no network needed.
-// ============================================
-const PROC_EARTH_VERT = /* glsl */ `
-varying vec3 vNormal;
-varying vec3 vPos;
-varying vec2 vUv;
-void main() {
-  // World-space normal so the procedural fallback's lighting also
-  // stays fixed to the sun, not the camera.
-  vNormal = normalize(mat3(modelMatrix) * normal);
-  vPos = position;
-  vUv = uv;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-}
-`
-
-const PROC_EARTH_FRAG = /* glsl */ `
-uniform vec3 uSunDir;
-varying vec3 vNormal;
-varying vec3 vPos;
-varying vec2 vUv;
-
-// Simplex-ish 3D noise (Inigo Quilez style).
-vec3 hash3(vec3 p) {
-  p = vec3(dot(p, vec3(127.1, 311.7, 74.7)),
-           dot(p, vec3(269.5, 183.3, 246.1)),
-           dot(p, vec3(113.5, 271.9, 124.6)));
-  return fract(sin(p) * 43758.5453123) - 0.5;
-}
-float noise3(vec3 p) {
-  vec3 i = floor(p);
-  vec3 f = fract(p);
-  f = f * f * (3.0 - 2.0 * f);
-  return mix(
-    mix(mix(dot(hash3(i + vec3(0,0,0)), f - vec3(0,0,0)),
-            dot(hash3(i + vec3(1,0,0)), f - vec3(1,0,0)), f.x),
-        mix(dot(hash3(i + vec3(0,1,0)), f - vec3(0,1,0)),
-            dot(hash3(i + vec3(1,1,0)), f - vec3(1,1,0)), f.x), f.y),
-    mix(mix(dot(hash3(i + vec3(0,0,1)), f - vec3(0,0,1)),
-            dot(hash3(i + vec3(1,0,1)), f - vec3(1,0,1)), f.x),
-        mix(dot(hash3(i + vec3(0,1,1)), f - vec3(0,1,1)),
-            dot(hash3(i + vec3(1,1,1)), f - vec3(1,1,1)), f.x), f.y),
-    f.z);
-}
-float fbm(vec3 p) {
-  float v = 0.0; float a = 0.5;
-  for (int i = 0; i < 5; i++) {
-    v += a * noise3(p);
-    p *= 2.0; a *= 0.5;
-  }
-  return v;
-}
-
-void main() {
-  // Continent noise.
-  vec3 p = vPos * 0.7;
-  float n = fbm(p);
-  float land = smoothstep(-0.02, 0.08, n);
-
-  // Polar caps via latitude (y-axis = up).
-  float lat = abs(normalize(vPos).y);
-  float ice = smoothstep(0.75, 0.92, lat);
-
-  vec3 ocean = vec3(0.04, 0.18, 0.42);
-  vec3 landCol = mix(vec3(0.20, 0.42, 0.14), vec3(0.55, 0.43, 0.25), fbm(p * 2.5) + 0.3);
-  vec3 surface = mix(ocean, landCol, land);
-  surface = mix(surface, vec3(0.95, 0.96, 0.98), ice);
-
-  // Sun shading (Lambert).
-  float sun = max(0.0, dot(vNormal, normalize(uSunDir)));
-  vec3 lit = surface * (0.15 + 0.85 * sun);
-
-  // City lights on the night side — sparse pinpricks.
-  float night = 1.0 - sun;
-  float lightsNoise = fbm(p * 8.0);
-  float lights = step(0.18, lightsNoise) * land * night * night;
-  lit += vec3(1.0, 0.85, 0.5) * lights * 0.6;
-
-  gl_FragColor = vec4(lit, 1.0);
-}
-`
-
-// ============================================
 // Real-time sun direction (sub-solar point, ECEF → scene)
 // ============================================
 // Where the sun is directly overhead at the current UTC instant.
@@ -537,11 +451,6 @@ function Earth({
 
   const hasDayTexture = !!textures.day
 
-  const procUniforms = useMemo(
-    () => ({ uSunDir: { value: new THREE.Vector3(1, 0.25, 0.6).normalize() } }),
-    [],
-  )
-
   // Uniforms for the photoreal surface shader. Keyed on the
   // textures object so the uniforms (and material) rebuild when
   // textures arrive from disk — cheap, happens once at startup.
@@ -571,15 +480,12 @@ function Earth({
   )
 
   // Per-frame: read the shared sun direction (written by SunDriver)
-  // into this Earth's surface + procedural shader uniforms. Earth
-  // does NOT auto-rotate — the scene is in ECEF, so the Earth is
-  // "fixed" and the sun position rotates over time instead. That's
-  // also what makes the satellite ECF positions land over the right
-  // continents.
+  // into the surface shader uniform. Earth does NOT auto-rotate — the
+  // scene is in ECEF, so the Earth is "fixed" and the sun position
+  // rotates over time instead. That's also what makes the satellite
+  // ECF positions land over the right continents.
   useFrame(() => {
-    const sunDir = sunDirRef.current
-    procUniforms.uSunDir.value.copy(sunDir)
-    surfaceUniforms.uSunDir.value.copy(sunDir)
+    surfaceUniforms.uSunDir.value.copy(sunDirRef.current)
   })
 
   return (
@@ -588,16 +494,12 @@ function Earth({
         <sphereGeometry args={[EARTH_RADIUS, 128, 128]} />
         {hasDayTexture ? (
           /* Photoreal path — custom shader for ocean specular, smooth
-             terminator, punched-up city lights, and a faint blue
-             Rayleigh haze near the limb. See SURFACE_FRAG above.
-             The `key` is CRITICAL: both branches are <shaderMaterial>,
-             so without a distinct key r3f reuses the same THREE
-             ShaderMaterial instance and just swaps props — but
-             changing vertexShader/fragmentShader on an existing
-             material does NOT recompile the program. That's why the
-             globe stayed procedural after textures finished loading
-             until a view-mode toggle force-remounted it. The key
-             makes the material a fresh instance when the path flips. */
+             terminator, city lights, and a faint blue Rayleigh haze
+             near the limb. The `key` is CRITICAL: it differs from the
+             loading material below so r3f builds a FRESH ShaderMaterial
+             when textures arrive (swapping vertex/fragment props on an
+             existing material doesn't recompile the program — that
+             caused the old "stuck until toggle" bug). */
           <shaderMaterial
             key="earth-photoreal"
             vertexShader={SURFACE_VERT}
@@ -605,13 +507,11 @@ function Earth({
             uniforms={surfaceUniforms}
           />
         ) : (
-          /* Procedural fallback — never fails. */
-          <shaderMaterial
-            key="earth-procedural"
-            vertexShader={PROC_EARTH_VERT}
-            fragmentShader={PROC_EARTH_FRAG}
-            uniforms={procUniforms}
-          />
+          /* Loading state — a clean flat dark-ocean sphere (no ugly
+             procedural continents). Shows the planet silhouette + the
+             atmosphere halo immediately; sharpens to the real Earth
+             the instant the 8K texture finishes streaming in. */
+          <meshBasicMaterial key="earth-loading" color="#0e2038" />
         )}
       </mesh>
 
@@ -675,7 +575,7 @@ export default function EarthScene({
       setTextures({ day, normal, night, specular })
       setLoadStatus(day ? 'done' : 'fallback')
       if (!day) {
-        console.warn('[EarthScene] All texture loads failed — falling back to procedural Earth')
+        console.warn('[EarthScene] Earth day texture failed to load')
       }
     })()
     return () => {
@@ -769,7 +669,7 @@ export default function EarthScene({
 
       {loadStatus === 'fallback' && (
         <div className="earth-fallback-note">
-          Earth textures didn’t load — showing the procedural globe instead.
+          Earth textures didn’t load — check your connection and reload.
         </div>
       )}
     </>
