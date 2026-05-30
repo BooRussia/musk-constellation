@@ -18,6 +18,9 @@ export interface MapStyle {
   stylized: boolean
   /** Make polar green/magenta pixels emit light (glowing aurora). */
   aurora?: boolean
+  /** Day-side brightness multiplier (stylized maps). Default ~1.3; bump
+   *  for darker uploads so they're easy to make out. */
+  brightness?: number
 }
 
 const BASE = import.meta.env.BASE_URL
@@ -36,11 +39,13 @@ export const PHOTOREAL_STYLE: MapStyle = {
 // override the auto-generated name.
 const OVERRIDES: Record<
   string,
-  { label?: string; realistic?: boolean; aurora?: boolean }
+  { label?: string; realistic?: boolean; aurora?: boolean; brightness?: number }
 > = {
   // 'topo-bathy': { label: 'Topographic', realistic: true },
   // Make the painted aurora glow (emissive) so it reads as 3D light.
   Aurora: { aurora: true },
+  // Cyber's source is quite dark — lift it more so it's easy to make out.
+  Cyber: { brightness: 1.6 },
 }
 
 /** Auto-discovered stylized maps from src/assets/map-styles/. */
@@ -67,6 +72,7 @@ const droppedStyles: MapStyle[] = Object.entries(discovered)
       dayUrl: url,
       stylized: !ov.realistic,
       aurora: ov.aurora ?? false,
+      brightness: ov.brightness ?? 1.3,
     }
   })
   .sort((a, b) => a.label.localeCompare(b.label))

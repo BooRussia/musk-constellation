@@ -252,6 +252,7 @@ uniform float uTime;
 uniform float uWaveStrength;
 uniform float uStylized;
 uniform float uAurora;
+uniform float uStyleBright;
 
 varying vec3 vNormal;
 varying vec3 vWorldPos;
@@ -446,7 +447,18 @@ void main() {
   // crossfades day → night silhouette + city lights.
   vec3 color;
   if (uStylized > 0.5) {
-    color = dayColor * mix(0.10, 1.12, termMask);
+    // Day side — brightened per-style so darker uploaded maps read
+    // clearly. ACES tonemapping (set on the renderer) rolls off any
+    // resulting highlights so vivid maps don't blow out.
+    vec3 sDay = dayColor * uStyleBright;
+    // Night-side TRACING — the premium night look, standard on EVERY
+    // map: instead of fading to black, the map stays readable as a dim
+    // silhouette and the brightest features (cities/land) glow like
+    // night lights.
+    float slum = dot(dayColor, vec3(0.299, 0.587, 0.114));
+    vec3 sNight = dayColor * 0.34 + vec3(0.006, 0.012, 0.028);
+    sNight += dayColor * smoothstep(0.46, 0.86, slum) * 1.15;
+    color = mix(sNight, sDay, termMask);
   } else {
     color = mix(nightBase + nightLit, dayLit + specularLit, termMask);
   }
@@ -737,6 +749,7 @@ function Earth({
   sunDirRef,
   stylized = false,
   aurora = false,
+  styleBright = 1.3,
 }: {
   textures: LoadedTextures
   sunDirRef: React.MutableRefObject<THREE.Vector3>
@@ -745,6 +758,8 @@ function Earth({
   stylized?: boolean
   /** Make polar green/magenta pixels emit light (glowing aurora). */
   aurora?: boolean
+  /** Day-side brightness multiplier for stylized maps. */
+  styleBright?: number
 }) {
   const earthRef = useRef<THREE.Mesh>(null)
   // Ref to the photoreal material so we can advance the ocean-wave time
@@ -788,8 +803,10 @@ function Earth({
       uStylized: { value: stylized ? 1 : 0 },
       // 1 = make polar green/magenta pixels glow (aurora maps).
       uAurora: { value: aurora ? 1 : 0 },
+      // Day-side brightness multiplier for stylized maps.
+      uStyleBright: { value: styleBright },
     }),
-    [textures, stylized, aurora],
+    [textures, stylized, aurora, styleBright],
   )
 
   // Per-frame: read the shared sun direction (written by SunDriver)
@@ -988,6 +1005,7 @@ export default function EarthScene({
               sunDirRef={sunDirRef}
               stylized={style.stylized}
               aurora={style.aurora ?? false}
+              styleBright={style.brightness ?? 1.3}
             />
           </Suspense>
         ) : (
