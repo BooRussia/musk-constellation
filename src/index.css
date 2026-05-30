@@ -2839,22 +2839,40 @@ body {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
 }
 
-/* Cities — white with a small dot marker. */
+/* Cities — the DOT marks the exact location and is the anchor point
+   (the <Html> is centered on the city's lat/lon). The label box is
+   collapsed to a zero-size point so centering lands the dot — not the
+   middle of the text — over the real place. The name floats to the
+   right of the dot. */
+.globe-label--city {
+  display: block;
+  position: relative;
+  width: 0;
+  height: 0;
+}
+
+.globe-label--city .globe-label-dot {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%); /* exactly on the anchor */
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.95), 0 0 1px rgba(0, 0, 0, 1);
+}
+
 .globe-label--city .globe-label-text {
+  position: absolute;
+  left: 7px;                 /* just right of the dot */
+  top: 0;
+  transform: translateY(-50%);
   font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.2px;
   color: rgba(255, 255, 255, 0.95);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 6px rgba(0, 0, 0, 0.7);
-}
-
-.globe-label-dot {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 0 3px rgba(0, 0, 0, 0.9);
-  flex-shrink: 0;
 }
 
 @media (max-width: 639px) {

@@ -586,7 +586,7 @@ export default function EarthScene({
   return (
     <>
       <Canvas
-        camera={{ position: [0, 1.5, 14], fov: 42 }}
+        camera={{ position: [0, 2, 21], fov: 42 }}
         gl={{ antialias: true, powerPreference: 'high-performance' }}
         dpr={[1, 2]}
         onCreated={({ gl }) => {
