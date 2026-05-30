@@ -20,44 +20,36 @@ const EARTH_RADIUS = 5
 const CLOUDS_RADIUS = EARTH_RADIUS * 1.008
 const ATMOSPHERE_RADIUS = EARTH_RADIUS * 1.065
 
-// Three.js's classic example Earth textures. Both jsDelivr's
-// gh endpoint (serves any file from the repo) and the unpkg
-// equivalent are tried in order — whichever responds first
-// wins. The dev branch always has these files; they've been part
-// of three.js's example suite for a decade.
+// Textures are committed to the repo at public/textures/planets/
+// and served same-origin from Netlify. No CDN dependencies, no
+// CORS, no version-resolution guesswork — they're sourced from
+// three.js's own example suite (raw.githubusercontent.com pull)
+// but live in our static assets so we control delivery.
 type TextureKey = 'day' | 'normal' | 'night' | 'clouds'
-const TEXTURE_PATHS: Record<TextureKey, string> = {
-  day: 'examples/textures/planets/earth_atmos_2048.jpg',
-  normal: 'examples/textures/planets/earth_normal_2048.jpg',
-  night: 'examples/textures/planets/earth_lights_2048.png',
-  clouds: 'examples/textures/planets/earth_clouds_1024.png',
+const TEXTURES: Record<TextureKey, string> = {
+  day: '/textures/planets/earth_atmos_2048.jpg',
+  normal: '/textures/planets/earth_normal_2048.jpg',
+  night: '/textures/planets/earth_lights_2048.png',
+  clouds: '/textures/planets/earth_clouds_1024.png',
 }
-const CDN_BASES = [
-  'https://cdn.jsdelivr.net/gh/mrdoob/three.js@dev',
-  'https://raw.githubusercontent.com/mrdoob/three.js/dev',
-]
 
-// Try each CDN base in sequence until one succeeds for a given
-// texture key. Returns null if every base failed. Color/sampling
-// config is applied on the freshly-loaded texture here so the
-// component never has to mutate props.
+// Load one texture with the right color-space config baked in at
+// load time so we never have to mutate the prop ref later. Returns
+// null on failure so the calling code can fall back gracefully —
+// in practice with same-origin assets this should never fire.
 async function tryLoadTexture(key: TextureKey): Promise<THREE.Texture | null> {
   const loader = new THREE.TextureLoader()
-  loader.setCrossOrigin('anonymous')
-  for (const base of CDN_BASES) {
-    const url = `${base}/${TEXTURE_PATHS[key]}`
-    try {
-      const tex = await loader.loadAsync(url)
-      tex.anisotropy = 8
-      // Day and night maps are color data; normal map is linear data.
-      tex.colorSpace = key === 'normal' ? THREE.NoColorSpace : THREE.SRGBColorSpace
-      tex.needsUpdate = true
-      return tex
-    } catch (err) {
-      console.warn(`[EarthScene] ${key} failed at ${base}:`, err)
-    }
+  try {
+    const tex = await loader.loadAsync(TEXTURES[key])
+    tex.anisotropy = 8
+    // Day and night maps are color data; normal map is linear data.
+    tex.colorSpace = key === 'normal' ? THREE.NoColorSpace : THREE.SRGBColorSpace
+    tex.needsUpdate = true
+    return tex
+  } catch (err) {
+    console.warn(`[EarthScene] ${key} texture failed to load:`, err)
+    return null
   }
-  return null
 }
 
 // ============================================
