@@ -208,57 +208,58 @@ void main() {
   vec3 viewDir = normalize(cameraPosition - vWorldPos);
   vec3 sunDir = normalize(uSunDir);
 
-  // World normal, perturbed by the normal map if loaded.
-  vec3 N = normalize(vNormal);
+  // GEOMETRIC sphere normal — the reliable one. ALL macro sun
+  // lighting is driven from this, so the planet's illumination is
+  // always physically correct: the sun-facing hemisphere is lit, the
+  // far side is dark, no matter what the normal map does.
+  vec3 Ngeo = normalize(vNormal);
+
+  // Normal-mapped normal — adds fine surface relief (mountain ranges
+  // catching grazing light). Used ONLY for a gentle, clamped relief
+  // shade + the specular sparkle — NEVER as the primary light normal.
+  // The screen-space tangent basis (dFdx/dFdy) is too noisy/wrong-
+  // handed to drive the main diffuse; doing so was corrupting the
+  // continents' normals and turning the land black while the flat-
+  // normal-map oceans stayed correctly lit. That was the bug.
+  vec3 Nrelief = Ngeo;
   if (uHasNormal > 0.5) {
-    N = perturbNormal(N, -viewDir, vUv);
+    Nrelief = perturbNormal(Ngeo, -viewDir, vUv);
   }
 
-  // Lambert sun term — cosine of angle between surface and sun.
-  float NdotL = dot(N, sunDir);
+  // Primary sun term from the geometric normal.
+  float NdotL = dot(Ngeo, sunDir);
+  float reliefDot = dot(Nrelief, sunDir);
 
-  // Day color + a faint ambient so the night side isn't dead black
-  // when no city-lights texture is available.
   vec3 dayColor = texture2D(uDayMap, vUv).rgb;
 
   // ============================================
-  // OCEAN SPECULAR — the realism killer feature.
-  // Blinn-Phong style highlight, gated by the water mask so only
-  // the oceans glint. Tightened exponent + boosted intensity so the
-  // glint reads sharp against the matte continents.
+  // OCEAN SPECULAR — sun glint on water (uses the relief normal so
+  // wave-scale detail sparkles), gated by the water mask + lit side.
   // ============================================
   vec3 specularLit = vec3(0.0);
   if (uHasSpecular > 0.5) {
     float waterMask = texture2D(uSpecularMap, vUv).r;
     vec3 halfDir = normalize(sunDir + viewDir);
-    float specAngle = max(0.0, dot(N, halfDir));
-    // Tight highlight so it reads as a real sun glint, not a sheen.
-    float spec = pow(specAngle, 44.0);
-    // Only on the lit side, and only on water. The sunny-side
-    // smoothstep prevents specular bleeding past the terminator.
+    float spec = pow(max(0.0, dot(Nrelief, halfDir)), 44.0);
     float litFactor = smoothstep(-0.05, 0.25, NdotL);
-    // Toned down (1.6 → 1.0) so the glint doesn't blow out to pure
-    // white and leave the lit continents looking dark by contrast.
-    specularLit = vec3(1.0, 0.96, 0.86) * spec * waterMask * litFactor * 1.0;
+    specularLit = vec3(1.0, 0.96, 0.86) * spec * waterMask * litFactor;
   }
 
   // ============================================
   // DAY/NIGHT BLEND — soft terminator + WRAP (half-Lambert) diffuse
-  // Harsh Lambert (dayColor * max(0,NdotL)) left continents away
-  // from the sub-solar point nearly black — the sun appeared to
-  // glint off the ocean but never illuminate the land. Wrap lighting
-  // (NdotL*0.5+0.5) lights the whole sun-facing hemisphere softly,
-  // brightest at the sub-solar point and easing to the terminator,
-  // so the entire visible disk reads like real sunlight on a globe.
+  // from the GEOMETRIC normal, so the whole sun-facing hemisphere —
+  // continents included — reads like real sunlight on a globe.
   // ============================================
-  // Day fades out only past the terminator, so the lit front stays
-  // full-day to its edge.
   float dayWeight = smoothstep(-0.25, 0.0, NdotL);
   float wrap = NdotL * 0.5 + 0.5;        // 0 at anti-sun → 1 at sub-solar
   float diffuse = wrap * wrap;           // mild contrast
-  // Ambient floor (0.30) + diffuse (1.3×) — a brighter overall planet
-  // so the darker Blue-Marble land textures still read clearly.
-  vec3 dayLit = dayColor * (0.30 + 1.30 * diffuse);
+  // Subtle relief shading: mountains tilted toward the sun brighten a
+  // touch, away-facing slopes darken a touch — but CLAMPED so terrain
+  // relief can never black out the land. (reliefDot - NdotL) is the
+  // bump-vs-geometry delta; mapped into a tight [0.78, 1.22] band.
+  float reliefShade = clamp(1.0 + 0.6 * (reliefDot - NdotL), 0.78, 1.22);
+  // Ambient floor + diffuse — a brightly, evenly lit sunlit disk.
+  vec3 dayLit = dayColor * (0.30 + 1.30 * diffuse) * reliefShade;
 
   // Night side: city lights from the emissive map. Boost intensity
   // and feather into the terminator so lights "turn on" as the
@@ -284,7 +285,7 @@ void main() {
   // so they pick up a faint blue scatter. Modulated by sun light
   // so the night side doesn't fluoresce blue.
   // ============================================
-  float fres = pow(1.0 - max(0.0, dot(N, viewDir)), 2.4);
+  float fres = pow(1.0 - max(0.0, dot(Ngeo, viewDir)), 2.4);
   // Only haze the lit side — atmospheric scattering needs sunlight.
   float hazeLit = smoothstep(-0.10, 0.40, NdotL);
   vec3 hazeColor = vec3(0.40, 0.62, 1.00);
