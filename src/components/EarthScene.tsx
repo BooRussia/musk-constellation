@@ -83,7 +83,9 @@ const ATMOSPHERE_VERT = /* glsl */ `
 varying vec3 vNormal;
 varying vec3 vWorldPos;
 void main() {
-  vNormal = normalize(normalMatrix * normal);
+  // World-space normal (see SURFACE_VERT) so the sun-tinted warm side
+  // of the halo aligns with the real sub-solar point, not the camera.
+  vNormal = normalize(mat3(modelMatrix) * normal);
   vec4 worldPos = modelMatrix * vec4(position, 1.0);
   vWorldPos = worldPos.xyz;
   gl_Position = projectionMatrix * viewMatrix * worldPos;
@@ -153,7 +155,12 @@ varying vec3 vWorldPos;
 varying vec3 vObjectNormal;
 varying vec2 vUv;
 void main() {
-  vNormal = normalize(normalMatrix * normal);
+  // WORLD-space normal (mat3(modelMatrix) * normal), NOT the built-in
+  // normalMatrix — that transforms to VIEW space, which rotates with
+  // the camera. Our sun direction (uSunDir) is in world space, so the
+  // normal must be too; otherwise the lit hemisphere follows the
+  // camera instead of staying fixed to the real sub-solar point.
+  vNormal = normalize(mat3(modelMatrix) * normal);
   vObjectNormal = normal;
   vec4 worldPos = modelMatrix * vec4(position, 1.0);
   vWorldPos = worldPos.xyz;
@@ -246,17 +253,17 @@ void main() {
 
   // Day brightness: kept HIGH and fairly FLAT across the day side so
   // entire continents read as lit (not a hot spot at the sub-solar
-  // point). 0.82 floor + a gentle gradient toward the sub-solar point.
-  float dayBright = 0.82 + 0.18 * smoothstep(0.0, 0.65, NdotL);
+  // point). 0.88 floor + a gentle gradient toward the sub-solar point.
+  float dayBright = 0.88 + 0.12 * smoothstep(0.0, 0.65, NdotL);
   // Subtle relief shading from the bump normal — clamped so terrain
   // never darkens the land much.
-  float reliefShade = clamp(1.0 + 0.5 * (reliefDot - NdotL), 0.85, 1.15);
+  float reliefShade = clamp(1.0 + 0.5 * (reliefDot - NdotL), 0.88, 1.15);
   // Strong gain so the darker Blue-Marble land reads as genuinely
   // bright, vivid daylight after ACES tone mapping. A touch of
   // saturation boost makes the greens/tans pop like the reference.
-  vec3 dayBase = dayColor * dayBright * 2.85 * reliefShade;
+  vec3 dayBase = dayColor * dayBright * 3.40 * reliefShade;
   float dayLum = dot(dayBase, vec3(0.299, 0.587, 0.114));
-  vec3 dayLit = mix(vec3(dayLum), dayBase, 1.18);
+  vec3 dayLit = mix(vec3(dayLum), dayBase, 1.16);
 
   // Night side: city lights from the emissive map, warm-tinted.
   vec3 nightLit = vec3(0.0);
@@ -312,7 +319,9 @@ varying vec3 vNormal;
 varying vec3 vPos;
 varying vec2 vUv;
 void main() {
-  vNormal = normalize(normalMatrix * normal);
+  // World-space normal so the procedural fallback's lighting also
+  // stays fixed to the sun, not the camera.
+  vNormal = normalize(mat3(modelMatrix) * normal);
   vPos = position;
   vUv = uv;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
