@@ -2386,3 +2386,304 @@ body {
   max-width: calc(100vw - 32px);
   text-align: center;
 }
+
+/* ============================================
+   Satellite hover tooltip + pinned info card
+   ============================================ */
+
+/* Small tooltip floating near the cursor — never blocks pointer events
+   so the next sat is still pickable through it. Sized tight so the
+   data reads at a glance without obscuring the cloud underneath. */
+.sat-tooltip {
+  position: fixed;
+  z-index: 28;
+  min-width: 200px;
+  max-width: 240px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 10, 18, 0.86);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+  color: rgba(255, 255, 255, 0.92);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.sat-tooltip-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.sat-tooltip-icon {
+  width: 12px;
+  height: 12px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.sat-tooltip-name {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sat-tooltip-constellation {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.75);
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sat-tooltip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sat-tooltip-norad {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.4px;
+}
+
+.sat-tooltip-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0;
+  font-family: var(--font-mono);
+}
+
+.sat-tooltip-grid dt {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 1.5px;
+}
+
+.sat-tooltip-grid dd {
+  margin: 0;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  text-align: right;
+}
+
+/* Pinned card — bigger, persistent. Lives under the topnav at the
+   right. Matches the sidebar's glass aesthetic. */
+.sat-pinned {
+  position: absolute;
+  top: 72px;
+  right: 14px;
+  z-index: 24;
+  width: 280px;
+  padding: 14px 14px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+  color: rgba(255, 255, 255, 0.9);
+  font-family: var(--font-sans);
+  pointer-events: auto;
+}
+
+@media (max-width: 639px) {
+  .sat-pinned {
+    /* On mobile the sidebar takes the bottom — drop the card right
+       below the topnav and span the full width minus margins. */
+    left: 10px;
+    right: 10px;
+    width: auto;
+  }
+}
+
+.sat-pinned-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sat-pinned-close:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.sat-pinned-close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.sat-pinned-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-right: 28px;  /* space for the close button */
+}
+
+.sat-pinned-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--accent);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.sat-pinned-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sat-pinned-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 3px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.sat-pinned-name {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sat-pinned-meta {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  margin-bottom: 12px;
+}
+
+.sat-pinned-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sat-pinned-meta-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sat-pinned-constellation {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: -0.1px;
+  color: #fff;
+}
+
+.sat-pinned-sublabel {
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.2px;
+}
+
+.sat-pinned-norad {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.7);
+  letter-spacing: 0.5px;
+}
+
+.sat-pinned-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+
+.sat-pinned-stat {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  padding: 6px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.sat-pinned-stat:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.sat-pinned-stat dt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 0.3px;
+}
+
+.sat-pinned-stat-icon {
+  width: 11px;
+  height: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  flex-shrink: 0;
+}
+
+.sat-pinned-stat dd {
+  margin: 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.sat-pinned-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.5px;
+}
+
+.sat-pinned-unit {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 1px;
+}

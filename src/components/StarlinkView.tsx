@@ -1,6 +1,15 @@
-import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { AnimatePresence } from 'framer-motion'
 import { ArrowLeft, Satellite } from 'lucide-react'
 import { fetchAllConstellations, type ConstellationKey, type SatelliteEntry } from '../lib/tle'
+import type { SatelliteHit } from './SatelliteCloud'
+import {
+  setHighlightedNoradId,
+  useSatelliteHover,
+  useSatelliteSelect,
+} from './SatelliteInteractionContext'
+import SatelliteTooltip from './SatelliteTooltip'
+import SatellitePinnedCard from './SatellitePinnedCard'
 
 const EarthScene = lazy(() => import('./EarthScene'))
 
@@ -125,6 +134,54 @@ export default function StarlinkView({ onBack }: Props) {
     })
   }
 
+  // ============================================
+  // Hover + pinned-card interaction state.
+  // ============================================
+  // SatelliteCloud emits hover/select events via the module-level
+  // pub/sub (see SatelliteInteractionContext.tsx for why). We just
+  // listen here and translate them into UI state for the tooltip
+  // and the pinned card.
+  const [hoveredSat, setHoveredSat] = useState<SatelliteHit | null>(null)
+  const [pinnedSat, setPinnedSat] = useState<SatelliteHit | null>(null)
+
+  const handleHover = useCallback((hit: SatelliteHit | null) => {
+    setHoveredSat(hit)
+  }, [])
+
+  const handleSelect = useCallback((hit: SatelliteHit | null) => {
+    // hit === null means the user clicked empty canvas → dismiss the
+    // pinned card. A non-null hit either pins a new sat or swaps the
+    // current one out.
+    setPinnedSat(hit)
+  }, [])
+
+  useSatelliteHover(handleHover)
+  useSatelliteSelect(handleSelect)
+
+  // Publish the "which sat to enlarge" id into the cloud. Pinned wins
+  // over hover so a clicked sat stays bright even when the cursor
+  // wanders off; if nothing is pinned, the hovered sat lights up.
+  const highlightId = pinnedSat?.entry.noradId ?? hoveredSat?.entry.noradId ?? null
+  useEffect(() => {
+    setHighlightedNoradId(highlightId)
+    return () => {
+      // Clear on unmount — avoids a stale highlight if the view
+      // remounts later with the cloud already cached.
+      setHighlightedNoradId(null)
+    }
+  }, [highlightId])
+
+  // If the user clicks the same sat that's already pinned, treat it
+  // as a toggle-off rather than a no-op so the X icon isn't the only
+  // way out.
+  const dismissPinned = useCallback(() => setPinnedSat(null), [])
+
+  // Suppress the tooltip when the hovered sat is the same as the
+  // pinned sat — otherwise we'd render the same info twice (once
+  // following the cursor, once in the top-right card).
+  const suppressTooltip =
+    hoveredSat !== null && pinnedSat !== null && hoveredSat.entry.noradId === pinnedSat.entry.noradId
+
   return (
     <div className="starlink-view">
       <header className="starlink-topnav">
@@ -161,6 +218,29 @@ export default function StarlinkView({ onBack }: Props) {
             />
           </Suspense>
         </EarthErrorBoundary>
+
+        {/* Hover tooltip — follows cursor, fades in/out. Renders in
+            the canvas wrapper (not document body) so it's clipped
+            with the scene if the layout ever changes. */}
+        <AnimatePresence>
+          {hoveredSat && !suppressTooltip && (
+            <SatelliteTooltip key="tooltip" hit={hoveredSat} />
+          )}
+        </AnimatePresence>
+
+        {/* Pinned card — sits in the top-right corner under the
+            topnav. AnimatePresence lets it slide out cleanly when
+            dismissed. Keyed by noradId so swapping to a different
+            sat triggers an exit/enter rather than morphing in place. */}
+        <AnimatePresence>
+          {pinnedSat && (
+            <SatellitePinnedCard
+              key={pinnedSat.entry.noradId}
+              hit={pinnedSat}
+              onClose={dismissPinned}
+            />
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Sidebar — constellation filters + live counts */}

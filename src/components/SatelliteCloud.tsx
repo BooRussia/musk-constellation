@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { propagate, gstime, eciToEcf, type SatRec } from 'satellite.js'
 import type { SatelliteEntry, ConstellationKey } from '../lib/tle'
+import {
+  emitSatelliteHover,
+  emitSatelliteSelect,
+  useHighlightedNoradId,
+} from './SatelliteInteractionContext'
 
 // ============================================
 // Satellite cloud — instanced glow points
@@ -47,6 +52,33 @@ const CONSTELLATION_COLOR: Record<ConstellationKey, THREE.Color> = {
 // smoothness given how slowly sats move in our viewport.
 const PROPAGATE_FRACTION = 1 / 16
 
+// Raycaster picking threshold in scene units. Orbit altitudes sit
+// around 5.43 (Starlink Shell 1) so 0.12 ≈ 150 km picking radius —
+// tight enough not to grab through the Earth, loose enough for
+// finger-friendly hovers at the default zoom.
+const PICK_THRESHOLD = 0.12
+
+// Throttle pointer-move raycasting to ~30 fps so we don't burn frame
+// budget chasing every mouse pixel.
+const HOVER_INTERVAL_MS = 33
+
+/** Live hit data forwarded to the host view for tooltip/card UI.
+ *  Position is the freshly-propagated ECI vector (km) so we can
+ *  derive altitude + velocity without re-running SGP4 in the host. */
+export interface SatelliteHit {
+  entry: SatelliteEntry
+  /** Altitude in km above Earth surface. */
+  altitudeKm: number
+  /** Orbital speed in km/s. */
+  velocityKmS: number
+  /** Orbital period in minutes (2π / mean-motion). */
+  periodMin: number
+  /** Mouse position in CSS pixels relative to the viewport, for
+   *  tooltip placement. */
+  clientX: number
+  clientY: number
+}
+
 interface Props {
   satellites: SatelliteEntry[]
   /** When set, only sats in this set render. undefined = render all. */
@@ -58,8 +90,16 @@ interface Props {
 export default function SatelliteCloud({
   satellites,
   enabledConstellations,
-  highlightedNoradId = null,
+  highlightedNoradId: propHighlightedNoradId = null,
 }: Props) {
+  // The prop is preserved for backwards compatibility, but the live
+  // highlight is published through the SatelliteInteractionContext
+  // pub/sub by the host view — see that file for why we can't pass
+  // it through EarthScene as a normal prop. Prop wins if both are
+  // set so a parent can force-highlight a specific sat.
+  const liveHighlightedNoradId = useHighlightedNoradId()
+  const highlightedNoradId = propHighlightedNoradId ?? liveHighlightedNoradId
+
   const visibleSats = useMemo(() => {
     if (!enabledConstellations) return satellites
     return satellites.filter(s => enabledConstellations.has(s.constellation))
@@ -67,11 +107,13 @@ export default function SatelliteCloud({
 
   const count = visibleSats.length
 
-  // Allocate buffers once per (count, highlight) tuple so React knows
-  // when to re-mount the geometry. Color/size are filled here at
-  // creation time — the per-frame useFrame only writes to positions.
-  // This avoids the react-hooks/immutability lint complaint about
-  // mutating useMemo results in effects.
+  // Allocate buffers once per (visibleSats) tuple. Color/size are
+  // filled here at creation time with the BASE (non-highlight) values;
+  // a separate effect punches the highlight color/size onto whichever
+  // single sat is currently highlighted. Decoupling highlight from
+  // buffer creation is critical — otherwise every hover-tick would
+  // re-allocate 8k×7 floats AND re-propagate every sat (positions
+  // depend on the same useMemo via the mount-time effect below).
   const buffers = useMemo(() => {
     const positions = new Float32Array(count * 3)
     const colors = new Float32Array(count * 3)
@@ -79,29 +121,45 @@ export default function SatelliteCloud({
     for (let i = 0; i < count; i++) {
       const sat = visibleSats[i]
       const c = CONSTELLATION_COLOR[sat.constellation]
-      const isHighlight = sat.noradId === highlightedNoradId
-      colors[i * 3 + 0] = isHighlight ? 1 : c.r
-      colors[i * 3 + 1] = isHighlight ? 0.6 : c.g
-      colors[i * 3 + 2] = isHighlight ? 0.2 : c.b
+      colors[i * 3 + 0] = c.r
+      colors[i * 3 + 1] = c.g
+      colors[i * 3 + 2] = c.b
       // Sized so a typical sat is ~4-5 screen pixels at default zoom
       // — readable as an individual dot, doesn't bleed into neighbors.
-      sizes[i] = isHighlight ? 4.5 : 1.4
+      sizes[i] = 1.4
     }
     return { positions, colors, sizes }
-  }, [visibleSats, count, highlightedNoradId])
+  }, [visibleSats, count])
   const { positions, colors, sizes } = buffers
 
+  // Map noradId → index in visibleSats. Cheap O(1) lookup so the
+  // highlight effect can rewrite just one sat's color/size entries
+  // without scanning the array.
+  const noradIndex = useMemo(() => {
+    const m = new Map<number, number>()
+    for (let i = 0; i < visibleSats.length; i++) m.set(visibleSats[i].noradId, i)
+    return m
+  }, [visibleSats])
+
   const geometryRef = useRef<THREE.BufferGeometry>(null)
+  const pointsRef = useRef<THREE.Points>(null)
   const materialRef = useRef<THREE.ShaderMaterial>(null)
   // Stable Three vector instances reused per frame.
   const tmpVec = useRef(new THREE.Vector3())
   // Frame counter to slice which sats get propagated this tick.
   const frameNumRef = useRef(0)
+  // Track which sat index is currently rendering as highlighted so
+  // we can reset it back to its base color when the highlight moves.
+  const highlightedIndexRef = useRef<number>(-1)
 
   // Propagate every sat once on mount so the initial frame isn't a
-  // pile of (0,0,0) points clustered at Earth's center.
+  // pile of (0,0,0) points clustered at Earth's center. Also resets
+  // the highlight-tracking ref so the next highlight effect doesn't
+  // try to "unhighlight" a stale index in the freshly-allocated
+  // buffer (which is already base-colored).
   useEffect(() => {
     if (count === 0) return
+    highlightedIndexRef.current = -1
     const now = new Date()
     const gmst = gstime(now)
     for (let i = 0; i < count; i++) {
@@ -112,6 +170,55 @@ export default function SatelliteCloud({
       posAttr.needsUpdate = true
     }
   }, [visibleSats, count, positions])
+
+  // ============================================
+  // Highlight a single sat without re-allocating the cloud buffers.
+  // ============================================
+  // Resets the previously-highlighted sat back to its constellation
+  // base color/size, then writes the highlight palette to the newly
+  // selected sat. Touches at most 8 floats per frame — basically
+  // free regardless of cloud size.
+  //
+  // We read the underlying TypedArrays back off the live geometry
+  // attribute (not the useMemo refs) because mutating values returned
+  // from a hook is forbidden by react-hooks/immutability. Doing it
+  // via getAttribute(...).array also guarantees we're writing to the
+  // exact buffer the GPU is sampling.
+  useEffect(() => {
+    if (count === 0) return
+    if (!geometryRef.current) return
+    const colorAttr = geometryRef.current.getAttribute('color') as THREE.BufferAttribute | undefined
+    const sizeAttr = geometryRef.current.getAttribute('size') as THREE.BufferAttribute | undefined
+    if (!colorAttr || !sizeAttr) return
+    const colorArr = colorAttr.array as Float32Array
+    const sizeArr = sizeAttr.array as Float32Array
+
+    const prevIdx = highlightedIndexRef.current
+    const nextIdx = highlightedNoradId != null
+      ? noradIndex.get(highlightedNoradId) ?? -1
+      : -1
+    if (prevIdx === nextIdx) return
+
+    // Reset previously highlighted sat back to its base color/size.
+    if (prevIdx !== -1 && prevIdx < count) {
+      const sat = visibleSats[prevIdx]
+      const c = CONSTELLATION_COLOR[sat.constellation]
+      colorArr[prevIdx * 3 + 0] = c.r
+      colorArr[prevIdx * 3 + 1] = c.g
+      colorArr[prevIdx * 3 + 2] = c.b
+      sizeArr[prevIdx] = 1.4
+    }
+    // Paint highlight on the new sat.
+    if (nextIdx !== -1 && nextIdx < count) {
+      colorArr[nextIdx * 3 + 0] = 1
+      colorArr[nextIdx * 3 + 1] = 0.6
+      colorArr[nextIdx * 3 + 2] = 0.2
+      sizeArr[nextIdx] = 4.5
+    }
+    highlightedIndexRef.current = nextIdx
+    colorAttr.needsUpdate = true
+    sizeAttr.needsUpdate = true
+  }, [highlightedNoradId, noradIndex, visibleSats, count])
 
   useFrame(() => {
     if (count === 0) return
@@ -134,10 +241,137 @@ export default function SatelliteCloud({
     }
   })
 
+  // ============================================
+  // Pointer interaction — hover + click raycasting.
+  // ============================================
+  // We attach listeners to gl.domElement (the actual <canvas>) rather
+  // than relying on r3f's onPointerMove because we want full control
+  // over throttling and raycast-threshold per gesture. The hit info
+  // is fanned out to the host view via a module-level emitter (see
+  // SatelliteInteractionContext.tsx for why).
+  const { camera, gl } = useThree()
+
+  // Keep the latest visibleSats accessible from the long-lived DOM
+  // listener without re-binding the listener every render.
+  const visibleSatsRef = useRef(visibleSats)
+  useEffect(() => { visibleSatsRef.current = visibleSats }, [visibleSats])
+
+  useEffect(() => {
+    if (count === 0) return
+
+    const canvas = gl.domElement
+    const raycaster = new THREE.Raycaster()
+    raycaster.params.Points = { threshold: PICK_THRESHOLD }
+    const ndc = new THREE.Vector2()
+    let lastHoverAt = 0
+    // Last index reported as hovered — used to suppress redundant
+    // hover events when the cursor lingers over the same sat across
+    // many pointer-move events.
+    let lastHoveredIndex = -1
+
+    /** Run raycaster against current Points geometry. Returns the
+     *  nearest hit's index in visibleSats, or -1. We pick the hit
+     *  with the smallest distanceToRay (tightest visual match)
+     *  rather than the camera-nearest hit, which feels more like
+     *  "what the user is aiming at" when sats overlap. */
+    function pickIndex(clientX: number, clientY: number): number {
+      if (!pointsRef.current) return -1
+      const rect = canvas.getBoundingClientRect()
+      ndc.x = ((clientX - rect.left) / rect.width) * 2 - 1
+      ndc.y = -((clientY - rect.top) / rect.height) * 2 + 1
+      raycaster.setFromCamera(ndc, camera)
+      const hits = raycaster.intersectObject(pointsRef.current, false)
+      if (hits.length === 0) return -1
+      let best = hits[0]
+      for (const h of hits) {
+        if ((h.distanceToRay ?? Infinity) < (best.distanceToRay ?? Infinity)) best = h
+      }
+      return best.index ?? -1
+    }
+
+    /** Compute the live altitude/velocity/period info for a hit, using
+     *  a fresh propagate() call. We can't reuse the buffer position
+     *  (it lags by up to 250 ms due to round-robin propagation), and
+     *  we need velocity anyway — which isn't in the buffer. */
+    function buildHit(index: number, clientX: number, clientY: number): SatelliteHit | null {
+      const list = visibleSatsRef.current
+      const entry = list[index]
+      if (!entry) return null
+      const now = new Date()
+      const pv = propagate(entry.satrec, now)
+      let altitudeKm = 0
+      let velocityKmS = 0
+      if (pv?.position && typeof pv.position !== 'boolean') {
+        altitudeKm = Math.hypot(pv.position.x, pv.position.y, pv.position.z) - EARTH_RADIUS_KM
+      }
+      if (pv?.velocity && typeof pv.velocity !== 'boolean') {
+        velocityKmS = Math.hypot(pv.velocity.x, pv.velocity.y, pv.velocity.z)
+      }
+      // mean motion `no` is in radians/minute → orbital period in
+      // minutes = 2π / no.
+      const periodMin = entry.satrec.no > 0 ? (2 * Math.PI) / entry.satrec.no : 0
+      return { entry, altitudeKm, velocityKmS, periodMin, clientX, clientY }
+    }
+
+    function handlePointerMove(ev: PointerEvent) {
+      const now = Date.now()
+      if (now - lastHoverAt < HOVER_INTERVAL_MS) return
+      lastHoverAt = now
+      const idx = pickIndex(ev.clientX, ev.clientY)
+      if (idx === -1) {
+        if (lastHoveredIndex !== -1) {
+          lastHoveredIndex = -1
+          emitSatelliteHover(null)
+          canvas.style.cursor = ''
+        }
+        return
+      }
+      // Same sat as last tick — refresh client coords so the tooltip
+      // follows the cursor.
+      const hit = buildHit(idx, ev.clientX, ev.clientY)
+      if (!hit) return
+      if (idx !== lastHoveredIndex) {
+        lastHoveredIndex = idx
+        canvas.style.cursor = 'pointer'
+      }
+      emitSatelliteHover(hit)
+    }
+
+    function handlePointerLeave() {
+      if (lastHoveredIndex !== -1) {
+        lastHoveredIndex = -1
+        emitSatelliteHover(null)
+        canvas.style.cursor = ''
+      }
+    }
+
+    function handleClick(ev: MouseEvent) {
+      const idx = pickIndex(ev.clientX, ev.clientY)
+      if (idx === -1) {
+        // Clicked empty space → dismiss the pinned card.
+        emitSatelliteSelect(null)
+        return
+      }
+      const hit = buildHit(idx, ev.clientX, ev.clientY)
+      emitSatelliteSelect(hit)
+    }
+
+    canvas.addEventListener('pointermove', handlePointerMove)
+    canvas.addEventListener('pointerleave', handlePointerLeave)
+    canvas.addEventListener('click', handleClick)
+    return () => {
+      canvas.removeEventListener('pointermove', handlePointerMove)
+      canvas.removeEventListener('pointerleave', handlePointerLeave)
+      canvas.removeEventListener('click', handleClick)
+      // Reset cursor on teardown in case we navigated away mid-hover.
+      canvas.style.cursor = ''
+    }
+  }, [camera, gl, count])
+
   if (count === 0) return null
 
   return (
-    <points>
+    <points ref={pointsRef}>
       <bufferGeometry ref={geometryRef}>
         <bufferAttribute
           attach="attributes-position"
