@@ -74,6 +74,10 @@ async function tryLoadTexture(key: TextureKey): Promise<THREE.Texture | null> {
   try {
     const tex = await loader.loadAsync(TEXTURES[key])
     tex.anisotropy = 16
+    // Wrap horizontally so sampling across the ±180° meridian blends
+    // instead of clamping to the edge column — avoids a hard seam down
+    // the Pacific where the equirectangular map wraps.
+    tex.wrapS = THREE.RepeatWrapping
     tex.colorSpace = LINEAR_TEXTURES.has(key) ? THREE.NoColorSpace : THREE.SRGBColorSpace
     tex.needsUpdate = true
     return tex
@@ -257,36 +261,36 @@ vec3 perturbNormal(vec3 N, vec3 V, vec2 uv) {
   return normalize(tsn * mapN);
 }
 
-// --- Smooth gradient (Perlin-style) noise for the ocean. Quintic
-// interpolation + domain warping give organic, FLOWING water rather
-// than the blocky grid look of value noise — key to it reading as a
-// high-quality moving sea instead of pixelated randomness.
-vec2 hash22(vec2 p) {
-  p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
-  return fract(sin(p) * 43758.5453123);
+// --- 3D value noise for the ocean, sampled on the unit SPHERE DIRECTION
+// (not the equirect uv). Sampling in 3D on the sphere is seam-free at the
+// ±180° meridian AND distortion-free at the poles — the uv-based version
+// tore a visible seam down the Pacific where the texture wraps. Quintic
+// interpolation + domain warping keep it smooth and flowing, not blocky.
+float h13(vec3 p) {
+  p = fract(p * 0.1031);
+  p += dot(p, p.zyx + 31.32);
+  return fract((p.x + p.y) * p.z);
 }
-float gnoise(vec2 p) {
-  vec2 i = floor(p), f = fract(p);
-  vec2 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0); // quintic fade
-  float a = dot(hash22(i + vec2(0.0, 0.0)) * 2.0 - 1.0, f - vec2(0.0, 0.0));
-  float b = dot(hash22(i + vec2(1.0, 0.0)) * 2.0 - 1.0, f - vec2(1.0, 0.0));
-  float c = dot(hash22(i + vec2(0.0, 1.0)) * 2.0 - 1.0, f - vec2(0.0, 1.0));
-  float d = dot(hash22(i + vec2(1.0, 1.0)) * 2.0 - 1.0, f - vec2(1.0, 1.0));
-  return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+float vnoise3(vec3 x) {
+  vec3 i = floor(x), f = fract(x);
+  f = f * f * f * (f * (f * 6.0 - 15.0) + 10.0); // quintic fade
+  return mix(mix(mix(h13(i + vec3(0,0,0)), h13(i + vec3(1,0,0)), f.x),
+                 mix(h13(i + vec3(0,1,0)), h13(i + vec3(1,1,0)), f.x), f.y),
+             mix(mix(h13(i + vec3(0,0,1)), h13(i + vec3(1,0,1)), f.x),
+                 mix(h13(i + vec3(0,1,1)), h13(i + vec3(1,1,1)), f.x), f.y), f.z);
 }
-float fbm2(vec2 p) {
+float fbm3(vec3 p) {
   float v = 0.0, a = 0.5;
-  for (int i = 0; i < 3; i++) { v += a * gnoise(p); p *= 2.0; a *= 0.5; }
+  for (int i = 0; i < 3; i++) { v += a * vnoise3(p); p *= 2.0; a *= 0.5; }
   return v;
 }
-// Whole-ocean current field: domain-warped fbm that scrolls with time,
-// so the entire sea drifts in visible swirling currents. Returns ~0..1.
-float oceanFlow(vec2 uv, float t) {
-  // Strong warp → the flow curls into swirls/eddies rather than blobs.
-  vec2 warp = vec2(gnoise(uv * 2.0 + vec2(0.0, t * 0.020)),
-                   gnoise(uv * 2.0 + vec2(5.2 - t * 0.015, 1.3)));
-  float f = fbm2(uv * 3.4 + warp * 1.6 + vec2(t * 0.032, t * 0.014));
-  return f * 0.5 + 0.5;
+// Whole-ocean current field: domain-warped fbm over the sphere direction,
+// drifting with time. Returns ~0..1.
+float oceanFlow3(vec3 sp, float t) {
+  vec3 warp = vec3(vnoise3(sp * 2.0 + vec3(0.0, t * 0.020, 0.0)),
+                   vnoise3(sp * 2.0 + vec3(5.2, t * 0.015, 1.3)),
+                   vnoise3(sp * 2.0 + vec3(1.7, 2.9, t * 0.018))) - 0.5;
+  return fbm3(sp * 3.2 + warp * 1.5 + vec3(t * 0.022, 0.0, t * 0.014));
 }
 
 void main() {
@@ -344,37 +348,39 @@ void main() {
   // ============================================
   vec3 specularLit = vec3(0.0);
   if (waterMask > 0.02 && termMask > 0.004) {
-    vec2 ouv = vUv * vec2(2.0, 1.0); // ~isotropic on the equirect sphere
+    vec3 sp = Ngeo; // unit sphere direction — seam-free, pole-free sample
     float t = uTime;
 
     // Two scales of moving current: broad swirls + finer striations, so
     // the motion is clearly visible across the whole sea.
-    float flowBig = oceanFlow(ouv * 1.7, t);
-    float flowFine = fbm2(ouv * 7.5 + vec2(t * 0.05, t * 0.022)) * 0.5 + 0.5;
-    float flow = flowBig * 0.7 + flowFine * 0.3;
+    float flowBig = oceanFlow3(sp * 1.6, t);
+    float flowFine = fbm3(sp * 6.0 + vec3(t * 0.03, 0.0, t * 0.018));
+    float flow = clamp(flowBig * 0.72 + flowFine * 0.45, 0.0, 1.0);
     vec3 deepCol = vec3(0.008, 0.075, 0.205); // deep open ocean (navy)
     vec3 midCol  = vec3(0.050, 0.255, 0.470); // lit swells / currents
-    vec3 oceanCol = mix(deepCol, midCol, smoothstep(0.24, 0.82, flow));
+    vec3 oceanCol = mix(deepCol, midCol, smoothstep(0.20, 0.78, flow));
     // Natural latitude tint: teal-warm near the equator, deeper toward
-    // the poles — breaks the flat-blue-marble uniformity.
-    float lat = abs(vUv.y - 0.5) * 2.0;
+    // the poles — breaks the flat-blue-marble uniformity. abs(Ngeo.y) is
+    // the sine of latitude (seam-free, unlike vUv.y at the poles).
+    float lat = abs(Ngeo.y);
     oceanCol *= mix(vec3(1.06, 1.05, 0.97), vec3(0.82, 0.90, 1.06), lat);
     // Keep a hint of the real map so coastlines/shallow seas still read.
     oceanCol = mix(oceanCol, dayColor * vec3(0.58, 0.85, 1.12), 0.16);
     dayColor = mix(dayColor, oceanCol, waterMask);
 
-    // Fine ripples → animated glitter normal (single-octave gradient
-    // of a fast-scrolling field), lifted into a sphere tangent basis.
-    vec2 rdir = vec2(t * 0.05, t * 0.028);
-    float e = 0.0035;
-    float rC = gnoise(ouv * 16.0 + rdir);
-    float rX = gnoise(ouv * 16.0 + vec2(e, 0.0) * 16.0 + rdir);
-    float rY = gnoise(ouv * 16.0 + vec2(0.0, e) * 16.0 + rdir);
-    vec2 grad = vec2(rX - rC, rY - rC);
+    // Fine ripples → animated glitter normal. Finite-difference gradient
+    // of a fast-scrolling 3D field along the sphere tangent basis (also
+    // seam-free since it samples in 3D, not uv).
     vec3 upRef = abs(Ngeo.y) > 0.99 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
     vec3 Tw = normalize(cross(upRef, Ngeo));
     vec3 Bw = cross(Ngeo, Tw);
-    vec3 Nwave = normalize(Ngeo + (Tw * grad.x + Bw * grad.y) * uWaveStrength);
+    vec3 roff = vec3(t * 0.05, -t * 0.03, t * 0.04);
+    float e = 0.006;
+    float rC = vnoise3(sp * 22.0 + roff);
+    float rT = vnoise3((sp + Tw * e) * 22.0 + roff);
+    float rB = vnoise3((sp + Bw * e) * 22.0 + roff);
+    vec2 grad = vec2(rT - rC, rB - rC);
+    vec3 Nwave = normalize(Ngeo + (Tw * grad.x + Bw * grad.y) * uWaveStrength * 1.6);
     vec3 halfDir = normalize(sunDir + viewDir);
     // Faint broad sheen + a tight animated sparkle (silvery, clean).
     float broad = pow(max(0.0, dot(Nrelief, halfDir)), 16.0) * 0.09;
@@ -605,11 +611,13 @@ const GALAXY_STARS = (() => {
   for (let i = 0; i < N; i++) {
     const isBand = rand() < 0.8
     if (isBand) {
-      // Concentrate near the plane: small offset angle with a power-law
-      // so density peaks on the band and falls off fast.
+      // Offset from the galactic plane with a GAUSSIAN-ish spread (sum of
+      // uniforms ≈ normal). A power-law would spike infinitely at 0,
+      // collapsing stars onto a razor-thin great-circle "seam"; the bell
+      // gives a soft band with finite peak density and no hard line.
       const phi = rand() * Math.PI * 2
-      const t = Math.pow(rand(), 3.0)
-      const theta = (rand() < 0.5 ? -1 : 1) * t * 0.30 // ≤ ~17°
+      const g = (rand() + rand() + rand() - 1.5) / 1.5 // ~[-1,1], bell
+      const theta = g * 0.42 // soft swath, ~±24° at the tails
       const ct = Math.cos(theta), st = Math.sin(theta)
       dir.copy(u).multiplyScalar(Math.cos(phi) * ct)
         .addScaledVector(v, Math.sin(phi) * ct)
