@@ -31,6 +31,10 @@ const EARTH_RADIUS = 5
 // the shader so it only lights the sun-facing limb (the "sunrise
 // pouring around the edge" look), not a full contrast-killing halo.
 const LIMB_GLOW_RADIUS = EARTH_RADIUS * 1.035
+// Far backdrop sphere for the procedural Milky Way + nebula. Sits well
+// beyond the GEO ring (~33) and the star shell (~350) but inside the
+// camera far plane so it's always the painted-on sky behind everything.
+const GALAXY_RADIUS = 480
 
 // Textures are committed to the repo at public/textures/planets/
 // and served same-origin. CRITICAL: paths must be prefixed with
@@ -119,6 +123,75 @@ void main() {
   vec3 cool = vec3(0.42, 0.64, 1.05);
   vec3 col = mix(cool, warm, smoothstep(0.0, 0.7, sun));
   gl_FragColor = vec4(col, fres * gate * 0.9);
+}
+`
+
+// ============================================
+// Galaxy backdrop shader — procedural Milky Way + one clean nebula
+// ============================================
+// Painted on a huge inverted sphere so it's the fixed sky behind the
+// whole scene. A tilted Gaussian band gives the Milky Way; a single
+// fbm-masked region gives one tasteful nebula off to one side. Kept
+// dim (peaks well under the satellites' brightness) so it adds depth
+// without competing with the dots. No texture download — all procedural.
+const GALAXY_VERT = /* glsl */ `
+varying vec3 vDir;
+void main() {
+  // World-space sky direction (sphere is centred on the origin), so the
+  // backdrop stays fixed in space as the camera orbits.
+  vDir = normalize((modelMatrix * vec4(position, 1.0)).xyz);
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}
+`
+
+const GALAXY_FRAG = /* glsl */ `
+precision highp float;
+varying vec3 vDir;
+
+float hash(vec3 p) {
+  p = fract(p * 0.3183099 + 0.1);
+  p *= 17.0;
+  return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+}
+float vnoise(vec3 x) {
+  vec3 i = floor(x), f = fract(x);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(hash(i + vec3(0,0,0)), hash(i + vec3(1,0,0)), f.x),
+                 mix(hash(i + vec3(0,1,0)), hash(i + vec3(1,1,0)), f.x), f.y),
+             mix(mix(hash(i + vec3(0,0,1)), hash(i + vec3(1,0,1)), f.x),
+                 mix(hash(i + vec3(0,1,1)), hash(i + vec3(1,1,1)), f.x), f.y), f.z);
+}
+float fbm(vec3 p) {
+  float v = 0.0, a = 0.5;
+  for (int i = 0; i < 4; i++) { v += a * vnoise(p); p *= 2.03; a *= 0.5; }
+  return v;
+}
+
+void main() {
+  vec3 dir = normalize(vDir);
+  // Deep-space base — a hair above pure black so it never banishes
+  // contrast but still reads as space.
+  vec3 col = vec3(0.011, 0.013, 0.026);
+
+  // Milky Way: bright haze concentrated along a tilted great circle.
+  vec3 bandN = normalize(vec3(0.30, 1.0, 0.20));
+  float d = dot(dir, bandN);
+  float band = exp(-d * d * 6.0);
+  float clouds = fbm(dir * 5.0 + 7.0);
+  clouds = clouds * clouds;
+  float mw = band * (0.45 + 0.55 * clouds);
+  vec3 mwCol = mix(vec3(0.26, 0.29, 0.42), vec3(0.55, 0.49, 0.42), clouds);
+  col += mwCol * mw * 0.38;
+
+  // One clean nebula, masked to a single background region so it reads
+  // as "off in the distance" rather than smeared across the whole sky.
+  float nb = fbm(dir * 2.4 - 19.0);
+  float region = smoothstep(0.05, 0.92, dot(dir, normalize(vec3(-0.65, 0.15, 0.74))));
+  float neb = smoothstep(0.40, 0.95, nb) * region;
+  vec3 nebCol = mix(vec3(0.12, 0.30, 0.52), vec3(0.40, 0.14, 0.46), smoothstep(0.5, 1.0, nb));
+  col += nebCol * neb * 0.32;
+
+  gl_FragColor = vec4(col, 1.0);
 }
 `
 
@@ -386,6 +459,27 @@ function LimbGlow({
 }
 
 // ============================================
+// GALAXY — procedural Milky Way + nebula backdrop sphere
+// ============================================
+// A huge inverted sphere painted by the galaxy shader. Rendered first
+// (renderOrder -1, no depth test/write) so it's pure backdrop behind
+// every other object; the crisp drei star points draw on top of it.
+function Galaxy() {
+  return (
+    <mesh renderOrder={-1} scale={[GALAXY_RADIUS, GALAXY_RADIUS, GALAXY_RADIUS]}>
+      <sphereGeometry args={[1, 48, 48]} />
+      <shaderMaterial
+        vertexShader={GALAXY_VERT}
+        fragmentShader={GALAXY_FRAG}
+        side={THREE.BackSide}
+        depthWrite={false}
+        depthTest={false}
+      />
+    </mesh>
+  )
+}
+
+// ============================================
 // EARTH (textured if loaded, procedural fallback otherwise)
 // ============================================
 interface LoadedTextures {
@@ -553,6 +647,10 @@ export default function EarthScene({
       >
         <color attach="background" args={['#020208']} />
 
+        {/* Procedural Milky Way + nebula backdrop — dim, fixed in space,
+            behind everything. Adds depth without competing with sats. */}
+        <Galaxy />
+
         <ambientLight intensity={0.12} color="#7080a0" />
         {/* Sun — positioned per-frame by SunDriver, which keeps it
             aligned to the camera so the visible hemisphere stays lit. */}
@@ -604,14 +702,17 @@ export default function EarthScene({
             shown in both Satellite and Map modes. */}
         <GlobeLabels />
 
+        {/* Crisp star points sprinkled all over, drawn on top of the
+            galaxy haze. More of them + a touch of color so the sky feels
+            alive, but small (factor 4) so they never read as satellites. */}
         <DreiStars
           radius={350}
           depth={60}
-          count={6000}
-          factor={5}
-          saturation={0}
+          count={9000}
+          factor={4}
+          saturation={0.25}
           fade
-          speed={0.15}
+          speed={0.12}
         />
 
         {/* maxDistance is far enough to pull back and frame the
