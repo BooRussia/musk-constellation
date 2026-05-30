@@ -387,13 +387,39 @@ function computeSunDirection(now: Date): THREE.Vector3 {
 }
 
 // ============================================
-// ATMOSPHERE — standalone halo used by Map mode
+// SUN DRIVER — single source of sun-direction truth
 // ============================================
-// The Satellite-mode Earth component embeds its own inner+outer
-// atmosphere meshes. When we swap to Map mode we render this
-// standalone duplicate so the halo stays present without forcing
-// us to touch the photoreal Earth internals. Same shaders, same
-// radii — visually identical to the haloes inside <Earth />.
+// Renders nothing; just runs one useFrame that computes the live
+// sub-solar direction from UTC and writes it into the shared
+// sunDirRef + aims the directional light. Always mounted (both
+// view modes) so the terminator + halo stay correct even in Map
+// mode where <Earth> isn't rendered. Earth, Atmosphere, and the
+// procedural fallback all READ sunDirRef — this is the only writer.
+function SunDriver({
+  sunDirRef,
+  sunLightRef,
+}: {
+  sunDirRef: React.MutableRefObject<THREE.Vector3>
+  sunLightRef: React.RefObject<THREE.DirectionalLight | null>
+}) {
+  useFrame(() => {
+    const sunDir = computeSunDirection(new Date())
+    sunDirRef.current.copy(sunDir)
+    if (sunLightRef.current) {
+      // Light far away in the sun direction so it acts directional.
+      sunLightRef.current.position.copy(sunDir).multiplyScalar(50)
+    }
+  })
+  return null
+}
+
+// ============================================
+// ATMOSPHERE — standalone halo, rendered once in both view modes
+// ============================================
+// Inner bright halo at the lit limb + outer wide halo that fades
+// into space. Reads the shared sunDirRef each frame so the warm
+// side aligns with daylight. Rendered as a sibling of Earth/MapEarth
+// so the halo is identical regardless of which Earth style is shown.
 function Atmosphere({
   sunDirRef,
 }: {
@@ -458,27 +484,13 @@ interface LoadedTextures {
 function Earth({
   textures,
   sunDirRef,
-  sunLightRef,
 }: {
   textures: LoadedTextures
   sunDirRef: React.MutableRefObject<THREE.Vector3>
-  sunLightRef: React.RefObject<THREE.DirectionalLight | null>
 }) {
   const earthRef = useRef<THREE.Mesh>(null)
 
   const hasDayTexture = !!textures.day
-
-  // Both atmosphere layers share the same sun-direction state, but
-  // each gets its own uniform object so the shaders don't pollute
-  // each other's GL state.
-  const atmoInnerUniforms = useMemo(
-    () => ({ uSunDir: { value: new THREE.Vector3(1, 0.25, 0.6).normalize() } }),
-    [],
-  )
-  const atmoOuterUniforms = useMemo(
-    () => ({ uSunDir: { value: new THREE.Vector3(1, 0.25, 0.6).normalize() } }),
-    [],
-  )
 
   const procUniforms = useMemo(
     () => ({ uSunDir: { value: new THREE.Vector3(1, 0.25, 0.6).normalize() } }),
@@ -513,24 +525,16 @@ function Earth({
     [textures],
   )
 
-  // Per-frame: update sun direction from real UTC, point the
-  // directional light at Earth from the new sun direction, and
-  // propagate the same vector into both shaders. Earth does NOT
-  // auto-rotate — the scene is in ECEF, so the Earth is "fixed"
-  // and the sun position rotates over time instead. This is also
-  // what makes the satellite ECF positions land over the right
+  // Per-frame: read the shared sun direction (written by SunDriver)
+  // into this Earth's surface + procedural shader uniforms. Earth
+  // does NOT auto-rotate — the scene is in ECEF, so the Earth is
+  // "fixed" and the sun position rotates over time instead. That's
+  // also what makes the satellite ECF positions land over the right
   // continents.
   useFrame(() => {
-    const sunDir = computeSunDirection(new Date())
-    sunDirRef.current.copy(sunDir)
-    atmoInnerUniforms.uSunDir.value.copy(sunDir)
-    atmoOuterUniforms.uSunDir.value.copy(sunDir)
+    const sunDir = sunDirRef.current
     procUniforms.uSunDir.value.copy(sunDir)
     surfaceUniforms.uSunDir.value.copy(sunDir)
-    if (sunLightRef.current) {
-      // Light far away in the sun direction so it acts directional.
-      sunLightRef.current.position.copy(sunDir).multiplyScalar(50)
-    }
   })
 
   return (
@@ -556,39 +560,11 @@ function Earth({
         )}
       </mesh>
 
-      {/* Clouds removed — the alpha-mask cloud texture from three.js's
-          example suite was a stylized illustration that read as
-          patchy lichen against the Blue Marble surface. Phase 4
-          could integrate real-time cloud imagery if desired. */}
-
-      {/* Two-layer atmosphere — inner bright halo at the lit limb,
-          outer wide halo that fades smoothly into space. Both
-          render on the back-face so the camera always sees the
-          rim of the sphere (the classic "Earth halo" technique). */}
-      <mesh>
-        <sphereGeometry args={[ATMOSPHERE_INNER_RADIUS, 96, 96]} />
-        <shaderMaterial
-          vertexShader={ATMOSPHERE_VERT}
-          fragmentShader={ATMOSPHERE_INNER_FRAG}
-          uniforms={atmoInnerUniforms}
-          transparent
-          side={THREE.BackSide}
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-        />
-      </mesh>
-      <mesh>
-        <sphereGeometry args={[ATMOSPHERE_OUTER_RADIUS, 96, 96]} />
-        <shaderMaterial
-          vertexShader={ATMOSPHERE_VERT}
-          fragmentShader={ATMOSPHERE_OUTER_FRAG}
-          uniforms={atmoOuterUniforms}
-          transparent
-          side={THREE.BackSide}
-          depthWrite={false}
-          blending={THREE.AdditiveBlending}
-        />
-      </mesh>
+      {/* Atmosphere halo is rendered as a sibling <Atmosphere /> in
+          the scene (not here) so it's shared identically between
+          Satellite and Map view modes. Clouds were removed — the
+          example cloud texture read as patchy lichen against the
+          Blue Marble surface. */}
     </group>
   )
 }
@@ -672,24 +648,23 @@ export default function EarthScene({
         {/* Faint rim-fill so the night hemisphere isn't dead black. */}
         <directionalLight position={[-18, -4, -10]} intensity={0.12} color="#445080" />
 
-        {/* Earth sphere — swaps between photoreal (Satellite) and the
-            stylized flat political-map style (Map). Both modes render
-            inside Suspense so neither blocks the other. The Earth
-            component already includes the atmosphere halo meshes;
-            when in Map mode we render a standalone <Atmosphere /> so
-            the halo stays present without modifying Earth's body. */}
+        {/* Sun driver + atmosphere halo are always mounted, so the
+            day/night terminator and limb glow stay live in BOTH view
+            modes. Earth's surface shader (Satellite) and MapEarth
+            (unshaded flat map) swap underneath. */}
+        <SunDriver sunDirRef={sunDirRef} sunLightRef={sunLightRef} />
+        <Atmosphere sunDirRef={sunDirRef} />
+
         {viewMode === 'satellite' ? (
           <Suspense fallback={null}>
             <Earth
               textures={textures}
               sunDirRef={sunDirRef}
-              sunLightRef={sunLightRef}
             />
           </Suspense>
         ) : (
           <Suspense fallback={null}>
             <MapEarth />
-            <Atmosphere sunDirRef={sunDirRef} />
           </Suspense>
         )}
 
