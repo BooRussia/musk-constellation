@@ -1,7 +1,13 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft, Globe, Map as MapIcon, Satellite, X } from 'lucide-react'
-import { fetchAllConstellations, type ConstellationKey, type SatelliteEntry } from '../lib/tle'
+import {
+  fetchAllConstellations,
+  CONSTELLATIONS,
+  DEFAULT_ENABLED_CONSTELLATIONS,
+  type ConstellationKey,
+  type SatelliteEntry,
+} from '../lib/tle'
 import type { SatelliteHit } from './SatelliteCloud'
 import {
   setHighlightedNoradIds,
@@ -59,7 +65,9 @@ interface Props {
  * Starlink constellation view — Phase 2: live TLE tracking.
  *
  *   • Earth scene with real-time terminator (sun direction from UTC)
- *   • CelesTrak TLE fetch on mount (Starlink + OneWeb)
+ *   • CelesTrak TLE fetch on mount for every constellation in
+ *     CONSTELLATIONS (Starlink, Kuiper, OneWeb, Iridium, Globalstar,
+ *     Orbcomm + the MEO/GEO operators SES, Intelsat, Telesat)
  *   • SGP4 propagation per frame → glow points at correct altitudes
  *   • Sidebar with live count + per-constellation filter toggles
  *   • Phase 3 will add the historical timeline scrubber
@@ -69,7 +77,7 @@ export default function StarlinkView({ onBack }: Props) {
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'partial' | 'error'>('loading')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [enabledConstellations, setEnabledConstellations] = useState<Set<ConstellationKey>>(
-    new Set(['starlink', 'oneweb']),
+    () => new Set(DEFAULT_ENABLED_CONSTELLATIONS),
   )
   // View mode: 'satellite' shows the photoreal textured Earth (default);
   // 'map' swaps in a stylized flat political-map style sphere — mirrors
@@ -115,9 +123,12 @@ export default function StarlinkView({ onBack }: Props) {
     }
   }, [])
 
-  // Per-constellation counts for the sidebar.
+  // Per-constellation counts for the sidebar. Seed every key at 0 so a
+  // constellation that failed to load still shows a row (with "—").
   const counts = useMemo(() => {
-    const c: Record<ConstellationKey, number> = { starlink: 0, oneweb: 0 }
+    const c = Object.fromEntries(
+      CONSTELLATIONS.map((m) => [m.key, 0]),
+    ) as Record<ConstellationKey, number>
     for (const sat of satellites) c[sat.constellation]++
     return c
   }, [satellites])
@@ -218,7 +229,7 @@ export default function StarlinkView({ onBack }: Props) {
         </button>
 
         <div className="starlink-brand">
-          <span className="starlink-eyebrow">STARLINK · LIVE</span>
+          <span className="starlink-eyebrow">LIVE · ORBITAL NETWORK</span>
           <h1 className="starlink-title">Orbital Constellation</h1>
         </div>
 
@@ -355,22 +366,17 @@ export default function StarlinkView({ onBack }: Props) {
         </header>
 
         <ul className="starlink-sidebar-list">
-          <ConstellationRow
-            label="Starlink"
-            sublabel="SpaceX broadband mesh"
-            count={counts.starlink}
-            color="#e8f1ff"
-            active={enabledConstellations.has('starlink')}
-            onToggle={() => toggleConstellation('starlink')}
-          />
-          <ConstellationRow
-            label="OneWeb"
-            sublabel="LEO comms · Eutelsat"
-            count={counts.oneweb}
-            color="#ffc94a"
-            active={enabledConstellations.has('oneweb')}
-            onToggle={() => toggleConstellation('oneweb')}
-          />
+          {CONSTELLATIONS.map((m) => (
+            <ConstellationRow
+              key={m.key}
+              label={m.label}
+              sublabel={m.sublabel}
+              count={counts[m.key]}
+              color={m.color}
+              active={enabledConstellations.has(m.key)}
+              onToggle={() => toggleConstellation(m.key)}
+            />
+          ))}
         </ul>
 
         <footer className="starlink-sidebar-footer">

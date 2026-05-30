@@ -11,7 +11,16 @@
 import { twoline2satrec, type SatRec } from 'satellite.js'
 
 /** Constellation groupings that CelesTrak supports as named GROUPs. */
-export type ConstellationKey = 'starlink' | 'oneweb'
+export type ConstellationKey =
+  | 'starlink'
+  | 'kuiper'
+  | 'oneweb'
+  | 'iridium'
+  | 'globalstar'
+  | 'orbcomm'
+  | 'ses'
+  | 'intelsat'
+  | 'telesat'
 
 export interface SatelliteEntry {
   /** Display name, e.g. "STARLINK-1007". */
@@ -23,6 +32,63 @@ export interface SatelliteEntry {
   /** Which constellation this belongs to. */
   constellation: ConstellationKey
 }
+
+/**
+ * Display + fetch metadata for one tracked constellation. The single
+ * source of truth for CelesTrak GROUP names, dot colors, sidebar labels,
+ * and which layers render on first load — consumed by the TLE fetcher
+ * (group), the satellite cloud (color), and the sidebar legend.
+ */
+export interface ConstellationMeta {
+  key: ConstellationKey
+  /** CelesTrak GROUP query name — may differ from the key (e.g. the
+   *  Iridium NEXT fleet is queried as "iridium-NEXT"). */
+  group: string
+  label: string
+  sublabel: string
+  /** Hex color for the sat dots AND the legend swatch (kept identical
+   *  so the map reads back to the legend). */
+  color: string
+  /** Which shell the bulk of the fleet sits in. The far MEO/GEO
+   *  operators get a "zoom out" hint because they orbit ~6× higher
+   *  than the LEO broadband shells. */
+  orbit: 'LEO' | 'MEO' | 'GEO'
+  /** Whether the layer is visible on first load. The distant GEO/MEO
+   *  operators default off so the opening shot is the tight, dense LEO
+   *  broadband shell rather than stray dots at the frame edge. */
+  defaultOn: boolean
+}
+
+// Order here = order in the sidebar legend. LEO broadband mega-
+// constellations first (the headline acts — Starlink, Bezos' Kuiper,
+// OneWeb), then the LEO comms/IoT fleets, then the high-altitude
+// MEO/GEO operators (the Viasat-class geostationary internet birds —
+// CelesTrak has no Viasat-only group, so SES / Intelsat / Telesat stand
+// in for that geostationary category).
+export const CONSTELLATIONS: ConstellationMeta[] = [
+  // The six default-on LEO fleets share the same shell, so their hues
+  // are picked to be maximally distinct from each other AND from the
+  // blue Earth (cyan / magenta / amber / violet / emerald / red).
+  { key: 'starlink',   group: 'starlink',     label: 'Starlink',   sublabel: 'SpaceX · LEO broadband',     color: '#9affef', orbit: 'LEO', defaultOn: true },
+  { key: 'kuiper',     group: 'kuiper',       label: 'Kuiper',     sublabel: 'Amazon · LEO broadband',     color: '#ff63d2', orbit: 'LEO', defaultOn: true },
+  { key: 'oneweb',     group: 'oneweb',       label: 'OneWeb',     sublabel: 'Eutelsat · LEO comms',       color: '#ffae3a', orbit: 'LEO', defaultOn: true },
+  { key: 'iridium',    group: 'iridium-NEXT', label: 'Iridium',    sublabel: 'Iridium NEXT · LEO comms',   color: '#b07cff', orbit: 'LEO', defaultOn: true },
+  { key: 'globalstar', group: 'globalstar',   label: 'Globalstar', sublabel: 'Globalstar · LEO comms',     color: '#3ee88f', orbit: 'LEO', defaultOn: true },
+  { key: 'orbcomm',    group: 'orbcomm',      label: 'Orbcomm',    sublabel: 'Orbcomm · LEO IoT',          color: '#ff5a5a', orbit: 'LEO', defaultOn: true },
+  // The high-altitude MEO/GEO operators stand in for the Viasat-class
+  // geostationary internet category (no Viasat-only CelesTrak group).
+  { key: 'ses',        group: 'ses',          label: 'SES / O3b',  sublabel: 'SES · MEO + GEO · zoom out', color: '#c9f24a', orbit: 'MEO', defaultOn: false },
+  { key: 'intelsat',   group: 'intelsat',     label: 'Intelsat',   sublabel: 'Intelsat · GEO · zoom out',  color: '#ff9a3a', orbit: 'GEO', defaultOn: false },
+  { key: 'telesat',    group: 'telesat',      label: 'Telesat',    sublabel: 'Telesat · GEO · zoom out',   color: '#34d6c8', orbit: 'GEO', defaultOn: false },
+]
+
+const CONSTELLATION_BY_KEY = Object.fromEntries(
+  CONSTELLATIONS.map((c) => [c.key, c]),
+) as Record<ConstellationKey, ConstellationMeta>
+
+/** Keys that render on first load (the LEO broadband + comms shells). */
+export const DEFAULT_ENABLED_CONSTELLATIONS: ConstellationKey[] =
+  CONSTELLATIONS.filter((c) => c.defaultOn).map((c) => c.key)
 
 // v2 cache key — bumped to invalidate any poisoned entries from the
 // proxy-era (which could have cached 404 HTML).
@@ -129,7 +195,10 @@ export async function fetchConstellation(
   const fresh = readFreshCache(group)
   if (fresh) return parseTleText(fresh, group)
 
-  const url = `https://celestrak.org/NORAD/elements/gp.php?GROUP=${group}&FORMAT=tle`
+  // The CelesTrak GROUP can differ from our stable key (e.g. key
+  // "iridium" → group "iridium-NEXT"); the localStorage cache stays
+  // keyed by our key so it survives group-name changes.
+  const url = `https://celestrak.org/NORAD/elements/gp.php?GROUP=${CONSTELLATION_BY_KEY[group].group}&FORMAT=tle`
   let res: Response
   try {
     res = await fetch(url)
@@ -180,7 +249,7 @@ export async function fetchAllConstellations(): Promise<{
   satellites: SatelliteEntry[]
   errors: Array<{ group: ConstellationKey; error: unknown }>
 }> {
-  const groups: ConstellationKey[] = ['starlink', 'oneweb']
+  const groups: ConstellationKey[] = CONSTELLATIONS.map((c) => c.key)
   const results = await Promise.allSettled(groups.map(g => fetchConstellation(g)))
   const satellites: SatelliteEntry[] = []
   const errors: Array<{ group: ConstellationKey; error: unknown }> = []

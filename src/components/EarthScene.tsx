@@ -659,12 +659,16 @@ export default function EarthScene({
           speed={0.15}
         />
 
+        {/* maxDistance is far enough to pull back and frame the
+            geostationary ring (~33 scene units out) when the GEO
+            operators are toggled on; the default view still opens at
+            distance 21. */}
         <OrbitControls
           ref={controlsRef}
           enableDamping
           dampingFactor={0.06}
           minDistance={6}
-          maxDistance={48}
+          maxDistance={92}
           rotateSpeed={0.4}
           zoomSpeed={0.6}
           enablePan={false}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { propagate, gstime, eciToEcf, type SatRec } from 'satellite.js'
+import { CONSTELLATIONS } from '../lib/tle'
 import type { SatelliteEntry, ConstellationKey } from '../lib/tle'
 import {
   emitSatelliteHover,
@@ -36,15 +37,14 @@ const EARTH_RADIUS_KM = 6371
 const EARTH_RADIUS_SCENE = 5
 const KM_TO_SCENE = EARTH_RADIUS_SCENE / EARTH_RADIUS_KM
 
-// Brand colors per constellation. Chosen for MAXIMUM contrast
-// against the blue Earth + blue atmosphere — blue sats were
-// disappearing into the planet. Starlink is now a hot cyan-white
-// (reads as crisp bright pinpricks distinct from earth-blue),
-// OneWeb a warm amber. Both pop off the cool background.
-const CONSTELLATION_COLOR: Record<ConstellationKey, THREE.Color> = {
-  starlink: new THREE.Color('#9affef'),
-  oneweb: new THREE.Color('#ffae3a'),
-}
+// Brand color per constellation, derived from the shared CONSTELLATIONS
+// metadata so each sat dot matches its sidebar legend swatch exactly
+// (single source of truth lives in tle.ts). Colors are chosen for high
+// contrast against the blue Earth + atmosphere so the fleets stay
+// tellable apart where their shells overlap.
+const CONSTELLATION_COLOR = Object.fromEntries(
+  CONSTELLATIONS.map((c) => [c.key, new THREE.Color(c.color)]),
+) as Record<ConstellationKey, THREE.Color>
 
 // How many sats to propagate per frame. With 60fps that's 16ms/frame
 // — we want sat propagation to take <4ms. 1/16 of the cloud per frame
