@@ -1,8 +1,46 @@
-import { lazy, Suspense } from 'react'
+import React, { lazy, Suspense } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Satellite } from 'lucide-react'
 
 const EarthScene = lazy(() => import('./EarthScene'))
+
+/** If the Earth scene blows up (texture CDN down, GL context lost,
+ *  shader compile error), don't black-screen the whole view. Show
+ *  a friendly message + back-to-constellation. */
+class EarthErrorBoundary extends React.Component<
+  { children: React.ReactNode; onBack: () => void },
+  { hasError: boolean; error?: Error }
+> {
+  state = { hasError: false, error: undefined as Error | undefined }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error }
+  }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error('Earth scene failed:', error, info)
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="starlink-loading">
+          <div className="starlink-loading-orb" style={{ animation: 'none', opacity: 0.4 }} />
+          <p>Earth scene failed to load</p>
+          <p style={{ fontSize: 10, opacity: 0.6, maxWidth: 280, textAlign: 'center' }}>
+            {this.state.error?.message ?? 'Unknown error'}
+          </p>
+          <button
+            type="button"
+            onClick={this.props.onBack}
+            className="starlink-back"
+            style={{ marginTop: 12 }}
+          >
+            Back to constellation
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 interface Props {
   onBack: () => void
@@ -47,9 +85,11 @@ export default function StarlinkView({ onBack }: Props) {
       </header>
 
       <div className="starlink-canvas">
-        <Suspense fallback={<StarlinkLoading />}>
-          <EarthScene />
-        </Suspense>
+        <EarthErrorBoundary onBack={onBack}>
+          <Suspense fallback={<StarlinkLoading />}>
+            <EarthScene />
+          </Suspense>
+        </EarthErrorBoundary>
       </div>
 
       {/* Phase indicator — explicit so users see "more coming"

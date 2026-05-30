@@ -27,6 +27,36 @@ const StarlinkView = lazy(() => import('./components/StarlinkView'))
 
 type AppView = 'constellation' | 'starlink'
 
+/** Fallback shown WHILE the StarlinkView's lazy chunk is downloading.
+ *  Renders the same chrome scaffold so the user sees something
+ *  immediately instead of a black screen. */
+function StarlinkBootFallback({ onBack }: { onBack: () => void }) {
+  return (
+    <div className="starlink-view">
+      <header className="starlink-topnav">
+        <button
+          type="button"
+          onClick={onBack}
+          className="starlink-back"
+          aria-label="Back to constellation"
+        >
+          <X className="h-3.5 w-3.5" aria-hidden="true" />
+          <span>Constellation</span>
+        </button>
+        <div className="starlink-brand">
+          <span className="starlink-eyebrow">STARLINK</span>
+          <h1 className="starlink-title">Orbital Constellation</h1>
+        </div>
+        <div />
+      </header>
+      <div className="starlink-loading">
+        <div className="starlink-loading-orb" />
+        <p>Loading scene…</p>
+      </div>
+    </div>
+  )
+}
+
 function formatLinkDescription(link: Link): string {
   return link.note || `${LINK_LABELS[link.type]} connection`
 }
@@ -1156,7 +1186,7 @@ export default function MuskConstellation() {
   if (currentView === 'starlink') {
     return (
       <MotionConfig reducedMotion="user">
-        <Suspense fallback={<div className="starlink-view" />}>
+        <Suspense fallback={<StarlinkBootFallback onBack={() => setCurrentView('constellation')} />}>
           <StarlinkView onBack={() => setCurrentView('constellation')} />
         </Suspense>
       </MotionConfig>

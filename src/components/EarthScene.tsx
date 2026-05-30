@@ -1,7 +1,11 @@
-import { Suspense, useRef, useMemo } from 'react'
+import { Suspense, useRef, useMemo, useEffect } from 'react'
 import { Canvas, useFrame, useLoader } from '@react-three/fiber'
 import { OrbitControls, Stars as DreiStars } from '@react-three/drei'
 import * as THREE from 'three'
+
+// Three.js's TextureLoader defaults to crossOrigin='anonymous'
+// so CDN textures upload to the GL texture unit without being
+// tainted. No setup needed beyond using TextureLoader directly.
 
 // ============================================
 // PHOTOREAL EARTH SCENE
@@ -20,9 +24,13 @@ const EARTH_RADIUS = 5
 const CLOUDS_RADIUS = EARTH_RADIUS * 1.008
 const ATMOSPHERE_RADIUS = EARTH_RADIUS * 1.065
 
-// NASA Blue Marble + supporting maps, hosted by the three-globe
-// package on jsDelivr. Stable URLs, CORS-enabled, properly cached.
-const TEX_URL = 'https://cdn.jsdelivr.net/npm/three-globe@2.30.0/example/img'
+// NASA Blue Marble + supporting maps, pulled directly from the
+// three-globe GitHub repo via jsDelivr (the npm @-tagged path
+// doesn't include the example/img/ assets, so jsdelivr/gh is the
+// reliable source). CORS-enabled, properly cached. The crossOrigin
+// flag below tells the texture loader to request anonymously so
+// the GL upload doesn't get tainted.
+const TEX_URL = 'https://cdn.jsdelivr.net/gh/vasturiano/three-globe@master/example/img'
 const TEXTURES = {
   day: `${TEX_URL}/earth-blue-marble.jpg`,
   topology: `${TEX_URL}/earth-topology.png`,
@@ -82,12 +90,16 @@ function Earth() {
     TEXTURES.clouds,
   ])
 
-  // Sharper texture sampling — without this the surface reads a bit
-  // soft compared to the photo crispness people expect from Earth.
-  ;[dayMap, nightMap].forEach((m) => {
-    m.anisotropy = 8
-    m.colorSpace = THREE.SRGBColorSpace
-  })
+  // Sharper texture sampling. useEffect (not render-time) avoids
+  // re-mutating every frame; the textures are stable refs from
+  // useLoader so deps need only be [dayMap, nightMap].
+  useEffect(() => {
+    for (const m of [dayMap, nightMap]) {
+      m.anisotropy = 8
+      m.colorSpace = THREE.SRGBColorSpace
+      m.needsUpdate = true
+    }
+  }, [dayMap, nightMap])
 
   // Sun direction — drives both the directional light and the
   // atmosphere shader so the warm-side glow lines up with daylight.
@@ -188,10 +200,15 @@ export default function EarthScene() {
       gl={{
         antialias: true,
         powerPreference: 'high-performance',
-        toneMapping: THREE.ACESFilmicToneMapping,
-        outputColorSpace: THREE.SRGBColorSpace,
       }}
       dpr={[1, 2]}
+      onCreated={({ gl }) => {
+        // Set tone mapping + color space after renderer construction
+        // (more reliable than passing in gl props, which some r3f
+        // versions don't forward correctly).
+        gl.toneMapping = THREE.ACESFilmicToneMapping
+        gl.outputColorSpace = THREE.SRGBColorSpace
+      }}
     >
       {/* Deep-space backdrop — nearly black with a hint of blue. */}
       <color attach="background" args={['#020208']} />
