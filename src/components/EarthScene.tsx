@@ -251,6 +251,7 @@ uniform float uAtmosphereStrength;
 uniform float uTime;
 uniform float uWaveStrength;
 uniform float uStylized;
+uniform float uAurora;
 
 varying vec3 vNormal;
 varying vec3 vWorldPos;
@@ -448,6 +449,23 @@ void main() {
     color = dayColor * mix(0.10, 1.12, termMask);
   } else {
     color = mix(nightBase + nightLit, dayLit + specularLit, termMask);
+  }
+
+  // Aurora glow — for aurora maps, make the polar green/magenta paint
+  // EMIT light so it reads as luminous, 3D aurora (glowing even on the
+  // night side) rather than a flat painted band. Gated to high latitudes
+  // + vivid, bright green/magenta so ordinary land/sea is untouched.
+  if (uAurora > 0.5) {
+    float lat = abs(Ngeo.y);                 // 0 equator → 1 pole
+    float polar = smoothstep(0.42, 0.78, lat);
+    float green = dayColor.g - max(dayColor.r, dayColor.b);
+    float magenta = min(dayColor.r, dayColor.b) - dayColor.g;
+    float aur = max(green, magenta);
+    float bright = max(max(dayColor.r, dayColor.g), dayColor.b);
+    float glow = smoothstep(0.06, 0.22, aur) * polar * smoothstep(0.30, 0.60, bright);
+    // Gentle shimmer so the curtains feel alive.
+    float shimmer = 0.82 + 0.18 * sin(uTime * 1.6 + Ngeo.x * 9.0 + Ngeo.z * 7.0);
+    color += dayColor * glow * 1.8 * shimmer;
   }
 
   // ============================================
@@ -718,12 +736,15 @@ function Earth({
   textures,
   sunDirRef,
   stylized = false,
+  aurora = false,
 }: {
   textures: LoadedTextures
   sunDirRef: React.MutableRefObject<THREE.Vector3>
   /** True for a dropped-in stylized map → render the texture faithfully
    *  (skip procedural ocean + real-Earth city lights). */
   stylized?: boolean
+  /** Make polar green/magenta pixels emit light (glowing aurora). */
+  aurora?: boolean
 }) {
   const earthRef = useRef<THREE.Mesh>(null)
   // Ref to the photoreal material so we can advance the ocean-wave time
@@ -765,8 +786,10 @@ function Earth({
       // 1 = stylized map: show the texture faithfully (no procedural
       // ocean, no real-Earth city lights), lit only by the terminator.
       uStylized: { value: stylized ? 1 : 0 },
+      // 1 = make polar green/magenta pixels glow (aurora maps).
+      uAurora: { value: aurora ? 1 : 0 },
     }),
-    [textures, stylized],
+    [textures, stylized, aurora],
   )
 
   // Per-frame: read the shared sun direction (written by SunDriver)
@@ -964,6 +987,7 @@ export default function EarthScene({
               textures={textures}
               sunDirRef={sunDirRef}
               stylized={style.stylized}
+              aurora={style.aurora ?? false}
             />
           </Suspense>
         ) : (

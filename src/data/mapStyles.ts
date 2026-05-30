@@ -16,6 +16,8 @@ export interface MapStyle {
    * realistic (stylized=false) = run the full photoreal pipeline.
    */
   stylized: boolean
+  /** Make polar green/magenta pixels emit light (glowing aurora). */
+  aurora?: boolean
 }
 
 const BASE = import.meta.env.BASE_URL
@@ -32,8 +34,13 @@ export const PHOTOREAL_STYLE: MapStyle = {
 // `realistic: true` for a dropped-in REAL Earth map that should get the
 // full photoreal treatment (animated ocean + city lights), or `label` to
 // override the auto-generated name.
-const OVERRIDES: Record<string, { label?: string; realistic?: boolean }> = {
+const OVERRIDES: Record<
+  string,
+  { label?: string; realistic?: boolean; aurora?: boolean }
+> = {
   // 'topo-bathy': { label: 'Topographic', realistic: true },
+  // Make the painted aurora glow (emissive) so it reads as 3D light.
+  Aurora: { aurora: true },
 }
 
 /** Auto-discovered stylized maps from src/assets/map-styles/. */
@@ -59,6 +66,7 @@ const droppedStyles: MapStyle[] = Object.entries(discovered)
       label: ov.label ?? prettify(file),
       dayUrl: url,
       stylized: !ov.realistic,
+      aurora: ov.aurora ?? false,
     }
   })
   .sort((a, b) => a.label.localeCompare(b.label))
