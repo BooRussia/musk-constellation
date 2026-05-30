@@ -237,6 +237,8 @@ uniform float uHasSpecular;
 uniform float uNormalStrength;
 uniform float uNightIntensity;
 uniform float uAtmosphereStrength;
+uniform float uTime;
+uniform float uWaveStrength;
 
 varying vec3 vNormal;
 varying vec3 vWorldPos;
@@ -265,6 +267,28 @@ vec3 perturbNormal(vec3 N, vec3 V, vec2 uv) {
   vec3 mapN = texture2D(uNormalMap, uv).xyz * 2.0 - 1.0;
   mapN.xy *= uNormalStrength;
   return normalize(tsn * mapN);
+}
+
+// --- Ocean waves: cheap value noise + a scrolling height field used to
+// perturb the water normal for animated sun-glitter ("sunglint") and a
+// sense of flow. Equirectangular uv is scaled ~2:1 so ripples stay
+// roughly isotropic on the sphere.
+float hash21(vec2 p) {
+  p = fract(p * vec2(123.34, 345.45));
+  p += dot(p, p + 34.345);
+  return fract(p.x * p.y);
+}
+float vnoise2(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  float a = hash21(i), b = hash21(i + vec2(1.0, 0.0));
+  float c = hash21(i + vec2(0.0, 1.0)), d = hash21(i + vec2(1.0, 1.0));
+  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+float waveHeight(vec2 uv, float t) {
+  float h = vnoise2(uv * vec2(140.0, 70.0) + vec2(t * 0.040, t * 0.022));
+  h += 0.5 * vnoise2(uv * vec2(320.0, 160.0) - vec2(t * 0.055, t * 0.030));
+  return h;
 }
 
 void main() {
@@ -299,6 +323,16 @@ void main() {
   // reused by the night-side silhouette + the ocean specular below.
   float waterMask = uHasSpecular > 0.5 ? texture2D(uSpecularMap, vUv).r : 0.0;
   float landMask = 1.0 - waterMask;
+
+  // Deepen the open ocean into a richer blue (more sense of depth), and
+  // add a very slow large-scale drift so the water feels alive — a hint
+  // of currents/tides. Both masked to water so land is untouched.
+  if (waterMask > 0.02) {
+    vec3 deepWater = dayColor * vec3(0.45, 0.72, 1.12);
+    dayColor = mix(dayColor, deepWater, waterMask * 0.35);
+    float flow = vnoise2(vUv * vec2(20.0, 10.0) + vec2(uTime * 0.006, uTime * 0.003));
+    dayColor *= 1.0 + (flow - 0.5) * 0.10 * waterMask;
+  }
 
   // ============================================
   // DAY/NIGHT — Apple-Maps style. The whole sunlit hemisphere reads
@@ -347,11 +381,29 @@ void main() {
   // lit side. Adds life to the oceans without a blown-out blob.
   // ============================================
   vec3 specularLit = vec3(0.0);
-  if (uHasSpecular > 0.5) {
+  if (uHasSpecular > 0.5 && waterMask > 0.02 && termMask > 0.01) {
     vec3 halfDir = normalize(sunDir + viewDir);
-    // Lower exponent (16) = broad soft sheen; low intensity (0.22).
-    float spec = pow(max(0.0, dot(Nrelief, halfDir)), 16.0);
-    specularLit = vec3(0.7, 0.8, 1.0) * spec * waterMask * termMask * 0.22;
+    // Animated wave normal: finite-difference gradient of the scrolling
+    // height field, lifted into a sphere tangent basis. This tilts the
+    // water normal a touch so the sun reflection breaks into moving
+    // sparkles (sunglint) instead of one static sheen.
+    float e = 0.0016;
+    float hC = waveHeight(vUv, uTime);
+    float hX = waveHeight(vUv + vec2(e, 0.0), uTime);
+    float hY = waveHeight(vUv + vec2(0.0, e), uTime);
+    vec2 grad = vec2(hX - hC, hY - hC);
+    vec3 upRef = abs(Ngeo.y) > 0.99 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 1.0, 0.0);
+    vec3 Tw = normalize(cross(upRef, Ngeo));
+    vec3 Bw = cross(Ngeo, Tw);
+    vec3 Nwave = normalize(Ngeo + (Tw * grad.x + Bw * grad.y) * uWaveStrength);
+    // Broad soft sheen (kept faint so it's not a hot blob) + a sharp
+    // animated sparkle from the wave normal. The high exponent keeps the
+    // glitter tight; a silvery white reads as clean water rather than a
+    // bright smudge.
+    float broad = pow(max(0.0, dot(Nrelief, halfDir)), 16.0) * 0.10;
+    float glint = pow(max(0.0, dot(Nwave, halfDir)), 200.0) * 0.50;
+    specularLit = (vec3(0.66, 0.78, 1.00) * broad + vec3(0.95, 0.97, 1.00) * glint)
+                  * waterMask * termMask;
   }
 
   // Crossfade day → (night base + city lights) across the terminator.
@@ -497,6 +549,10 @@ function Earth({
   sunDirRef: React.MutableRefObject<THREE.Vector3>
 }) {
   const earthRef = useRef<THREE.Mesh>(null)
+  // Ref to the photoreal material so we can advance the ocean-wave time
+  // uniform per-frame without mutating the memoized uniforms object
+  // (which the react-hooks immutability lint disallows).
+  const matRef = useRef<THREE.ShaderMaterial>(null)
 
   const hasDayTexture = !!textures.day
 
@@ -524,6 +580,11 @@ function Earth({
       uNightIntensity: { value: 1.35 },
       // Limb haze contribution — subtle. Peak ~0.22 at the rim.
       uAtmosphereStrength: { value: 0.22 },
+      // Animated ocean: uTime advances the scrolling wave field;
+      // uWaveStrength sets how hard the micro-waves tilt the water
+      // normal for the sun-glitter.
+      uTime: { value: 0 },
+      uWaveStrength: { value: 0.5 },
     }),
     [textures],
   )
@@ -533,8 +594,12 @@ function Earth({
   // scene is in ECEF, so the Earth is "fixed" and the sun position
   // rotates over time instead. That's also what makes the satellite
   // ECF positions land over the right continents.
-  useFrame(() => {
+  useFrame((_, delta) => {
     surfaceUniforms.uSunDir.value.copy(sunDirRef.current)
+    // Advance the ocean wave animation (frame-rate independent) via the
+    // material ref so we don't mutate the memoized uniforms object.
+    const mat = matRef.current
+    if (mat) mat.uniforms.uTime.value += delta
   })
 
   return (
@@ -550,6 +615,7 @@ function Earth({
              existing material doesn't recompile the program — that
              caused the old "stuck until toggle" bug). */
           <shaderMaterial
+            ref={matRef}
             key="earth-photoreal"
             vertexShader={SURFACE_VERT}
             fragmentShader={SURFACE_FRAG}
