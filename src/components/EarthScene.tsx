@@ -129,6 +129,7 @@ void main() {
 
 const RIM_FRAG = /* glsl */ `
 uniform vec3 uSunDir;
+uniform float uFullLit;
 varying vec3 vNormal;
 varying vec3 vWorldPos;
 void main() {
@@ -137,14 +138,17 @@ void main() {
   // Tight fresnel → glow concentrates in a thin band at the very edge.
   float fres = pow(1.0 - max(0.0, dot(N, V)), 3.2);
   // Sun gate: only the limb that faces the sun lights up, with a soft
-  // ramp through the terminator so it's a crescent, not a ring.
+  // ramp through the terminator so it's a crescent, not a ring. In
+  // full-sun mode the gate opens all the way around for a full rim.
   float sun = dot(N, normalize(uSunDir));
-  float gate = smoothstep(-0.15, 0.55, sun);
+  float gate = mix(smoothstep(-0.15, 0.55, sun), 1.0, uFullLit);
   // Warm white where the sun is strong (the bright sunrise bleed),
   // cooling to thin blue as it wraps toward the terminator.
   vec3 warm = vec3(1.00, 0.90, 0.72);
   vec3 cool = vec3(0.42, 0.64, 1.05);
-  vec3 col = mix(cool, warm, smoothstep(0.0, 0.7, sun));
+  vec3 sunCol = mix(cool, warm, smoothstep(0.0, 0.7, sun));
+  // Full-sun: a uniform cool atmospheric rim all the way around.
+  vec3 col = mix(sunCol, vec3(0.50, 0.68, 1.05), uFullLit);
   gl_FragColor = vec4(col, fres * gate * 0.9);
 }
 `
@@ -253,6 +257,7 @@ uniform float uWaveStrength;
 uniform float uStylized;
 uniform float uAurora;
 uniform float uStyleBright;
+uniform float uFullLit;
 
 varying vec3 vNormal;
 varying vec3 vWorldPos;
@@ -358,7 +363,13 @@ void main() {
   // transition band straddling the terminator. This drives the
   // day↔night crossfade so the boundary fades like light casting
   // around the curve of the planet.
-  float termMask = smoothstep(-0.18, 0.15, NdotL);
+  // Day/night terminator — or a flat fully-lit planet when uFullLit is
+  // on (the "Day cycle off" toggle): no cast shadow, illuminated all the
+  // way around.
+  float termMask = mix(smoothstep(-0.18, 0.15, NdotL), 1.0, uFullLit);
+  // Lighting factor used for the day brightness gradient + relief: the
+  // real sun angle normally, or fully lit (1.0) in full-sun mode.
+  float litN = mix(NdotL, 1.0, uFullLit);
 
   // ============================================
   // OCEAN — procedural moving water. Replaces the daymap's smooth (and
@@ -414,10 +425,12 @@ void main() {
   // Day brightness: kept HIGH and fairly FLAT across the day side so
   // entire continents read as lit (not a hot spot at the sub-solar
   // point). 0.88 floor + a gentle gradient toward the sub-solar point.
-  float dayBright = 0.88 + 0.12 * smoothstep(0.0, 0.65, NdotL);
+  float dayBright = 0.88 + 0.12 * smoothstep(0.0, 0.65, litN);
   // Subtle relief shading from the bump normal — clamped so terrain
-  // never darkens the land much.
+  // never darkens the land much. Flattened to 1.0 in full-sun mode so
+  // the planet is evenly lit with no directional shading.
   float reliefShade = clamp(1.0 + 0.5 * (reliefDot - NdotL), 0.88, 1.15);
+  reliefShade = mix(reliefShade, 1.0, uFullLit);
   // Moderate gain — the 8K SSS daymap is already bright + saturated,
   // so it needs far less push than the old dark Blue-Marble texture
   // (which used 3.4×). Light saturation lift only.
@@ -488,7 +501,8 @@ void main() {
   // ============================================
   float fres = pow(1.0 - max(0.0, dot(Ngeo, viewDir)), 2.4);
   // Only haze the lit side — atmospheric scattering needs sunlight.
-  float hazeLit = smoothstep(-0.10, 0.40, NdotL);
+  // Full-sun mode hazes the whole limb so the glow wraps the planet.
+  float hazeLit = mix(smoothstep(-0.10, 0.40, NdotL), 1.0, uFullLit);
   vec3 hazeColor = vec3(0.40, 0.62, 1.00);
   color = mix(color, hazeColor, fres * hazeLit * uAtmosphereStrength);
 
@@ -555,12 +569,18 @@ function SunDriver({
 // that would wash out satellite contrast.
 function LimbGlow({
   sunDirRef,
+  fullLit = false,
 }: {
   sunDirRef: React.MutableRefObject<THREE.Vector3>
+  /** True = full rim all the way around (full-sun mode). */
+  fullLit?: boolean
 }) {
   const uniforms = useMemo(
-    () => ({ uSunDir: { value: new THREE.Vector3(1, 0.25, 0.6).normalize() } }),
-    [],
+    () => ({
+      uSunDir: { value: new THREE.Vector3(1, 0.25, 0.6).normalize() },
+      uFullLit: { value: fullLit ? 1 : 0 },
+    }),
+    [fullLit],
   )
   useFrame(() => {
     uniforms.uSunDir.value.copy(sunDirRef.current)
@@ -750,6 +770,7 @@ function Earth({
   stylized = false,
   aurora = false,
   styleBright = 1.3,
+  fullLit = false,
 }: {
   textures: LoadedTextures
   sunDirRef: React.MutableRefObject<THREE.Vector3>
@@ -760,6 +781,8 @@ function Earth({
   aurora?: boolean
   /** Day-side brightness multiplier for stylized maps. */
   styleBright?: number
+  /** True = full sun, no day/night terminator (evenly lit all around). */
+  fullLit?: boolean
 }) {
   const earthRef = useRef<THREE.Mesh>(null)
   // Ref to the photoreal material so we can advance the ocean-wave time
@@ -805,8 +828,10 @@ function Earth({
       uAurora: { value: aurora ? 1 : 0 },
       // Day-side brightness multiplier for stylized maps.
       uStyleBright: { value: styleBright },
+      // 1 = full sun (no day/night terminator), evenly lit all around.
+      uFullLit: { value: fullLit ? 1 : 0 },
     }),
-    [textures, stylized, aurora, styleBright],
+    [textures, stylized, aurora, styleBright, fullLit],
   )
 
   // Per-frame: read the shared sun direction (written by SunDriver)
@@ -876,6 +901,9 @@ interface EarthSceneProps {
   /** Selected map-style id (see src/data/mapStyles.ts) — swaps the
    *  day/albedo texture on the photoreal globe. */
   mapStyleId?: string
+  /** Day/night cycle. false = full sun (no terminator shadow, the
+   *  planet is evenly illuminated all the way around). */
+  dayCycle?: boolean
 }
 
 export default function EarthScene({
@@ -884,8 +912,10 @@ export default function EarthScene({
   viewMode = 'satellite',
   selectedSatellites,
   mapStyleId,
+  dayCycle = true,
 }: EarthSceneProps) {
   const style = getMapStyle(mapStyleId)
+  const fullLit = !dayCycle
 
   // Real-Earth data maps (relief/night/water) load ONCE — they're only
   // used by the photoreal pipeline. The day/albedo map is separate and
@@ -996,7 +1026,7 @@ export default function EarthScene({
             washed out satellite contrast); LimbGlow restores just a
             thin sun-gated crescent of light at the edge. */}
         <SunDriver sunDirRef={sunDirRef} sunLightRef={sunLightRef} />
-        <LimbGlow sunDirRef={sunDirRef} />
+        <LimbGlow sunDirRef={sunDirRef} fullLit={fullLit} />
 
         {viewMode === 'satellite' ? (
           <Suspense fallback={null}>
@@ -1006,6 +1036,7 @@ export default function EarthScene({
               stylized={style.stylized}
               aurora={style.aurora ?? false}
               styleBright={style.brightness ?? 1.3}
+              fullLit={fullLit}
             />
           </Suspense>
         ) : (

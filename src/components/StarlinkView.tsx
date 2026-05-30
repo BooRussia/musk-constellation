@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, Globe, Map as MapIcon, Satellite, X } from 'lucide-react'
+import { ArrowLeft, Globe, Map as MapIcon, Satellite, Sun, X } from 'lucide-react'
 import {
   fetchAllConstellations,
   CONSTELLATIONS,
@@ -89,6 +89,9 @@ export default function StarlinkView({ onBack }: Props) {
   // photoreal globe — see src/data/mapStyles.ts (auto-discovers any image
   // dropped into src/assets/map-styles/).
   const [mapStyleId, setMapStyleId] = useState<string>(PHOTOREAL_STYLE.id)
+  // Day/night cycle. Off = full sun: the whole planet is evenly lit with
+  // no cast terminator shadow.
+  const [dayCycle, setDayCycle] = useState(true)
 
   // Fetch TLEs on mount. Stays alive in sessionStorage for 2 hours
   // so a tab reload doesn't refetch.
@@ -269,6 +272,23 @@ export default function StarlinkView({ onBack }: Props) {
         </div>
 
         <div className="starlink-topright">
+          {/* Full-sun toggle — turns OFF the day/night cycle so the
+              planet is evenly lit all the way around (no cast shadow). */}
+          <button
+            type="button"
+            className={`starlink-fullsun ${!dayCycle ? 'starlink-fullsun--on' : ''}`}
+            onClick={() => setDayCycle((d) => !d)}
+            aria-pressed={!dayCycle}
+            title={
+              dayCycle
+                ? 'Full sun — light the whole planet (turn off the day/night shadow)'
+                : 'Day/night cycle — real-time terminator'
+            }
+          >
+            <Sun className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="starlink-fullsun-label">Full sun</span>
+          </button>
+
           {/* Map-style picker — drops a column of thumbnail previews down
               the right side. Only affects the Satellite globe. */}
           <MapStylePicker
@@ -295,6 +315,7 @@ export default function StarlinkView({ onBack }: Props) {
               viewMode={viewMode}
               selectedSatellites={selectedEntries}
               mapStyleId={mapStyleId}
+              dayCycle={dayCycle}
             />
           </Suspense>
         </EarthErrorBoundary>
