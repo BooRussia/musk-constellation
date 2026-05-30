@@ -232,25 +232,33 @@ void main() {
     float waterMask = texture2D(uSpecularMap, vUv).r;
     vec3 halfDir = normalize(sunDir + viewDir);
     float specAngle = max(0.0, dot(N, halfDir));
-    // Tight highlight (high exponent) so it reads as a real sun
-    // glint, not a generic sheen. ~32-shininess gives a soft disk.
-    float spec = pow(specAngle, 48.0);
+    // Tight highlight so it reads as a real sun glint, not a sheen.
+    float spec = pow(specAngle, 44.0);
     // Only on the lit side, and only on water. The sunny-side
     // smoothstep prevents specular bleeding past the terminator.
     float litFactor = smoothstep(-0.05, 0.25, NdotL);
-    specularLit = vec3(1.0, 0.96, 0.86) * spec * waterMask * litFactor * 1.6;
+    // Toned down (1.6 → 1.0) so the glint doesn't blow out to pure
+    // white and leave the lit continents looking dark by contrast.
+    specularLit = vec3(1.0, 0.96, 0.86) * spec * waterMask * litFactor * 1.0;
   }
 
   // ============================================
-  // DAY/NIGHT BLEND — smooth terminator
-  // Use a soft transition zone (a few degrees wide) instead of
-  // multiplying by max(0, NdotL), which produces a hard line.
+  // DAY/NIGHT BLEND — soft terminator + WRAP (half-Lambert) diffuse
+  // Harsh Lambert (dayColor * max(0,NdotL)) left continents away
+  // from the sub-solar point nearly black — the sun appeared to
+  // glint off the ocean but never illuminate the land. Wrap lighting
+  // (NdotL*0.5+0.5) lights the whole sun-facing hemisphere softly,
+  // brightest at the sub-solar point and easing to the terminator,
+  // so the entire visible disk reads like real sunlight on a globe.
   // ============================================
-  // Day weight: full at NdotL >= 0.1, fades to 0 by NdotL = -0.15.
-  float dayWeight = smoothstep(-0.15, 0.10, NdotL);
-  // Lambert-shaded day color, with a tiny ambient lift so even
-  // the dim near-terminator zone isn't pitch black.
-  vec3 dayLit = dayColor * (0.06 + 0.94 * max(0.0, NdotL));
+  // Day fades out only past the terminator, so the lit front stays
+  // full-day to its edge.
+  float dayWeight = smoothstep(-0.25, 0.0, NdotL);
+  float wrap = NdotL * 0.5 + 0.5;        // 0 at anti-sun → 1 at sub-solar
+  float diffuse = wrap * wrap;           // mild contrast
+  // Ambient floor (0.30) + diffuse (1.3×) — a brighter overall planet
+  // so the darker Blue-Marble land textures still read clearly.
+  vec3 dayLit = dayColor * (0.30 + 1.30 * diffuse);
 
   // Night side: city lights from the emissive map. Boost intensity
   // and feather into the terminator so lights "turn on" as the
@@ -538,8 +546,17 @@ function Earth({
         {hasDayTexture ? (
           /* Photoreal path — custom shader for ocean specular, smooth
              terminator, punched-up city lights, and a faint blue
-             Rayleigh haze near the limb. See SURFACE_FRAG above. */
+             Rayleigh haze near the limb. See SURFACE_FRAG above.
+             The `key` is CRITICAL: both branches are <shaderMaterial>,
+             so without a distinct key r3f reuses the same THREE
+             ShaderMaterial instance and just swaps props — but
+             changing vertexShader/fragmentShader on an existing
+             material does NOT recompile the program. That's why the
+             globe stayed procedural after textures finished loading
+             until a view-mode toggle force-remounted it. The key
+             makes the material a fresh instance when the path flips. */
           <shaderMaterial
+            key="earth-photoreal"
             vertexShader={SURFACE_VERT}
             fragmentShader={SURFACE_FRAG}
             uniforms={surfaceUniforms}
@@ -547,6 +564,7 @@ function Earth({
         ) : (
           /* Procedural fallback — never fails. */
           <shaderMaterial
+            key="earth-procedural"
             vertexShader={PROC_EARTH_VERT}
             fragmentShader={PROC_EARTH_FRAG}
             uniforms={procUniforms}
