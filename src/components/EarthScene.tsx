@@ -244,6 +244,11 @@ void main() {
 
   vec3 dayColor = texture2D(uDayMap, vUv).rgb;
 
+  // Water mask (white = ocean, black = land). Computed once here and
+  // reused by the night-side silhouette + the ocean specular below.
+  float waterMask = uHasSpecular > 0.5 ? texture2D(uSpecularMap, vUv).r : 0.0;
+  float landMask = 1.0 - waterMask;
+
   // ============================================
   // DAY/NIGHT — Apple-Maps style. The whole sunlit hemisphere reads
   // as bright, evenly-lit daytime; a smooth band fades to a dark
@@ -277,8 +282,13 @@ void main() {
     vec3 cityColor = lightsTex * vec3(1.05, 0.90, 0.58);
     nightLit = cityColor * uNightIntensity;
   }
-  // Faint earthshine so the unlit land isn't pure black, just very dark.
-  vec3 nightBase = dayColor * 0.045;
+  // Night-side silhouette — Apple Maps style. Land reads as a dark
+  // slate-blue, ocean as near-black, so the CONTINENT OUTLINES are
+  // visible on the dark side even before the city lights. Without
+  // this the night side was a featureless black void.
+  vec3 nightLand  = vec3(0.085, 0.105, 0.150);  // dark slate-blue land
+  vec3 nightOcean = vec3(0.015, 0.022, 0.040);  // near-black sea
+  vec3 nightBase = mix(nightOcean, nightLand, landMask);
 
   // ============================================
   // OCEAN SPECULAR — a SOFT, subtle sheen (NOT the old harsh white
@@ -287,7 +297,6 @@ void main() {
   // ============================================
   vec3 specularLit = vec3(0.0);
   if (uHasSpecular > 0.5) {
-    float waterMask = texture2D(uSpecularMap, vUv).r;
     vec3 halfDir = normalize(sunDir + viewDir);
     // Lower exponent (16) = broad soft sheen; low intensity (0.22).
     float spec = pow(max(0.0, dot(Nrelief, halfDir)), 16.0);
