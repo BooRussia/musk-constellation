@@ -16,7 +16,8 @@ import {
 } from './SatelliteInteractionContext'
 import SatelliteTooltip from './SatelliteTooltip'
 import { trailColorAt } from '../lib/trailColors'
-import { MAP_STYLES, PHOTOREAL_STYLE } from '../data/mapStyles'
+import { PHOTOREAL_STYLE } from '../data/mapStyles'
+import MapStylePicker from './MapStylePicker'
 
 const EarthScene = lazy(() => import('./EarthScene'))
 
@@ -267,12 +268,21 @@ export default function StarlinkView({ onBack }: Props) {
           </button>
         </div>
 
-        <div className="starlink-status">
-          <Satellite className="h-3 w-3" aria-hidden="true" />
-          <span className="starlink-status-count">
-            {visibleCount > 0 ? visibleCount.toLocaleString() : '—'}
-          </span>
-          <span className="starlink-status-label">tracked</span>
+        <div className="starlink-topright">
+          {/* Map-style picker — drops a column of thumbnail previews down
+              the right side. Only affects the Satellite globe. */}
+          <MapStylePicker
+            value={mapStyleId}
+            onChange={setMapStyleId}
+            disabled={viewMode === 'map'}
+          />
+          <div className="starlink-status">
+            <Satellite className="h-3 w-3" aria-hidden="true" />
+            <span className="starlink-status-count">
+              {visibleCount > 0 ? visibleCount.toLocaleString() : '—'}
+            </span>
+            <span className="starlink-status-label">tracked</span>
+          </div>
         </div>
       </header>
 
@@ -384,33 +394,6 @@ export default function StarlinkView({ onBack }: Props) {
             />
           ))}
         </ul>
-
-        {/* Map-style picker — swaps the planet skin. Auto-lists every
-            image dropped into src/assets/map-styles/. Only affects the
-            Satellite (3D textured globe) view. */}
-        <div className="starlink-mapstyle">
-          <label htmlFor="mapstyle" className="starlink-mapstyle-label">
-            MAP STYLE
-          </label>
-          <select
-            id="mapstyle"
-            className="starlink-mapstyle-select"
-            value={mapStyleId}
-            onChange={(e) => setMapStyleId(e.target.value)}
-            disabled={viewMode === 'map'}
-            title={
-              viewMode === 'map'
-                ? 'Switch to Satellite view to change the planet skin'
-                : 'Swap the planet map'
-            }
-          >
-            {MAP_STYLES.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.label}
-              </option>
-            ))}
-          </select>
-        </div>
 
         <footer className="starlink-sidebar-footer">
           <p className="starlink-sidebar-status">
