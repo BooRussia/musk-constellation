@@ -2397,6 +2397,59 @@ body {
   letter-spacing: 0.5px;
 }
 
+/* Map-style picker */
+.starlink-mapstyle {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.starlink-mapstyle-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.starlink-mapstyle-select {
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 8px 30px 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background-color: rgba(255, 255, 255, 0.05);
+  /* custom chevron */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-opacity='0.6' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.starlink-mapstyle-select:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.28);
+  background-color: rgba(255, 255, 255, 0.08);
+}
+.starlink-mapstyle-select:focus-visible {
+  outline: none;
+  border-color: rgba(140, 170, 255, 0.7);
+}
+.starlink-mapstyle-select:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+/* dark popup options (native menu inherits OS theme, but set sane colors) */
+.starlink-mapstyle-select option {
+  background: #0c1220;
+  color: #fff;
+}
+
 .starlink-sidebar-footer {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   padding-top: 10px;

@@ -9,6 +9,7 @@ import KeyboardCameraControls from './KeyboardCameraControls'
 import GlobeLabels from './GlobeLabels'
 import OrbitTrails from './OrbitTrails'
 import type { SatelliteEntry, ConstellationKey } from '../lib/tle'
+import { getMapStyle } from '../data/mapStyles'
 
 export type EarthViewMode = 'satellite' | 'map'
 
@@ -83,6 +84,24 @@ async function tryLoadTexture(key: TextureKey): Promise<THREE.Texture | null> {
     return tex
   } catch (err) {
     console.warn(`[EarthScene] ${key} texture failed to load:`, err)
+    return null
+  }
+}
+
+// Load an arbitrary color (sRGB) equirectangular map by URL — used for
+// the swappable day/albedo map so the Map-style dropdown can point at any
+// image dropped into src/assets/map-styles/.
+async function loadColorTexture(url: string): Promise<THREE.Texture | null> {
+  const loader = new THREE.TextureLoader()
+  try {
+    const tex = await loader.loadAsync(url)
+    tex.anisotropy = 16
+    tex.wrapS = THREE.RepeatWrapping
+    tex.colorSpace = THREE.SRGBColorSpace
+    tex.needsUpdate = true
+    return tex
+  } catch (err) {
+    console.warn('[EarthScene] map-style texture failed to load:', url, err)
     return null
   }
 }
@@ -231,6 +250,7 @@ uniform float uNightIntensity;
 uniform float uAtmosphereStrength;
 uniform float uTime;
 uniform float uWaveStrength;
+uniform float uStylized;
 
 varying vec3 vNormal;
 varying vec3 vWorldPos;
@@ -347,7 +367,7 @@ void main() {
   // on lit ocean only (cheap elsewhere).
   // ============================================
   vec3 specularLit = vec3(0.0);
-  if (waterMask > 0.02 && termMask > 0.004) {
+  if (uStylized < 0.5 && waterMask > 0.02 && termMask > 0.004) {
     vec3 sp = Ngeo; // unit sphere direction — seam-free, pole-free sample
     float t = uTime;
 
@@ -403,9 +423,10 @@ void main() {
   float dayLum = dot(dayBase, vec3(0.299, 0.587, 0.114));
   vec3 dayLit = mix(vec3(dayLum), dayBase, 1.06);
 
-  // Night side: city lights from the emissive map, warm-tinted.
+  // Night side: city lights from the emissive map, warm-tinted. Skipped
+  // for stylized maps (the Earth city map won't match their coastlines).
   vec3 nightLit = vec3(0.0);
-  if (uHasNight > 0.5) {
+  if (uHasNight > 0.5 && uStylized < 0.5) {
     vec3 lightsTex = texture2D(uNightMap, vUv).rgb;
     vec3 cityColor = lightsTex * vec3(1.05, 0.90, 0.58);
     nightLit = cityColor * uNightIntensity;
@@ -418,8 +439,16 @@ void main() {
   vec3 nightOcean = vec3(0.015, 0.022, 0.040);  // near-black sea
   vec3 nightBase = mix(nightOcean, nightLand, landMask);
 
-  // Crossfade day → (night base + city lights) across the terminator.
-  vec3 color = mix(nightBase + nightLit, dayLit + specularLit, termMask);
+  // Final surface color. Stylized maps render faithfully — the raw
+  // texture lit only by the real-time day/night terminator (no
+  // procedural ocean, no Earth city lights). The photoreal pipeline
+  // crossfades day → night silhouette + city lights.
+  vec3 color;
+  if (uStylized > 0.5) {
+    color = dayColor * mix(0.10, 1.12, termMask);
+  } else {
+    color = mix(nightBase + nightLit, dayLit + specularLit, termMask);
+  }
 
   // ============================================
   // ATMOSPHERIC HAZE — Rayleigh-style limb tint
@@ -688,9 +717,13 @@ interface LoadedTextures {
 function Earth({
   textures,
   sunDirRef,
+  stylized = false,
 }: {
   textures: LoadedTextures
   sunDirRef: React.MutableRefObject<THREE.Vector3>
+  /** True for a dropped-in stylized map → render the texture faithfully
+   *  (skip procedural ocean + real-Earth city lights). */
+  stylized?: boolean
 }) {
   const earthRef = useRef<THREE.Mesh>(null)
   // Ref to the photoreal material so we can advance the ocean-wave time
@@ -729,8 +762,11 @@ function Earth({
       // normal for the sun-glitter.
       uTime: { value: 0 },
       uWaveStrength: { value: 1.2 },
+      // 1 = stylized map: show the texture faithfully (no procedural
+      // ocean, no real-Earth city lights), lit only by the terminator.
+      uStylized: { value: stylized ? 1 : 0 },
     }),
-    [textures],
+    [textures, stylized],
   )
 
   // Per-frame: read the shared sun direction (written by SunDriver)
@@ -797,6 +833,9 @@ interface EarthSceneProps {
   viewMode?: EarthViewMode
   /** Selected sats to draw orbit trails for (in selection order). */
   selectedSatellites?: SatelliteEntry[]
+  /** Selected map-style id (see src/data/mapStyles.ts) — swaps the
+   *  day/albedo texture on the photoreal globe. */
+  mapStyleId?: string
 }
 
 export default function EarthScene({
@@ -804,13 +843,20 @@ export default function EarthScene({
   enabledConstellations,
   viewMode = 'satellite',
   selectedSatellites,
+  mapStyleId,
 }: EarthSceneProps) {
-  const [textures, setTextures] = useState<LoadedTextures>({
-    day: null,
-    normal: null,
-    night: null,
-    specular: null,
-  })
+  const style = getMapStyle(mapStyleId)
+
+  // Real-Earth data maps (relief/night/water) load ONCE — they're only
+  // used by the photoreal pipeline. The day/albedo map is separate and
+  // reloads whenever the selected style changes.
+  const [staticMaps, setStaticMaps] = useState<{
+    normal: THREE.Texture | null
+    night: THREE.Texture | null
+    specular: THREE.Texture | null
+  }>({ normal: null, night: null, specular: null })
+  const [dayMap, setDayMap] = useState<THREE.Texture | null>(null)
+  const dayTexRef = useRef<THREE.Texture | null>(null)
   const [loadStatus, setLoadStatus] = useState<'loading' | 'done' | 'fallback'>('loading')
 
   // Shared sun-direction state. Initialized to a sensible angle so
@@ -823,26 +869,55 @@ export default function EarthScene({
   // manipulate controls.target + the camera and call controls.update().
   const controlsRef = useRef<OrbitControlsImpl>(null)
 
+  // Static real-Earth maps — loaded once.
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const [day, normal, night, specular] = await Promise.all([
-        tryLoadTexture('day'),
+      const [normal, night, specular] = await Promise.all([
         tryLoadTexture('normal'),
         tryLoadTexture('night'),
         tryLoadTexture('specular'),
       ])
       if (cancelled) return
-      setTextures({ day, normal, night, specular })
-      setLoadStatus(day ? 'done' : 'fallback')
-      if (!day) {
-        console.warn('[EarthScene] Earth day texture failed to load')
-      }
+      setStaticMaps({ normal, night, specular })
     })()
     return () => {
       cancelled = true
     }
   }, [])
+
+  // Day/albedo map — reloads whenever the selected style changes. The
+  // previous texture is disposed to avoid leaking GPU memory on swaps.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const tex = await loadColorTexture(style.dayUrl)
+      if (cancelled) {
+        tex?.dispose()
+        return
+      }
+      dayTexRef.current?.dispose()
+      dayTexRef.current = tex
+      setDayMap(tex)
+      setLoadStatus(tex ? 'done' : 'fallback')
+      if (!tex) console.warn('[EarthScene] day texture failed:', style.dayUrl)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [style.dayUrl])
+
+  // Stable textures bundle (only changes when a map actually loads/swaps),
+  // so the Earth shader's uniforms aren't rebuilt every render.
+  const textures = useMemo<LoadedTextures>(
+    () => ({
+      day: dayMap,
+      normal: staticMaps.normal,
+      night: staticMaps.night,
+      specular: staticMaps.specular,
+    }),
+    [dayMap, staticMaps],
+  )
 
   return (
     <>
@@ -888,6 +963,7 @@ export default function EarthScene({
             <Earth
               textures={textures}
               sunDirRef={sunDirRef}
+              stylized={style.stylized}
             />
           </Suspense>
         ) : (
