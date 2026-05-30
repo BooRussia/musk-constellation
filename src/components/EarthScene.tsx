@@ -19,7 +19,12 @@ import type { SatelliteEntry, ConstellationKey } from '../lib/tle'
 // procedural shader Earth so the user NEVER sees a broken page.
 
 const EARTH_RADIUS = 5
-const ATMOSPHERE_RADIUS = EARTH_RADIUS * 1.065
+// Two-layer atmosphere — an inner halo right at Earth's edge for
+// the visible "lit limb" and an outer halo that fades into space
+// for the smooth gradient. Together they produce the soft glow
+// you see in NASA "Earth from orbit" shots.
+const ATMOSPHERE_INNER_RADIUS = EARTH_RADIUS * 1.04
+const ATMOSPHERE_OUTER_RADIUS = EARTH_RADIUS * 1.22
 
 // Textures are committed to the repo at public/textures/planets/
 // and served same-origin from Netlify. No CDN dependencies, no
@@ -69,18 +74,50 @@ void main() {
 }
 `
 
-const ATMOSPHERE_FRAG = /* glsl */ `
+// Inner halo — bright glow right at Earth's lit limb. Tight
+// fresnel exponent and clamped output so it never saturates.
+const ATMOSPHERE_INNER_FRAG = /* glsl */ `
 uniform vec3 uSunDir;
 varying vec3 vNormal;
 varying vec3 vWorldPos;
 void main() {
   vec3 viewDir = normalize(cameraPosition - vWorldPos);
-  float fres = pow(1.0 - dot(vNormal, viewDir), 2.4);
+  // max(0, ...) clamp prevents overshoot when the view points
+  // through to the far side of the sphere — without it, alpha
+  // pinned to 1.0 across the whole back-face, which read as a
+  // hard band in the previous version.
+  float ndv = max(0.0, dot(vNormal, viewDir));
+  float fres = pow(1.0 - ndv, 1.8);
   float sun = max(0.0, dot(vNormal, normalize(uSunDir)));
-  vec3 cool = vec3(0.30, 0.62, 1.10);
+  vec3 cool = vec3(0.35, 0.68, 1.10);
   vec3 warm = vec3(0.95, 0.78, 0.60);
   vec3 col = mix(cool, warm, sun * 0.55);
-  gl_FragColor = vec4(col, fres * 1.35);
+  // Capped at 0.65 so additive blending with the outer halo
+  // stays under the saturation point.
+  gl_FragColor = vec4(col, fres * 0.65);
+}
+`
+
+// Outer halo — much wider sphere, soft long-tail fade into space.
+// This is the gradient the user wants — it falls off gradually
+// from the inner limb all the way to the outer atmosphere edge.
+const ATMOSPHERE_OUTER_FRAG = /* glsl */ `
+uniform vec3 uSunDir;
+varying vec3 vNormal;
+varying vec3 vWorldPos;
+void main() {
+  vec3 viewDir = normalize(cameraPosition - vWorldPos);
+  float ndv = max(0.0, dot(vNormal, viewDir));
+  // Softer fresnel exponent → wider gradient that smoothly
+  // tapers into transparent space.
+  float fres = pow(1.0 - ndv, 1.1);
+  float sun = max(0.0, dot(vNormal, normalize(uSunDir)));
+  vec3 cool = vec3(0.30, 0.55, 1.00);
+  vec3 warm = vec3(0.85, 0.65, 0.45);
+  vec3 col = mix(cool, warm, sun * 0.4);
+  // Very low max alpha so the long fade looks like atmospheric
+  // light scattering rather than a paint stroke.
+  gl_FragColor = vec4(col, fres * 0.28);
 }
 `
 
@@ -220,7 +257,14 @@ function Earth({
 
   const hasDayTexture = !!textures.day
 
-  const atmoUniforms = useMemo(
+  // Both atmosphere layers share the same sun-direction state, but
+  // each gets its own uniform object so the shaders don't pollute
+  // each other's GL state.
+  const atmoInnerUniforms = useMemo(
+    () => ({ uSunDir: { value: new THREE.Vector3(1, 0.25, 0.6).normalize() } }),
+    [],
+  )
+  const atmoOuterUniforms = useMemo(
     () => ({ uSunDir: { value: new THREE.Vector3(1, 0.25, 0.6).normalize() } }),
     [],
   )
@@ -240,7 +284,8 @@ function Earth({
   useFrame(() => {
     const sunDir = computeSunDirection(new Date())
     sunDirRef.current.copy(sunDir)
-    atmoUniforms.uSunDir.value.copy(sunDir)
+    atmoInnerUniforms.uSunDir.value.copy(sunDir)
+    atmoOuterUniforms.uSunDir.value.copy(sunDir)
     procUniforms.uSunDir.value.copy(sunDir)
     if (sunLightRef.current) {
       // Light far away in the sun direction so it acts directional.
@@ -278,13 +323,28 @@ function Earth({
           patchy lichen against the Blue Marble surface. Phase 4
           could integrate real-time cloud imagery if desired. */}
 
-      {/* Atmosphere always renders — pure shader, no dependencies. */}
+      {/* Two-layer atmosphere — inner bright halo at the lit limb,
+          outer wide halo that fades smoothly into space. Both
+          render on the back-face so the camera always sees the
+          rim of the sphere (the classic "Earth halo" technique). */}
       <mesh>
-        <sphereGeometry args={[ATMOSPHERE_RADIUS, 96, 96]} />
+        <sphereGeometry args={[ATMOSPHERE_INNER_RADIUS, 96, 96]} />
         <shaderMaterial
           vertexShader={ATMOSPHERE_VERT}
-          fragmentShader={ATMOSPHERE_FRAG}
-          uniforms={atmoUniforms}
+          fragmentShader={ATMOSPHERE_INNER_FRAG}
+          uniforms={atmoInnerUniforms}
+          transparent
+          side={THREE.BackSide}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </mesh>
+      <mesh>
+        <sphereGeometry args={[ATMOSPHERE_OUTER_RADIUS, 96, 96]} />
+        <shaderMaterial
+          vertexShader={ATMOSPHERE_VERT}
+          fragmentShader={ATMOSPHERE_OUTER_FRAG}
+          uniforms={atmoOuterUniforms}
           transparent
           side={THREE.BackSide}
           depthWrite={false}
