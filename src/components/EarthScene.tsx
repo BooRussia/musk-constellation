@@ -2,8 +2,10 @@ import { Suspense, useRef, useMemo, useEffect, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Stars as DreiStars } from '@react-three/drei'
 import * as THREE from 'three'
+import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import SatelliteCloud from './SatelliteCloud'
 import MapEarth from './MapEarth'
+import KeyboardCameraControls from './KeyboardCameraControls'
 import type { SatelliteEntry, ConstellationKey } from '../lib/tle'
 
 export type EarthViewMode = 'satellite' | 'map'
@@ -595,6 +597,10 @@ export default function EarthScene({
   const sunDirRef = useRef(new THREE.Vector3(1, 0.25, 0.6).normalize())
   const sunLightRef = useRef<THREE.DirectionalLight | null>(null)
 
+  // Ref to the OrbitControls instance so the keyboard handler can
+  // manipulate controls.target + the camera and call controls.update().
+  const controlsRef = useRef<OrbitControlsImpl>(null)
+
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -678,6 +684,7 @@ export default function EarthScene({
         />
 
         <OrbitControls
+          ref={controlsRef}
           enableDamping
           dampingFactor={0.06}
           minDistance={7}
@@ -686,6 +693,12 @@ export default function EarthScene({
           zoomSpeed={0.6}
           enablePan={false}
         />
+
+        {/* WASD/QE keyboard camera controls — orbits + zooms + pans the
+            camera around controls.target each frame. Mirrors the
+            constellation view; composes with the OrbitControls damping
+            above (both only touch camera.position + controls.target). */}
+        <KeyboardCameraControls controlsRef={controlsRef} />
       </Canvas>
 
       {loadStatus === 'fallback' && (

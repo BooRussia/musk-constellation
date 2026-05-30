@@ -277,6 +277,13 @@ export default function StarlinkView({ onBack }: Props) {
             />
           )}
         </AnimatePresence>
+
+        {/* Keyboard camera hints — desktop only, bottom-center so it
+            clears the bottom-left sidebar and the top-right pinned card.
+            Mirrors the constellation view's hints chrome. */}
+        <div className="starlink-kbd-hints">
+          W/S — up/down &nbsp;•&nbsp; A/D — orbit &nbsp;•&nbsp; Q/E — zoom &nbsp;•&nbsp; Arrows — pan
+        </div>
       </div>
 
       {/* Sidebar — constellation filters + live counts */}
