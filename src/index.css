@@ -2195,33 +2195,146 @@ body {
   }
 }
 
-/* Roadmap card — bottom-center, communicates "phase 1" so people
-   know more is coming. Removed in later phases. */
-.starlink-roadmap {
+/* Constellation sidebar — bottom-left dock with per-constellation
+   toggle rows, live counts, and source attribution. */
+.starlink-sidebar {
   position: absolute;
-  left: 50%;
-  bottom: 24px;
-  transform: translateX(-50%);
-  z-index: 20;
-  width: min(440px, calc(100vw - 32px));
-  padding: 12px 16px;
-  border-radius: 10px;
-  text-align: center;
+  left: 14px;
+  bottom: 14px;
+  z-index: 22;
+  width: 280px;
+  padding: 14px 14px 12px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  pointer-events: auto;
 }
 
-.starlink-roadmap-eyebrow {
-  margin: 0 0 4px;
+@media (max-width: 639px) {
+  .starlink-sidebar {
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    width: auto;
+  }
+}
+
+.starlink-sidebar-header {
+  margin-bottom: 10px;
+}
+
+.starlink-sidebar-eyebrow {
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 3px;
-  color: var(--accent);
+  color: rgba(255, 255, 255, 0.55);
 }
 
-.starlink-roadmap-body {
-  margin: 0;
+.starlink-sidebar-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.starlink-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.55);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.starlink-row:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.starlink-row--on {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+
+.starlink-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.starlink-row-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.starlink-row-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.starlink-row-label {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.1px;
+}
+
+.starlink-row-sublabel {
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.45);
+  letter-spacing: 0.2px;
+}
+
+.starlink-row-count {
+  font-family: var(--font-mono);
   font-size: 12px;
-  line-height: 1.45;
-  color: rgba(255, 255, 255, 0.7);
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.85);
+  letter-spacing: 0.5px;
+}
+
+.starlink-sidebar-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.starlink-sidebar-status {
+  margin: 0;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.65);
+  line-height: 1.4;
+}
+
+.starlink-sidebar-source {
+  margin: 0;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.3px;
+}
+
+.starlink-sidebar-source a {
+  color: rgba(120, 180, 255, 0.85);
+  text-decoration: none;
+}
+
+.starlink-sidebar-source a:hover {
+  color: #fff;
+  text-decoration: underline;
 }
 
 /* Loading screen while textures stream in from the CDN. */

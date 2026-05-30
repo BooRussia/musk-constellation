@@ -2,6 +2,8 @@ import { Suspense, useRef, useMemo, useEffect, useState } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, Stars as DreiStars } from '@react-three/drei'
 import * as THREE from 'three'
+import SatelliteCloud from './SatelliteCloud'
+import type { SatelliteEntry, ConstellationKey } from '../lib/tle'
 
 // ============================================
 // PHOTOREAL EARTH SCENE
@@ -169,6 +171,36 @@ void main() {
 `
 
 // ============================================
+// Real-time sun direction (ECEF)
+// ============================================
+// Sub-solar point at any UTC time: longitude where the sun is
+// directly overhead. At 12:00 UTC sun is at 0° (Greenwich). At
+// 00:00 UTC sun is at 180° (Pacific). Latitude approximated via
+// axial-tilt × sine of day-of-year.
+function computeSunDirection(now: Date): THREE.Vector3 {
+  const utcHours = now.getUTCHours() + now.getUTCMinutes() / 60 + now.getUTCSeconds() / 3600
+  // Sub-solar longitude in radians (positive west since sun
+  // "moves" west as Earth spins east).
+  const lonRad = -((utcHours - 12) / 24) * 2 * Math.PI
+
+  // Day-of-year approximation for axial-tilt latitude offset.
+  const start = Date.UTC(now.getUTCFullYear(), 0, 0)
+  const dayOfYear = (now.getTime() - start) / (1000 * 60 * 60 * 24)
+  const TILT_DEG = 23.44
+  // Solar declination — angle of sub-solar point from equator.
+  const declRad = (TILT_DEG * Math.PI / 180) * Math.sin(2 * Math.PI * (dayOfYear - 81) / 365)
+
+  // Lat/Lon to unit vector in geographic frame.
+  const cosLat = Math.cos(declRad)
+  const x = cosLat * Math.cos(lonRad)
+  const y = cosLat * Math.sin(lonRad)
+  const z = Math.sin(declRad)
+  // Same axis-remap as SatelliteCloud: ECEF (x, y, z) → scene
+  // (x, z, -y). Keeps sun, Earth, and satellites coordinated.
+  return new THREE.Vector3(x, z, -y).normalize()
+}
+
+// ============================================
 // EARTH (textured if loaded, procedural fallback otherwise)
 // ============================================
 interface LoadedTextures {
@@ -178,25 +210,49 @@ interface LoadedTextures {
   clouds: THREE.Texture | null
 }
 
-function Earth({ textures, sunDir }: { textures: LoadedTextures; sunDir: THREE.Vector3 }) {
+function Earth({
+  textures,
+  sunDirRef,
+  sunLightRef,
+}: {
+  textures: LoadedTextures
+  sunDirRef: React.MutableRefObject<THREE.Vector3>
+  sunLightRef: React.RefObject<THREE.DirectionalLight | null>
+}) {
   const earthRef = useRef<THREE.Mesh>(null)
   const cloudsRef = useRef<THREE.Mesh>(null)
 
   const hasDayTexture = !!textures.day
 
   const atmoUniforms = useMemo(
-    () => ({ uSunDir: { value: sunDir.clone() } }),
-    [sunDir],
+    () => ({ uSunDir: { value: new THREE.Vector3(1, 0.25, 0.6).normalize() } }),
+    [],
   )
 
   const procUniforms = useMemo(
-    () => ({ uSunDir: { value: sunDir.clone() } }),
-    [sunDir],
+    () => ({ uSunDir: { value: new THREE.Vector3(1, 0.25, 0.6).normalize() } }),
+    [],
   )
 
+  // Per-frame: update sun direction from real UTC, point the
+  // directional light at Earth from the new sun direction, and
+  // propagate the same vector into both shaders. Earth does NOT
+  // auto-rotate — the scene is in ECEF, so the Earth is "fixed"
+  // and the sun position rotates over time instead. This is also
+  // what makes the satellite ECF positions land over the right
+  // continents.
   useFrame((_, delta) => {
-    if (earthRef.current) earthRef.current.rotation.y += delta * 0.026
-    if (cloudsRef.current) cloudsRef.current.rotation.y += delta * 0.032
+    const sunDir = computeSunDirection(new Date())
+    sunDirRef.current.copy(sunDir)
+    atmoUniforms.uSunDir.value.copy(sunDir)
+    procUniforms.uSunDir.value.copy(sunDir)
+    if (sunLightRef.current) {
+      // Light far away in the sun direction so it acts directional.
+      sunLightRef.current.position.copy(sunDir).multiplyScalar(50)
+    }
+    // Clouds get a gentle cosmetic drift so the scene doesn't read
+    // as fully static. Not tied to real cloud motion.
+    if (cloudsRef.current) cloudsRef.current.rotation.y += delta * 0.012
   })
 
   return (
@@ -257,7 +313,15 @@ function Earth({ textures, sunDir }: { textures: LoadedTextures; sunDir: THREE.V
 // ============================================
 // SCENE — loads textures imperatively + renders
 // ============================================
-export default function EarthScene() {
+interface EarthSceneProps {
+  satellites?: SatelliteEntry[]
+  enabledConstellations?: Set<ConstellationKey>
+}
+
+export default function EarthScene({
+  satellites,
+  enabledConstellations,
+}: EarthSceneProps) {
   const [textures, setTextures] = useState<LoadedTextures>({
     day: null,
     normal: null,
@@ -266,7 +330,11 @@ export default function EarthScene() {
   })
   const [loadStatus, setLoadStatus] = useState<'loading' | 'done' | 'fallback'>('loading')
 
-  const sunDir = useMemo(() => new THREE.Vector3(1, 0.25, 0.6).normalize(), [])
+  // Shared sun-direction state. Initialized to a sensible angle so
+  // the first frame isn't dead-dark; the useFrame in <Earth /> then
+  // updates it from real UTC each render tick.
+  const sunDirRef = useRef(new THREE.Vector3(1, 0.25, 0.6).normalize())
+  const sunLightRef = useRef<THREE.DirectionalLight | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -281,7 +349,7 @@ export default function EarthScene() {
       setTextures({ day, normal, night, clouds })
       setLoadStatus(day ? 'done' : 'fallback')
       if (!day) {
-        console.warn('[EarthScene] All CDN textures failed — falling back to procedural Earth')
+        console.warn('[EarthScene] All texture loads failed — falling back to procedural Earth')
       }
     })()
     return () => {
@@ -303,12 +371,30 @@ export default function EarthScene() {
         <color attach="background" args={['#020208']} />
 
         <ambientLight intensity={0.08} color="#7080a0" />
-        <directionalLight position={[24, 6, 14]} intensity={2.4} color="#fff7d6" />
+        {/* Sun — positioned per-frame from computeSunDirection so the
+            day/night terminator on the Earth matches real UTC time. */}
+        <directionalLight
+          ref={sunLightRef}
+          intensity={2.4}
+          color="#fff7d6"
+        />
+        {/* Faint rim-fill so the night hemisphere isn't dead black. */}
         <directionalLight position={[-18, -4, -10]} intensity={0.12} color="#445080" />
 
         <Suspense fallback={null}>
-          <Earth textures={textures} sunDir={sunDir} />
+          <Earth
+            textures={textures}
+            sunDirRef={sunDirRef}
+            sunLightRef={sunLightRef}
+          />
         </Suspense>
+
+        {satellites && satellites.length > 0 && (
+          <SatelliteCloud
+            satellites={satellites}
+            enabledConstellations={enabledConstellations}
+          />
+        )}
 
         <DreiStars
           radius={350}
@@ -331,9 +417,6 @@ export default function EarthScene() {
         />
       </Canvas>
 
-      {/* Status overlay — only shown briefly while loading or
-          when we had to fall back. Helps the user understand
-          what's happening. */}
       {loadStatus === 'fallback' && (
         <div className="earth-fallback-note">
           Loading photoreal textures from CDN failed — rendering procedural Earth instead.
