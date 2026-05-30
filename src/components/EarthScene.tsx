@@ -173,23 +173,55 @@ void main() {
   // contrast but still reads as space.
   vec3 col = vec3(0.011, 0.013, 0.026);
 
-  // Milky Way: bright haze concentrated along a tilted great circle.
-  vec3 bandN = normalize(vec3(0.30, 1.0, 0.20));
-  float d = dot(dir, bandN);
-  float band = exp(-d * d * 6.0);
-  float clouds = fbm(dir * 5.0 + 7.0);
-  clouds = clouds * clouds;
-  float mw = band * (0.45 + 0.55 * clouds);
-  vec3 mwCol = mix(vec3(0.26, 0.29, 0.42), vec3(0.55, 0.49, 0.42), clouds);
-  col += mwCol * mw * 0.38;
+  // ============================================
+  // MILKY WAY — a defined galactic band across the sky.
+  // ============================================
+  // Plane the band wraps around, and the direction of the bright
+  // galactic-centre bulge (a point lying in that band).
+  vec3 bandN = normalize(vec3(0.32, 1.0, 0.22));
+  float d = dot(dir, bandN);                       // 0 = on the band
+  vec3 coreDir = normalize(vec3(0.74, -0.18, -0.62));
+  float core = max(0.0, dot(dir, coreDir));
+
+  // A bright defined core stripe (~±20°) plus a narrow faint halo.
+  float bandTight = exp(-d * d * 18.0);
+  float bandWide  = exp(-d * d * 5.0);
+
+  // Mottled cloud structure along the band (the unresolved star haze) —
+  // finer frequency reads as more detailed, defined cloudbanks.
+  float clouds = fbm(dir * 6.0 + 9.0);
+  clouds = pow(clamp(clouds, 0.0, 1.0), 1.3);
+
+  // Dark dust lanes — fine rifts carving through the band, the signature
+  // Milky Way silhouette detail. Strong so the band looks structured.
+  float dust = fbm(dir * 9.0 - 4.0);
+  float lane = smoothstep(0.38, 0.68, dust);
+
+  // Bright galactic-centre bulge — TIGHT and concentrated at coreDir so
+  // it's a glowing knot, not a half-sky haze.
+  float bulge = exp(-d * d * 14.0) * pow(core, 8.0);
+
+  // Assemble: a defined, cloud-structured core stripe carved by dust
+  // lanes, a tiny wide halo, and a tight bulge. Brightness concentrated
+  // in the narrow stripe so it reads as a band, not a fog.
+  float mw = bandWide * 0.05 + bandTight * (0.30 + 1.05 * clouds);
+  mw *= (1.0 - 0.85 * lane);
+  mw += bulge * 0.70;
+  mw = max(mw, 0.0);
+
+  // Colour: cool silver-blue arms, warming to gold ONLY at the tight
+  // galactic centre (keeps the arms from going muddy brown).
+  float warm = clamp(bulge * 2.0, 0.0, 1.0);
+  vec3 mwCol = mix(vec3(0.48, 0.55, 0.74), vec3(0.98, 0.84, 0.60), warm);
+  col += mwCol * mw * 0.55;
 
   // One clean nebula, masked to a single background region so it reads
   // as "off in the distance" rather than smeared across the whole sky.
   float nb = fbm(dir * 2.4 - 19.0);
   float region = smoothstep(0.05, 0.92, dot(dir, normalize(vec3(-0.65, 0.15, 0.74))));
-  float neb = smoothstep(0.40, 0.95, nb) * region;
-  vec3 nebCol = mix(vec3(0.12, 0.30, 0.52), vec3(0.40, 0.14, 0.46), smoothstep(0.5, 1.0, nb));
-  col += nebCol * neb * 0.32;
+  float neb = smoothstep(0.42, 0.95, nb) * region;
+  vec3 nebCol = mix(vec3(0.12, 0.30, 0.52), vec3(0.42, 0.15, 0.48), smoothstep(0.5, 1.0, nb));
+  col += nebCol * neb * 0.30;
 
   gl_FragColor = vec4(col, 1.0);
 }
