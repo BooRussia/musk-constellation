@@ -108,7 +108,7 @@ export default function StarlinkView({ onBack }: Props) {
   const [legendOpen, setLegendOpen] = useState(LEGEND_DEFAULT_OPEN)
   // Auto-rotation of the globe + which speed preset is active (on by default).
   const [autoRotate, setAutoRotate] = useState(true)
-  const [rotateSpeedIdx, setRotateSpeedIdx] = useState(1) // 1× default
+  const [rotateSpeedIdx, setRotateSpeedIdx] = useState(0) // 0.5× default
   // Country + US-state border overlay (works on any map; on by default).
   const [borders, setBorders] = useState(true)
   // Lon/lat graticule overlay (works on any map).
