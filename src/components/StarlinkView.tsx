@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, Globe, Map as MapIcon, Satellite, Sun, X } from 'lucide-react'
+import { ArrowLeft, ChevronDown, Globe, Map as MapIcon, Satellite, Sun, X } from 'lucide-react'
 import {
   fetchAllConstellations,
   CONSTELLATIONS,
@@ -22,6 +22,12 @@ import MapStylePicker from './MapStylePicker'
 const EarthScene = lazy(() => import('./EarthScene'))
 
 type ViewMode = 'satellite' | 'map'
+
+// Default the constellation legend open on desktop, collapsed on phones
+// (where it would otherwise cover most of the screen). Read once at module
+// load so it's not a render-time side effect.
+const LEGEND_DEFAULT_OPEN =
+  typeof window === 'undefined' ? true : window.innerWidth > 639
 
 /** Earth scene errors fall back here instead of black-screening. */
 class EarthErrorBoundary extends React.Component<
@@ -92,6 +98,9 @@ export default function StarlinkView({ onBack }: Props) {
   // Day/night cycle. Off = full sun: the whole planet is evenly lit with
   // no cast terminator shadow.
   const [dayCycle, setDayCycle] = useState(true)
+  // Constellation legend collapse (mainly for mobile, where it covers the
+  // globe). Collapsed shows just the tappable header bar.
+  const [legendOpen, setLegendOpen] = useState(LEGEND_DEFAULT_OPEN)
 
   // Fetch TLEs on mount. Stays alive in sessionStorage for 2 hours
   // so a tab reload doesn't refetch.
@@ -396,37 +405,58 @@ export default function StarlinkView({ onBack }: Props) {
         </div>
       </div>
 
-      {/* Sidebar — constellation filters + live counts */}
-      <aside className="starlink-sidebar glass panel">
-        <header className="starlink-sidebar-header">
+      {/* Sidebar — constellation filters + live counts. Collapsible
+          (tap the header) so it doesn't cover the globe on phones. */}
+      <aside
+        className={`starlink-sidebar glass panel ${legendOpen ? '' : 'starlink-sidebar--collapsed'}`}
+      >
+        <button
+          type="button"
+          className="starlink-sidebar-header"
+          onClick={() => setLegendOpen((o) => !o)}
+          aria-expanded={legendOpen}
+          aria-label={legendOpen ? 'Collapse constellation legend' : 'Expand constellation legend'}
+        >
           <span className="starlink-sidebar-eyebrow">CONSTELLATIONS</span>
-        </header>
+          <ChevronDown
+            className={`starlink-sidebar-chevron h-4 w-4 ${legendOpen ? 'is-open' : ''}`}
+            aria-hidden="true"
+          />
+        </button>
 
-        <ul className="starlink-sidebar-list">
-          {CONSTELLATIONS.map((m) => (
-            <ConstellationRow
-              key={m.key}
-              label={m.label}
-              sublabel={m.sublabel}
-              count={counts[m.key]}
-              color={m.color}
-              active={enabledConstellations.has(m.key)}
-              onToggle={() => toggleConstellation(m.key)}
-            />
-          ))}
-        </ul>
+        <motion.div
+          className="starlink-sidebar-body"
+          initial={false}
+          animate={{ height: legendOpen ? 'auto' : 0, opacity: legendOpen ? 1 : 0 }}
+          transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
+          style={{ overflow: 'hidden' }}
+        >
+          <ul className="starlink-sidebar-list">
+            {CONSTELLATIONS.map((m) => (
+              <ConstellationRow
+                key={m.key}
+                label={m.label}
+                sublabel={m.sublabel}
+                count={counts[m.key]}
+                color={m.color}
+                active={enabledConstellations.has(m.key)}
+                onToggle={() => toggleConstellation(m.key)}
+              />
+            ))}
+          </ul>
 
-        <footer className="starlink-sidebar-footer">
-          <p className="starlink-sidebar-status">
-            {loadState === 'loading' && 'Pulling fresh TLE data from CelesTrak…'}
-            {loadState === 'ready' && `Tracking ${satellites.length.toLocaleString()} sats live`}
-            {loadState === 'partial' && `${satellites.length.toLocaleString()} sats live · ${errorMsg}`}
-            {loadState === 'error' && (errorMsg || 'No TLE data available')}
-          </p>
-          <p className="starlink-sidebar-source">
-            Source: <a href="https://celestrak.org" target="_blank" rel="noopener noreferrer">CelesTrak</a> · SGP4 propagation · Refresh every 2h
-          </p>
-        </footer>
+          <footer className="starlink-sidebar-footer">
+            <p className="starlink-sidebar-status">
+              {loadState === 'loading' && 'Pulling fresh TLE data from CelesTrak…'}
+              {loadState === 'ready' && `Tracking ${satellites.length.toLocaleString()} sats live`}
+              {loadState === 'partial' && `${satellites.length.toLocaleString()} sats live · ${errorMsg}`}
+              {loadState === 'error' && (errorMsg || 'No TLE data available')}
+            </p>
+            <p className="starlink-sidebar-source">
+              Source: <a href="https://celestrak.org" target="_blank" rel="noopener noreferrer">CelesTrak</a> · SGP4 propagation · Refresh every 2h
+            </p>
+          </footer>
+        </motion.div>
       </aside>
     </div>
   )

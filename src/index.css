@@ -2295,11 +2295,46 @@ body {
     right: 10px;
     bottom: 10px;
     width: auto;
+    /* Header sits at the bottom as the tap bar; the list expands UP
+       above it so the bar never jumps when toggling. */
+    display: flex;
+    flex-direction: column-reverse;
+  }
+  .starlink-sidebar-header {
+    margin-bottom: 0;
+  }
+  /* Gap between the expanded body and the header bar below it. */
+  .starlink-sidebar:not(.starlink-sidebar--collapsed) .starlink-sidebar-body {
+    margin-bottom: 10px;
   }
 }
 
+/* Header is now a tappable toggle (collapse/expand the legend). */
 .starlink-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
   margin-bottom: 10px;
+  padding: 2px 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.starlink-sidebar-chevron {
+  color: rgba(255, 255, 255, 0.5);
+  transition: transform 0.25s ease, color 0.15s ease;
+  flex: 0 0 auto;
+}
+.starlink-sidebar-header:hover .starlink-sidebar-chevron {
+  color: rgba(255, 255, 255, 0.85);
+}
+/* Open = chevron up (tap to collapse); collapsed = down (tap to expand). */
+.starlink-sidebar-chevron.is-open {
+  transform: rotate(180deg);
 }
 
 .starlink-sidebar-eyebrow {
