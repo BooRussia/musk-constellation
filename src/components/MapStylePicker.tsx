@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Check, ChevronDown, Layers } from 'lucide-react'
+import { Check, ChevronDown, Image as ImageIcon } from 'lucide-react'
 import { MAP_STYLES, getMapStyle } from '../data/mapStyles'
 
 interface Props {
@@ -56,7 +56,7 @@ export default function MapStylePicker({ value, onChange, disabled }: Props) {
             : 'Swap the planet map'
         }
       >
-        <Layers className="h-3.5 w-3.5" aria-hidden="true" />
+        <ImageIcon className="h-3.5 w-3.5" aria-hidden="true" />
         <span className="mapstyle-trigger-label">{current.label}</span>
         <ChevronDown className="mapstyle-trigger-chevron h-3.5 w-3.5" aria-hidden="true" />
       </button>

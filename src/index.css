@@ -2691,6 +2691,170 @@ body {
   color: #9bb4ff;
 }
 
+/* ============================================
+   Layers menu — overlays + display toggles
+   ============================================ */
+.layers {
+  position: relative;
+}
+.layers-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.layers-trigger:hover,
+.layers-trigger--open {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.78);
+}
+.layers-trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.layers-badge {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: rgba(120, 160, 255, 0.85);
+  color: #07101f;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 16px;
+  text-align: center;
+}
+.layers-chevron {
+  opacity: 0.6;
+  transition: transform 0.18s ease;
+}
+.layers-trigger--open .layers-chevron {
+  transform: rotate(180deg);
+}
+
+.layers-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 40;
+  width: 232px;
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 12, 22, 0.94);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+.layers-section-title {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+  padding: 8px 8px 4px;
+}
+.layers-section-title:first-child {
+  padding-top: 2px;
+}
+.layers-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.78);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.layers-row:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+.layers-row--on {
+  color: #fff;
+}
+.layers-row-icon {
+  flex: 0 0 auto;
+  opacity: 0.85;
+}
+.layers-row-label {
+  flex: 1 1 auto;
+  font-size: 12px;
+  font-weight: 600;
+}
+/* iOS-style toggle */
+.layers-switch {
+  flex: 0 0 auto;
+  position: relative;
+  width: 32px;
+  height: 18px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.16);
+  transition: background 0.16s ease;
+}
+.layers-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.16s ease;
+}
+.layers-switch.is-on {
+  background: rgba(120, 160, 255, 0.9);
+}
+.layers-switch.is-on::after {
+  transform: translateX(14px);
+}
+.layers-speed-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: 2px;
+  padding: 7px 8px 7px 34px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.layers-speed-row:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+.layers-speed-label {
+  font-size: 11px;
+}
+.layers-speed-val {
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #9bb4ff;
+}
+
 /* Collapse the top-right control labels to icons on narrower screens so
    the topnav doesn't crowd / wrap the brand. */
 @media (max-width: 1100px) {
@@ -2698,7 +2862,7 @@ body {
     gap: 12px;
   }
   .mapstyle-trigger-label,
-  .starlink-fullsun-label {
+  .layers-trigger-label {
     display: none;
   }
   /* Drop the eyebrow on narrower screens — the title alone is enough. */

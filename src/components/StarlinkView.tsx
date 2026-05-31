@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, ChevronDown, Globe, Grid3x3, Map as MapIcon, Rocket, RotateCw, Satellite, Spline, Sun, X } from 'lucide-react'
+import { ArrowLeft, ChevronDown, Globe, Map as MapIcon, Satellite, X } from 'lucide-react'
 import {
   fetchAllConstellations,
   CONSTELLATIONS,
@@ -18,6 +18,7 @@ import SatelliteTooltip from './SatelliteTooltip'
 import { trailColorAt } from '../lib/trailColors'
 import { PHOTOREAL_STYLE } from '../data/mapStyles'
 import MapStylePicker from './MapStylePicker'
+import LayersMenu from './LayersMenu'
 
 const EarthScene = lazy(() => import('./EarthScene'))
 
@@ -298,29 +299,28 @@ export default function StarlinkView({ onBack }: Props) {
         </div>
 
         <div className="starlink-topright">
-          {/* Full-sun toggle — turns OFF the day/night cycle so the
-              planet is evenly lit all the way around (no cast shadow). */}
-          <button
-            type="button"
-            className={`starlink-fullsun ${!dayCycle ? 'starlink-fullsun--on' : ''}`}
-            onClick={() => setDayCycle((d) => !d)}
-            aria-pressed={!dayCycle}
-            title={
-              dayCycle
-                ? 'Full sun — light the whole planet (turn off the day/night shadow)'
-                : 'Day/night cycle — real-time terminator'
-            }
-          >
-            <Sun className="h-3.5 w-3.5" aria-hidden="true" />
-            <span className="starlink-fullsun-label">Full sun</span>
-          </button>
-
           {/* Map-style picker — drops a column of thumbnail previews down
               the right side. Only affects the Satellite globe. */}
           <MapStylePicker
             value={mapStyleId}
             onChange={setMapStyleId}
             disabled={viewMode === 'map'}
+          />
+
+          {/* Layers menu — all overlay + display toggles in one dropdown. */}
+          <LayersMenu
+            borders={borders}
+            onBorders={() => setBorders((b) => !b)}
+            graticule={graticule}
+            onGraticule={() => setGraticule((g) => !g)}
+            launchSites={launchSites}
+            onLaunchSites={() => setLaunchSites((s) => !s)}
+            fullSun={!dayCycle}
+            onFullSun={() => setDayCycle((d) => !d)}
+            autoRotate={autoRotate}
+            onAutoRotate={() => setAutoRotate((r) => !r)}
+            speedLabel={ROTATE_SPEEDS[rotateSpeedIdx].label}
+            onCycleSpeed={() => setRotateSpeedIdx((i) => (i + 1) % ROTATE_SPEEDS.length)}
           />
           <div className="starlink-status">
             <Satellite className="h-3 w-3" aria-hidden="true" />
@@ -424,63 +424,6 @@ export default function StarlinkView({ onBack }: Props) {
             Mirrors the constellation view's hints chrome. */}
         <div className="starlink-kbd-hints">
           W/S — up/down &nbsp;•&nbsp; A/D — orbit &nbsp;•&nbsp; Q/E — zoom &nbsp;•&nbsp; Arrows — pan
-        </div>
-
-        {/* Globe view controls — grid + borders overlays, auto-rotate. */}
-        <div className="starlink-rotate">
-          <button
-            type="button"
-            className={`starlink-rotate-btn ${graticule ? 'starlink-rotate-btn--on' : ''}`}
-            onClick={() => setGraticule((g) => !g)}
-            aria-pressed={graticule}
-            title="Toggle lat/long grid"
-          >
-            <Grid3x3 className="h-3.5 w-3.5" aria-hidden="true" />
-            <span className="starlink-rotate-label">Grid</span>
-          </button>
-          <button
-            type="button"
-            className={`starlink-rotate-btn ${borders ? 'starlink-rotate-btn--on' : ''}`}
-            onClick={() => setBorders((b) => !b)}
-            aria-pressed={borders}
-            title="Toggle country + US state borders"
-          >
-            <Spline className="h-3.5 w-3.5" aria-hidden="true" />
-            <span className="starlink-rotate-label">Borders</span>
-          </button>
-          <button
-            type="button"
-            className={`starlink-rotate-btn ${launchSites ? 'starlink-rotate-btn--on' : ''}`}
-            onClick={() => setLaunchSites((s) => !s)}
-            aria-pressed={launchSites}
-            title="Toggle rocket launch sites"
-          >
-            <Rocket className="h-3.5 w-3.5" aria-hidden="true" />
-            <span className="starlink-rotate-label">Launch sites</span>
-          </button>
-          <button
-            type="button"
-            className={`starlink-rotate-btn ${autoRotate ? 'starlink-rotate-btn--on' : ''}`}
-            onClick={() => setAutoRotate((r) => !r)}
-            aria-pressed={autoRotate}
-            title={autoRotate ? 'Stop auto-rotation' : 'Auto-rotate the globe'}
-          >
-            <RotateCw
-              className={`starlink-rotate-icon h-3.5 w-3.5 ${autoRotate ? 'is-spinning' : ''}`}
-              aria-hidden="true"
-            />
-            <span className="starlink-rotate-label">Auto-rotate</span>
-          </button>
-          <button
-            type="button"
-            className="starlink-rotate-speed"
-            onClick={() => setRotateSpeedIdx((i) => (i + 1) % ROTATE_SPEEDS.length)}
-            disabled={!autoRotate}
-            title="Rotation speed"
-            aria-label={`Rotation speed ${ROTATE_SPEEDS[rotateSpeedIdx].label}`}
-          >
-            {ROTATE_SPEEDS[rotateSpeedIdx].label}
-          </button>
         </div>
       </div>
 
