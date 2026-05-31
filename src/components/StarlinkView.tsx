@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, ChevronDown, Globe, Map as MapIcon, Satellite, X } from 'lucide-react'
+import { ArrowLeft, ChevronDown, Satellite, X } from 'lucide-react'
 import {
   fetchAllConstellations,
   CONSTELLATIONS,
@@ -21,8 +21,6 @@ import MapStylePicker from './MapStylePicker'
 import LayersMenu from './LayersMenu'
 
 const EarthScene = lazy(() => import('./EarthScene'))
-
-type ViewMode = 'satellite' | 'map'
 
 // Default the constellation legend open on desktop, collapsed on phones
 // (where it would otherwise cover most of the screen). Read once at module
@@ -96,10 +94,6 @@ export default function StarlinkView({ onBack }: Props) {
   const [enabledConstellations, setEnabledConstellations] = useState<Set<ConstellationKey>>(
     () => new Set(DEFAULT_ENABLED_CONSTELLATIONS),
   )
-  // View mode: 'satellite' shows the photoreal textured Earth (default);
-  // 'map' swaps in a stylized flat political-map style sphere — mirrors
-  // Google Maps' Satellite / Map toggle.
-  const [viewMode, setViewMode] = useState<ViewMode>('satellite')
   // Selected map style (planet skin). Swaps the day/albedo texture on the
   // photoreal globe — see src/data/mapStyles.ts (auto-discovers any image
   // dropped into src/assets/map-styles/).
@@ -269,43 +263,11 @@ export default function StarlinkView({ onBack }: Props) {
           <h1 className="starlink-title">Orbital Constellation</h1>
         </div>
 
-        {/* View-mode toggle — Google Maps style segmented control.
-            Switches the Earth sphere between photoreal (Satellite)
-            and stylized flat political map (Map). Atmosphere, sats,
-            and stars persist in both. */}
-        <div
-          className="starlink-viewmode"
-          role="group"
-          aria-label="Earth view mode"
-        >
-          <button
-            type="button"
-            className={`starlink-viewmode-btn ${viewMode === 'satellite' ? 'starlink-viewmode-btn--on' : ''}`}
-            onClick={() => setViewMode('satellite')}
-            aria-pressed={viewMode === 'satellite'}
-          >
-            <Globe className="h-3 w-3" aria-hidden="true" />
-            <span>Satellite</span>
-          </button>
-          <button
-            type="button"
-            className={`starlink-viewmode-btn ${viewMode === 'map' ? 'starlink-viewmode-btn--on' : ''}`}
-            onClick={() => setViewMode('map')}
-            aria-pressed={viewMode === 'map'}
-          >
-            <MapIcon className="h-3 w-3" aria-hidden="true" />
-            <span>Map</span>
-          </button>
-        </div>
-
         <div className="starlink-topright">
           {/* Map-style picker — drops a column of thumbnail previews down
-              the right side. Only affects the Satellite globe. */}
-          <MapStylePicker
-            value={mapStyleId}
-            onChange={setMapStyleId}
-            disabled={viewMode === 'map'}
-          />
+              the right side. Picks the globe skin, including the dark
+              procedural "Dark Map". */}
+          <MapStylePicker value={mapStyleId} onChange={setMapStyleId} />
 
           {/* Layers menu — all overlay + display toggles in one dropdown. */}
           <LayersMenu
@@ -338,7 +300,6 @@ export default function StarlinkView({ onBack }: Props) {
             <EarthScene
               satellites={satellites}
               enabledConstellations={enabledConstellations}
-              viewMode={viewMode}
               selectedSatellites={selectedEntries}
               mapStyleId={mapStyleId}
               dayCycle={dayCycle}

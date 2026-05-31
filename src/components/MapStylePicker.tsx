@@ -6,8 +6,6 @@ import { MAP_STYLES, getMapStyle } from '../data/mapStyles'
 interface Props {
   value: string
   onChange: (id: string) => void
-  /** Disabled in Map view (the style only affects the Satellite globe). */
-  disabled?: boolean
 }
 
 /**
@@ -17,7 +15,7 @@ interface Props {
  * Thumbnails reuse each style's own equirectangular image (the photoreal
  * 8K is already cached by the 3D scene, so there's no extra load).
  */
-export default function MapStylePicker({ value, onChange, disabled }: Props) {
+export default function MapStylePicker({ value, onChange }: Props) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const current = getMapStyle(value)
@@ -39,22 +37,15 @@ export default function MapStylePicker({ value, onChange, disabled }: Props) {
     }
   }, [open])
 
-  // When disabled (Map view) the menu is hidden by the render guard
-  // below, so no explicit close effect is needed.
   return (
     <div className="mapstyle" ref={ref}>
       <button
         type="button"
         className={`mapstyle-trigger ${open ? 'mapstyle-trigger--open' : ''}`}
         onClick={() => setOpen((o) => !o)}
-        disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
-        title={
-          disabled
-            ? 'Switch to Satellite view to change the planet skin'
-            : 'Swap the planet map'
-        }
+        title="Swap the planet map"
       >
         <ImageIcon className="h-3.5 w-3.5" aria-hidden="true" />
         <span className="mapstyle-trigger-label">{current.label}</span>
@@ -62,7 +53,7 @@ export default function MapStylePicker({ value, onChange, disabled }: Props) {
       </button>
 
       <AnimatePresence>
-        {open && !disabled && (
+        {open && (
           <motion.ul
             key="menu"
             className="mapstyle-menu"

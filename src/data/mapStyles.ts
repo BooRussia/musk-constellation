@@ -21,6 +21,12 @@ export interface MapStyle {
   /** Day-side brightness multiplier (stylized maps). Default ~1.3; bump
    *  for darker uploads so they're easy to make out. */
   brightness?: number
+  /**
+   * 'texture' (default) = render the textured photoreal/stylized globe.
+   * 'map' = render the procedural dark Map globe (MapEarth) instead;
+   * dayUrl is then just the dropdown thumbnail.
+   */
+  kind?: 'texture' | 'map'
 }
 
 const BASE = import.meta.env.BASE_URL
@@ -31,6 +37,15 @@ export const PHOTOREAL_STYLE: MapStyle = {
   label: 'Photoreal Earth',
   dayUrl: `${BASE}textures/planets/earth_day_8k.jpg`,
   stylized: false,
+}
+
+/** The procedural dark Map globe (dark ocean, glowing coastlines). */
+export const DARK_MAP_STYLE: MapStyle = {
+  id: 'darkmap',
+  label: 'Dark Map',
+  dayUrl: `${BASE}textures/planets/darkmap-thumb.jpg`,
+  stylized: false,
+  kind: 'map',
 }
 
 // Per-file overrides keyed by the base filename (without extension). Use
@@ -80,7 +95,7 @@ const droppedStyles: MapStyle[] = Object.entries(discovered)
   .sort((a, b) => a.label.localeCompare(b.label))
 
 /** All selectable styles — photoreal first, then dropped-in styles A→Z. */
-export const MAP_STYLES: MapStyle[] = [PHOTOREAL_STYLE, ...droppedStyles]
+export const MAP_STYLES: MapStyle[] = [PHOTOREAL_STYLE, DARK_MAP_STYLE, ...droppedStyles]
 
 export function getMapStyle(id: string | undefined): MapStyle {
   return MAP_STYLES.find((s) => s.id === id) ?? PHOTOREAL_STYLE

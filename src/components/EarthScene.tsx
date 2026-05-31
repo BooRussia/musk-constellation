@@ -14,8 +14,6 @@ import LaunchSites from './LaunchSites'
 import type { SatelliteEntry, ConstellationKey } from '../lib/tle'
 import { getMapStyle } from '../data/mapStyles'
 
-export type EarthViewMode = 'satellite' | 'map'
-
 // ============================================
 // PHOTOREAL EARTH SCENE
 // ============================================
@@ -892,17 +890,10 @@ function Earth({
 interface EarthSceneProps {
   satellites?: SatelliteEntry[]
   enabledConstellations?: Set<ConstellationKey>
-  /**
-   * View mode: 'satellite' (default) renders the photoreal textured Earth;
-   * 'map' renders a stylized flat political-map style Earth. The
-   * atmosphere halo, satellite cloud, and starfield stay visible in
-   * both modes — only the Earth sphere swaps.
-   */
-  viewMode?: EarthViewMode
   /** Selected sats to draw orbit trails for (in selection order). */
   selectedSatellites?: SatelliteEntry[]
-  /** Selected map-style id (see src/data/mapStyles.ts) — swaps the
-   *  day/albedo texture on the photoreal globe. */
+  /** Selected map-style id (see src/data/mapStyles.ts) — picks the globe
+   *  skin (photoreal / stylized / the procedural Dark Map). */
   mapStyleId?: string
   /** Day/night cycle. false = full sun (no terminator shadow, the
    *  planet is evenly illuminated all the way around). */
@@ -922,7 +913,6 @@ interface EarthSceneProps {
 export default function EarthScene({
   satellites,
   enabledConstellations,
-  viewMode = 'satellite',
   selectedSatellites,
   mapStyleId,
   dayCycle = true,
@@ -1038,15 +1028,20 @@ export default function EarthScene({
         <directionalLight position={[-18, -4, -10]} intensity={0.14} color="#445080" />
 
         {/* Sun driver is always mounted so the day/night terminator
-            stays live in BOTH view modes. Earth's surface shader
-            (Satellite) and MapEarth (unshaded flat map) swap
-            underneath. The full blue atmosphere halo was removed (it
-            washed out satellite contrast); LimbGlow restores just a
-            thin sun-gated crescent of light at the edge. */}
+            stays live for every globe skin. The textured Earth shader
+            and the procedural MapEarth (unshaded flat dark map) swap
+            underneath based on the selected map style. The full blue
+            atmosphere halo was removed (it washed out satellite
+            contrast); LimbGlow restores just a thin sun-gated crescent
+            of light at the edge. */}
         <SunDriver sunDirRef={sunDirRef} sunLightRef={sunLightRef} />
         <LimbGlow sunDirRef={sunDirRef} fullLit={fullLit} />
 
-        {viewMode === 'satellite' ? (
+        {style.kind === 'map' ? (
+          <Suspense fallback={null}>
+            <MapEarth />
+          </Suspense>
+        ) : (
           <Suspense fallback={null}>
             <Earth
               textures={textures}
@@ -1056,10 +1051,6 @@ export default function EarthScene({
               styleBright={style.brightness ?? 1.3}
               fullLit={fullLit}
             />
-          </Suspense>
-        ) : (
-          <Suspense fallback={null}>
-            <MapEarth />
           </Suspense>
         )}
 
