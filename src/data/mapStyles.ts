@@ -44,8 +44,10 @@ const OVERRIDES: Record<
   // 'topo-bathy': { label: 'Topographic', realistic: true },
   // Make the painted aurora glow (emissive) so it reads as 3D light.
   Aurora: { aurora: true },
-  // Cyber's source is quite dark — lift it more so it's easy to make out.
+  // Darker sources — lift them so they're easy to make out.
   Cyber: { brightness: 1.6 },
+  Grayscale: { brightness: 1.7 },
+  Mono: { brightness: 1.95 },
 }
 
 /** Auto-discovered stylized maps from src/assets/map-styles/. */
