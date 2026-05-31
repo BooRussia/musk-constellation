@@ -20,6 +20,7 @@ import { PHOTOREAL_STYLE } from '../data/mapStyles'
 import type { TileProvider } from '../lib/tiles'
 import MapStylePicker from './MapStylePicker'
 import LayersMenu from './LayersMenu'
+import VisualsMenu from './VisualsMenu'
 
 const EarthScene = lazy(() => import('./EarthScene'))
 
@@ -273,7 +274,7 @@ export default function StarlinkView({ onBack }: Props) {
               procedural "Dark Map". */}
           <MapStylePicker value={mapStyleId} onChange={setMapStyleId} />
 
-          {/* Layers menu — all overlay + display toggles in one dropdown. */}
+          {/* Layers menu — map overlays that sit on the globe surface. */}
           <LayersMenu
             borders={borders}
             onBorders={() => setBorders((b) => !b)}
@@ -281,6 +282,10 @@ export default function StarlinkView({ onBack }: Props) {
             onGraticule={() => setGraticule((g) => !g)}
             launchSites={launchSites}
             onLaunchSites={() => setLaunchSites((s) => !s)}
+          />
+
+          {/* Visuals menu — display options (detail tiles, lighting, motion). */}
+          <VisualsMenu
             detailTiles={detailTiles}
             onDetailTiles={() => setDetailTiles((t) => !t)}
             tileProvider={tileProvider}

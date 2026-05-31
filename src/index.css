@@ -2788,11 +2788,12 @@ body {
   color: #9bb4ff;
 }
 
-/* Detail-tiles sub-panel — Satellite/Street source switch + attribution,
-   indented to read as a child of the Detail-tiles toggle above it. */
+/* Detail-tiles sub-panel — Satellite/Street source switch + attribution.
+   Full-width (symmetric padding) so the two source buttons sit centered
+   under the Detail-tiles toggle rather than shoved to one side. */
 .layers-sub {
   overflow: hidden;
-  padding-left: 34px;
+  padding: 0 8px;
 }
 .layers-seg {
   display: flex;
@@ -2830,9 +2831,10 @@ body {
 .layers-credit {
   margin-top: 6px;
   padding-bottom: 2px;
-  font-size: 9.5px;
-  line-height: 1.35;
-  color: rgba(255, 255, 255, 0.34);
+  font-size: 9px;
+  letter-spacing: 0.4px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.3);
 }
 
 /* Collapse the top-right control labels to icons on narrower screens so
