@@ -910,6 +910,8 @@ interface EarthSceneProps {
   graticule?: boolean
   /** Mark worldwide rocket launch sites on the ground. */
   launchSites?: boolean
+  /** Show place-name labels (continents / oceans / cities). */
+  labels?: boolean
   /** Stream high-res map tiles as you zoom in (Google-Maps-style mosaic). */
   detailTiles?: boolean
   /** Which tile imagery the detail mosaic streams. */
@@ -927,6 +929,7 @@ export default function EarthScene({
   borders = false,
   graticule = false,
   launchSites = false,
+  labels = true,
   detailTiles = false,
   tileProvider = 'satellite',
 }: EarthSceneProps) {
@@ -1082,8 +1085,8 @@ export default function EarthScene({
 
         {/* Place-name labels (continents / oceans / cities) with
             zoom level-of-detail + back-side occlusion. Geographic, so
-            shown in both Satellite and Map modes. */}
-        <GlobeLabels />
+            shown on any globe skin; toggleable from the Layers menu. */}
+        {labels && <GlobeLabels />}
 
         {/* Country + US-state boundary overlay (lazy-loaded). Sits just
             above the surface so it works on any map skin. */}

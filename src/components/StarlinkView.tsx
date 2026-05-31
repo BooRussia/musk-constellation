@@ -115,6 +115,8 @@ export default function StarlinkView({ onBack }: Props) {
   const [graticule, setGraticule] = useState(false)
   // Worldwide rocket launch-site markers (on by default).
   const [launchSites, setLaunchSites] = useState(true)
+  // Place-name labels (continents / oceans / cities; on by default).
+  const [labels, setLabels] = useState(true)
   // Google-Maps-style high-res tile mosaic (streams in when you zoom in).
   const [detailTiles, setDetailTiles] = useState(true)
   const [tileProvider, setTileProvider] = useState<TileProvider>('satellite')
@@ -282,6 +284,8 @@ export default function StarlinkView({ onBack }: Props) {
             onGraticule={() => setGraticule((g) => !g)}
             launchSites={launchSites}
             onLaunchSites={() => setLaunchSites((s) => !s)}
+            labels={labels}
+            onLabels={() => setLabels((l) => !l)}
           />
 
           {/* Visuals menu — display options (detail tiles, lighting, motion). */}
@@ -321,6 +325,7 @@ export default function StarlinkView({ onBack }: Props) {
               borders={borders}
               graticule={graticule}
               launchSites={launchSites}
+              labels={labels}
               detailTiles={detailTiles}
               tileProvider={tileProvider}
             />
