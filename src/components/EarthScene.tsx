@@ -904,6 +904,10 @@ interface EarthSceneProps {
   /** Day/night cycle. false = full sun (no terminator shadow, the
    *  planet is evenly illuminated all the way around). */
   dayCycle?: boolean
+  /** Auto-rotate the camera around the globe. */
+  autoRotate?: boolean
+  /** OrbitControls autoRotateSpeed (degrees/sec-ish; ~2 = default). */
+  autoRotateSpeed?: number
 }
 
 export default function EarthScene({
@@ -913,6 +917,8 @@ export default function EarthScene({
   selectedSatellites,
   mapStyleId,
   dayCycle = true,
+  autoRotate = false,
+  autoRotateSpeed = 2,
 }: EarthSceneProps) {
   const style = getMapStyle(mapStyleId)
   const fullLit = !dayCycle
@@ -1089,6 +1095,8 @@ export default function EarthScene({
           rotateSpeed={0.4}
           zoomSpeed={0.6}
           enablePan={false}
+          autoRotate={autoRotate}
+          autoRotateSpeed={autoRotateSpeed}
         />
 
         {/* WASD/QE keyboard camera controls — orbits + zooms + pans the

@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, ChevronDown, Globe, Map as MapIcon, Satellite, Sun, X } from 'lucide-react'
+import { ArrowLeft, ChevronDown, Globe, Map as MapIcon, RotateCw, Satellite, Sun, X } from 'lucide-react'
 import {
   fetchAllConstellations,
   CONSTELLATIONS,
@@ -28,6 +28,14 @@ type ViewMode = 'satellite' | 'map'
 // load so it's not a render-time side effect.
 const LEGEND_DEFAULT_OPEN =
   typeof window === 'undefined' ? true : window.innerWidth > 639
+
+// Auto-rotation speed presets (label → OrbitControls autoRotateSpeed).
+const ROTATE_SPEEDS = [
+  { label: '0.5×', value: 1 },
+  { label: '1×', value: 2 },
+  { label: '2×', value: 4 },
+  { label: '4×', value: 8 },
+]
 
 /** Earth scene errors fall back here instead of black-screening. */
 class EarthErrorBoundary extends React.Component<
@@ -101,6 +109,9 @@ export default function StarlinkView({ onBack }: Props) {
   // Constellation legend collapse (mainly for mobile, where it covers the
   // globe). Collapsed shows just the tappable header bar.
   const [legendOpen, setLegendOpen] = useState(LEGEND_DEFAULT_OPEN)
+  // Auto-rotation of the globe + which speed preset is active.
+  const [autoRotate, setAutoRotate] = useState(false)
+  const [rotateSpeedIdx, setRotateSpeedIdx] = useState(1) // 1× default
 
   // Fetch TLEs on mount. Stays alive in sessionStorage for 2 hours
   // so a tab reload doesn't refetch.
@@ -325,6 +336,8 @@ export default function StarlinkView({ onBack }: Props) {
               selectedSatellites={selectedEntries}
               mapStyleId={mapStyleId}
               dayCycle={dayCycle}
+              autoRotate={autoRotate}
+              autoRotateSpeed={ROTATE_SPEEDS[rotateSpeedIdx].value}
             />
           </Suspense>
         </EarthErrorBoundary>
@@ -402,6 +415,33 @@ export default function StarlinkView({ onBack }: Props) {
             Mirrors the constellation view's hints chrome. */}
         <div className="starlink-kbd-hints">
           W/S — up/down &nbsp;•&nbsp; A/D — orbit &nbsp;•&nbsp; Q/E — zoom &nbsp;•&nbsp; Arrows — pan
+        </div>
+
+        {/* Auto-rotate the globe + a speed stepper. */}
+        <div className="starlink-rotate">
+          <button
+            type="button"
+            className={`starlink-rotate-btn ${autoRotate ? 'starlink-rotate-btn--on' : ''}`}
+            onClick={() => setAutoRotate((r) => !r)}
+            aria-pressed={autoRotate}
+            title={autoRotate ? 'Stop auto-rotation' : 'Auto-rotate the globe'}
+          >
+            <RotateCw
+              className={`starlink-rotate-icon h-3.5 w-3.5 ${autoRotate ? 'is-spinning' : ''}`}
+              aria-hidden="true"
+            />
+            <span className="starlink-rotate-label">Auto-rotate</span>
+          </button>
+          <button
+            type="button"
+            className="starlink-rotate-speed"
+            onClick={() => setRotateSpeedIdx((i) => (i + 1) % ROTATE_SPEEDS.length)}
+            disabled={!autoRotate}
+            title="Rotation speed"
+            aria-label={`Rotation speed ${ROTATE_SPEEDS[rotateSpeedIdx].label}`}
+          >
+            {ROTATE_SPEEDS[rotateSpeedIdx].label}
+          </button>
         </div>
       </div>
 

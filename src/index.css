@@ -2483,6 +2483,91 @@ body {
   background: rgba(255, 196, 80, 0.22);
 }
 
+/* ============================================
+   Auto-rotate control — bottom-right of the globe
+   ============================================ */
+.starlink-rotate {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 22;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: auto;
+}
+.starlink-rotate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 11px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.starlink-rotate-btn:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.78);
+}
+.starlink-rotate-btn--on {
+  color: #cfe4ff;
+  border-color: rgba(120, 170, 255, 0.6);
+  background: rgba(90, 140, 255, 0.16);
+  box-shadow: 0 0 14px rgba(90, 140, 255, 0.22);
+}
+.starlink-rotate-speed {
+  min-width: 42px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.starlink-rotate-speed:hover:not(:disabled) {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+.starlink-rotate-speed:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.starlink-rotate-icon {
+  flex: 0 0 auto;
+}
+.starlink-rotate-icon.is-spinning {
+  animation: starlink-spin 3s linear infinite;
+}
+@keyframes starlink-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (max-width: 639px) {
+  .starlink-rotate {
+    right: 10px;
+    bottom: 78px; /* clear the collapsed legend bar at the bottom */
+  }
+  .starlink-rotate-label {
+    display: none;
+  }
+}
+
 .mapstyle {
   position: relative;
 }
