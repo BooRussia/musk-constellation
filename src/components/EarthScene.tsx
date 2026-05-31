@@ -10,6 +10,7 @@ import GlobeLabels from './GlobeLabels'
 import OrbitTrails from './OrbitTrails'
 import Borders from './Borders'
 import Graticule from './Graticule'
+import LaunchSites from './LaunchSites'
 import type { SatelliteEntry, ConstellationKey } from '../lib/tle'
 import { getMapStyle } from '../data/mapStyles'
 
@@ -914,6 +915,8 @@ interface EarthSceneProps {
   borders?: boolean
   /** Overlay a lon/lat graticule grid on the globe. */
   graticule?: boolean
+  /** Mark worldwide rocket launch sites on the ground. */
+  launchSites?: boolean
 }
 
 export default function EarthScene({
@@ -927,6 +930,7 @@ export default function EarthScene({
   autoRotateSpeed = 2,
   borders = false,
   graticule = false,
+  launchSites = false,
 }: EarthSceneProps) {
   const style = getMapStyle(mapStyleId)
   const fullLit = !dayCycle
@@ -1083,6 +1087,9 @@ export default function EarthScene({
 
         {/* Lon/lat graticule overlay — procedural, works on any map. */}
         {graticule && <Graticule />}
+
+        {/* Worldwide rocket launch-site ground markers. */}
+        {launchSites && <LaunchSites />}
 
         {/* Crisp star points sprinkled all over, drawn on top of the
             galaxy haze. More of them + a touch of color so the sky feels

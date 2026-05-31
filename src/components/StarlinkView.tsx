@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, ChevronDown, Globe, Grid3x3, Map as MapIcon, RotateCw, Satellite, Spline, Sun, X } from 'lucide-react'
+import { ArrowLeft, ChevronDown, Globe, Grid3x3, Map as MapIcon, Rocket, RotateCw, Satellite, Spline, Sun, X } from 'lucide-react'
 import {
   fetchAllConstellations,
   CONSTELLATIONS,
@@ -116,6 +116,8 @@ export default function StarlinkView({ onBack }: Props) {
   const [borders, setBorders] = useState(false)
   // Lon/lat graticule overlay (works on any map).
   const [graticule, setGraticule] = useState(false)
+  // Worldwide rocket launch-site markers (on by default).
+  const [launchSites, setLaunchSites] = useState(true)
 
   // Fetch TLEs on mount. Stays alive in sessionStorage for 2 hours
   // so a tab reload doesn't refetch.
@@ -344,6 +346,7 @@ export default function StarlinkView({ onBack }: Props) {
               autoRotateSpeed={ROTATE_SPEEDS[rotateSpeedIdx].value}
               borders={borders}
               graticule={graticule}
+              launchSites={launchSites}
             />
           </Suspense>
         </EarthErrorBoundary>
@@ -444,6 +447,16 @@ export default function StarlinkView({ onBack }: Props) {
           >
             <Spline className="h-3.5 w-3.5" aria-hidden="true" />
             <span className="starlink-rotate-label">Borders</span>
+          </button>
+          <button
+            type="button"
+            className={`starlink-rotate-btn ${launchSites ? 'starlink-rotate-btn--on' : ''}`}
+            onClick={() => setLaunchSites((s) => !s)}
+            aria-pressed={launchSites}
+            title="Toggle rocket launch sites"
+          >
+            <Rocket className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="starlink-rotate-label">Launch sites</span>
           </button>
           <button
             type="button"
