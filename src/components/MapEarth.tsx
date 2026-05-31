@@ -34,8 +34,8 @@ void main() {
 `
 
 // Dark map: near-black navy ocean, dark slate land, glowing cyan
-// coastlines, and a faint graticule. Coastlines emerge from the
-// land/water edge; the grid adds the "tactical display" feel.
+// coastlines. The lon/lat grid is now the toggleable <Graticule />
+// overlay (shared across all maps), so it's not baked in here.
 const MAP_FRAG = /* glsl */ `
 uniform sampler2D uMap;
 varying vec2 vUv;
@@ -44,7 +44,6 @@ varying vec2 vUv;
 const vec3 OCEAN = vec3(0.018, 0.040, 0.082);  // deep navy, near-black
 const vec3 LAND  = vec3(0.090, 0.120, 0.150);  // dark slate landmass
 const vec3 COAST = vec3(0.30, 0.85, 1.00);     // glowing cyan coastline
-const vec3 GRID  = vec3(0.22, 0.52, 0.80);     // faint blue graticule
 
 void main() {
   vec3 src = texture2D(uMap, vUv).rgb;
@@ -61,16 +60,6 @@ void main() {
   // Glowing coastline — a bright cyan line right at the land/water edge.
   float coast = smoothstep(0.04, 0.06, waterMask) * (1.0 - smoothstep(0.06, 0.085, waterMask));
   col += COAST * coast * 0.95;
-
-  // Faint lon/lat graticule (24 meridians, 12 parallels), faded near
-  // the poles so the converging meridians don't burn a bright dot.
-  float fx = fract(vUv.x * 24.0);
-  float fy = fract(vUv.y * 12.0);
-  float dx = min(fx, 1.0 - fx);
-  float dy = min(fy, 1.0 - fy);
-  float gridLine = max(1.0 - smoothstep(0.0, 0.02, dx), 1.0 - smoothstep(0.0, 0.02, dy));
-  float latFade = 1.0 - smoothstep(0.82, 0.98, abs(vUv.y - 0.5) * 2.0);
-  col += GRID * gridLine * 0.10 * latFade;
 
   gl_FragColor = vec4(col, 1.0);
 }
