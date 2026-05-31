@@ -43,11 +43,9 @@
   /* Layout — single source of truth for chrome offsets. Mobile uses a
      2-row topnav (brand+menu, then search) so search stays reachable
      without sacrificing the brand row. */
-  /* Mobile default. Slimmed from 110→88px by hiding the "THE LIVING
-     WEB" eyebrow below 640px (.brand-eyebrow is display:none in the
-     mobile media query) and tightening row gap. Search still gets
-     its own row. */
-  --topnav-h: 88px;
+  /* Mobile default. Single-row topnav (brand + actions) now that search
+     is a pop-up overlay rather than its own row, so it can be slim. */
+  --topnav-h: 56px;
   --panel-w: 0px;
   --sidebar-w: 0px;
   --legend-h: 280px;
@@ -834,10 +832,7 @@ body {
   padding: 8px 14px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto auto;
-  grid-template-areas:
-    "brand actions"
-    "search search";
+  grid-template-areas: "brand actions";
   align-items: center;
   gap: 8px 12px;
   border-bottom: 1px solid rgba(255,255,255,0.08);
@@ -911,19 +906,45 @@ body {
   white-space: nowrap;
 }
 
-.topnav-search {
-  grid-area: search;
-  display: block;
-  min-width: 0;
-  width: 100%;
-}
-
 .topnav-actions {
   grid-area: actions;
   display: flex;
   justify-content: flex-end;
   align-items: center;
+  gap: 8px;
   min-width: 0;
+}
+
+/* Icon-only search button — opens the centered pop-up search overlay. */
+.topnav-search-btn {
+  padding: 6px 9px;
+}
+
+/* Pop-up search — a spotlight that drops in centered over the viewer. */
+.search-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 14vh 16px 16px;
+  background: rgba(2, 4, 10, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.search-overlay-card {
+  width: min(560px, 94vw);
+}
+/* In the overlay the input is the hero — make it taller than the compact
+   top-bar version was, and let the result dropdown match its full width
+   (overriding the SearchBar's md:w-[320px]). */
+.search-overlay-card .search-input {
+  height: 52px;
+  font-size: 15px;
+}
+.search-overlay-card .relative > div {
+  width: 100% !important;
 }
 
 .topnav-actions-desktop {
@@ -947,16 +968,12 @@ body {
 @media (min-width: 640px) {
   .topnav {
     padding: 0 18px;
-    grid-template-columns: minmax(0, 1fr) minmax(180px, 320px) minmax(0, auto);
-    grid-template-rows: auto;
-    grid-template-areas: "brand search actions";
   }
 }
 
 @media (min-width: 768px) {
   .topnav {
     padding: 0 20px;
-    grid-template-columns: minmax(0, 1fr) minmax(200px, 360px) minmax(0, auto);
   }
 
   .topnav-brand h1 {

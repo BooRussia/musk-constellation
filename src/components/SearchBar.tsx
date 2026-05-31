@@ -1,4 +1,4 @@
-import { useCallback, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Search } from 'lucide-react'
 import { GROUP_COLORS } from '../data/constellation'
@@ -10,6 +10,8 @@ interface SearchBarProps {
   results: Node[]
   onSelect: (id: string) => void
   compact?: boolean
+  /** Focus the input on mount (for the pop-up search overlay). */
+  autoFocus?: boolean
   className?: string
 }
 
@@ -19,11 +21,16 @@ export default function SearchBar({
   results,
   onSelect,
   compact = false,
+  autoFocus = false,
   className = '',
 }: SearchBarProps) {
   const listboxId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
   const [activeIndex, setActiveIndex] = useState(-1)
+
+  useEffect(() => {
+    if (autoFocus) inputRef.current?.focus()
+  }, [autoFocus])
   const isOpen = query.trim().length > 0
   const safeActiveIndex =
     results.length === 0 ? -1 : Math.min(activeIndex < 0 ? 0 : activeIndex, results.length - 1)

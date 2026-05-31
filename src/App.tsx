@@ -4,7 +4,7 @@ import {
   X, RotateCcw, Layers, ZoomIn, Info,
   Globe, ChevronUp, ChevronDown, Menu, Network, Activity,
   PanelRightClose, PanelRightOpen, PanelLeftClose, PanelLeftOpen,
-  Clock, Play, Pause, Crosshair, Satellite,
+  Clock, Play, Pause, Crosshair, Satellite, Search,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import SearchBar from './components/SearchBar'
@@ -352,7 +352,7 @@ const COACHMARK_STEPS = [
   },
   {
     title: 'Search anything',
-    body: 'Type a name in the search bar to jump straight to it — hidden sub-orbs auto-reveal as you go.',
+    body: 'Tap the search icon, then type a name to jump straight to it — hidden sub-orbs auto-reveal as you go.',
   },
 ]
 
@@ -892,6 +892,10 @@ export default function MuskConstellation() {
     return set
   })
   const [searchQuery, setSearchQuery] = useState('')
+  // Search is a pop-up overlay (opened by the topbar search icon) that
+  // drops in centered over the viewer, instead of an always-on bar that
+  // crowded the brand.
+  const [searchOpen, setSearchOpen] = useState(false)
   const [showLegend, setShowLegend] = useState(false)
   const [showMobilePanel, setShowMobilePanel] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -1132,7 +1136,25 @@ export default function MuskConstellation() {
     handleSelect(id)
   }, [handleSelect, expandedIds])
 
+  const closeSearch = useCallback(() => {
+    setSearchOpen(false)
+    setSearchQuery('')
+  }, [])
+
+  // Picking a result from the pop-up flies the camera in and dismisses it.
+  const handleSearchSelect = useCallback(
+    (id: string) => {
+      flyToNode(id)
+      closeSearch()
+    },
+    [flyToNode, closeSearch],
+  )
+
   const handleEscape = useCallback(() => {
+    if (searchOpen) {
+      closeSearch()
+      return
+    }
     if (showLegend) {
       setShowLegend(false)
       return
@@ -1144,7 +1166,7 @@ export default function MuskConstellation() {
     if (selectedId) {
       handleSelect(null)
     }
-  }, [showLegend, searchQuery, selectedId, handleSelect])
+  }, [searchOpen, closeSearch, showLegend, searchQuery, selectedId, handleSelect])
 
   // The X on the details panel closes the panel + clears the selection
   // but DOES NOT move the camera. If the user wants the camera back at
@@ -1249,17 +1271,16 @@ export default function MuskConstellation() {
             </span>
           </div>
 
-          <div className="topnav-search">
-            <SearchBar
-              query={searchQuery}
-              onQueryChange={setSearchQuery}
-              results={searchResults}
-              onSelect={flyToNode}
-              compact
-            />
-          </div>
-
           <nav aria-label="Constellation controls" className="topnav-actions">
+            <button
+              type="button"
+              onClick={() => setSearchOpen(true)}
+              className="btn topnav-search-btn"
+              aria-label="Search companies, subs, and partners"
+              title="Search"
+            >
+              <Search className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
             <div className="topnav-actions-desktop hidden md:flex">
               <button
                 type="button"
@@ -1415,6 +1436,40 @@ export default function MuskConstellation() {
             </div>
           </nav>
         </header>
+
+        {/* Pop-up search — a spotlight that drops in centered over the
+            viewer when the topbar search icon is tapped. Click the
+            backdrop or press Escape to dismiss. */}
+        <AnimatePresence>
+          {searchOpen && (
+            <motion.div
+              className="search-overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.16 }}
+              onPointerDown={(e) => {
+                if (e.target === e.currentTarget) closeSearch()
+              }}
+            >
+              <motion.div
+                className="search-overlay-card"
+                initial={{ opacity: 0, y: -24, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -16, scale: 0.98 }}
+                transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+              >
+                <SearchBar
+                  query={searchQuery}
+                  onQueryChange={setSearchQuery}
+                  results={searchResults}
+                  onSelect={handleSearchSelect}
+                  autoFocus
+                />
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <aside
           className={`ui-layer left-sidebar ${showLeftSidebar ? '' : 'left-sidebar--collapsed'} ${showLegend ? 'left-sidebar--legend-open' : ''}`}
