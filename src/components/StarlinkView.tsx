@@ -17,6 +17,7 @@ import {
 import SatelliteTooltip from './SatelliteTooltip'
 import { trailColorAt } from '../lib/trailColors'
 import { PHOTOREAL_STYLE } from '../data/mapStyles'
+import type { TileProvider } from '../lib/tiles'
 import MapStylePicker from './MapStylePicker'
 import LayersMenu from './LayersMenu'
 
@@ -113,6 +114,9 @@ export default function StarlinkView({ onBack }: Props) {
   const [graticule, setGraticule] = useState(false)
   // Worldwide rocket launch-site markers (on by default).
   const [launchSites, setLaunchSites] = useState(true)
+  // Google-Maps-style high-res tile mosaic (streams in when you zoom in).
+  const [detailTiles, setDetailTiles] = useState(true)
+  const [tileProvider, setTileProvider] = useState<TileProvider>('satellite')
 
   // Fetch TLEs on mount. Stays alive in sessionStorage for 2 hours
   // so a tab reload doesn't refetch.
@@ -277,6 +281,10 @@ export default function StarlinkView({ onBack }: Props) {
             onGraticule={() => setGraticule((g) => !g)}
             launchSites={launchSites}
             onLaunchSites={() => setLaunchSites((s) => !s)}
+            detailTiles={detailTiles}
+            onDetailTiles={() => setDetailTiles((t) => !t)}
+            tileProvider={tileProvider}
+            onTileProvider={setTileProvider}
             fullSun={!dayCycle}
             onFullSun={() => setDayCycle((d) => !d)}
             autoRotate={autoRotate}
@@ -308,6 +316,8 @@ export default function StarlinkView({ onBack }: Props) {
               borders={borders}
               graticule={graticule}
               launchSites={launchSites}
+              detailTiles={detailTiles}
+              tileProvider={tileProvider}
             />
           </Suspense>
         </EarthErrorBoundary>

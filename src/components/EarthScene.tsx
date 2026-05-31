@@ -11,8 +11,10 @@ import OrbitTrails from './OrbitTrails'
 import Borders from './Borders'
 import Graticule from './Graticule'
 import LaunchSites from './LaunchSites'
+import DetailTiles from './DetailTiles'
 import type { SatelliteEntry, ConstellationKey } from '../lib/tle'
 import { getMapStyle } from '../data/mapStyles'
+import type { TileProvider } from '../lib/tiles'
 
 // ============================================
 // PHOTOREAL EARTH SCENE
@@ -908,6 +910,10 @@ interface EarthSceneProps {
   graticule?: boolean
   /** Mark worldwide rocket launch sites on the ground. */
   launchSites?: boolean
+  /** Stream high-res map tiles as you zoom in (Google-Maps-style mosaic). */
+  detailTiles?: boolean
+  /** Which tile imagery the detail mosaic streams. */
+  tileProvider?: TileProvider
 }
 
 export default function EarthScene({
@@ -921,6 +927,8 @@ export default function EarthScene({
   borders = false,
   graticule = false,
   launchSites = false,
+  detailTiles = false,
+  tileProvider = 'satellite',
 }: EarthSceneProps) {
   const style = getMapStyle(mapStyleId)
   const fullLit = !dayCycle
@@ -1000,7 +1008,7 @@ export default function EarthScene({
   return (
     <>
       <Canvas
-        camera={{ position: [0, 2, 21], fov: 42 }}
+        camera={{ position: [0, 2, 21], fov: 42, near: 0.05, far: 4000 }}
         gl={{ antialias: true, powerPreference: 'high-performance' }}
         dpr={[1, 2]}
         onCreated={({ gl }) => {
@@ -1054,6 +1062,11 @@ export default function EarthScene({
           </Suspense>
         )}
 
+        {/* Google-Maps-style detail mosaic — dormant when zoomed out, then
+            streams progressively sharper tiles draped over whatever globe
+            skin is active as the camera drops toward the surface. */}
+        {detailTiles && <DetailTiles provider={tileProvider} />}
+
         {satellites && satellites.length > 0 && (
           <SatelliteCloud
             satellites={satellites}
@@ -1103,7 +1116,7 @@ export default function EarthScene({
           ref={controlsRef}
           enableDamping
           dampingFactor={0.06}
-          minDistance={6}
+          minDistance={5.15}
           maxDistance={92}
           rotateSpeed={0.4}
           zoomSpeed={0.6}

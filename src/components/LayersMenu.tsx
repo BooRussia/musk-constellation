@@ -4,12 +4,14 @@ import {
   ChevronDown,
   Grid3x3,
   Layers,
+  LayoutGrid,
   Rocket,
   RotateCw,
   Spline,
   Sun,
   type LucideIcon,
 } from 'lucide-react'
+import { TILE_PROVIDERS, TILE_PROVIDER_ORDER, type TileProvider } from '../lib/tiles'
 
 interface Props {
   borders: boolean
@@ -18,6 +20,10 @@ interface Props {
   onGraticule: () => void
   launchSites: boolean
   onLaunchSites: () => void
+  detailTiles: boolean
+  onDetailTiles: () => void
+  tileProvider: TileProvider
+  onTileProvider: (p: TileProvider) => void
   fullSun: boolean
   onFullSun: () => void
   autoRotate: boolean
@@ -39,6 +45,10 @@ export default function LayersMenu({
   onGraticule,
   launchSites,
   onLaunchSites,
+  detailTiles,
+  onDetailTiles,
+  tileProvider,
+  onTileProvider,
   fullSun,
   onFullSun,
   autoRotate,
@@ -71,7 +81,8 @@ export default function LayersMenu({
     { label: 'Launch sites', icon: Rocket, on: launchSites, toggle: onLaunchSites },
   ]
   const activeCount =
-    [borders, graticule, launchSites, fullSun, autoRotate].filter(Boolean).length
+    [borders, graticule, launchSites, detailTiles, fullSun, autoRotate].filter(Boolean)
+      .length
 
   return (
     <div className="layers" ref={ref}>
@@ -116,6 +127,47 @@ export default function LayersMenu({
                 </button>
               )
             })}
+
+            {/* High-res tile mosaic — streams in when you zoom in. When on,
+                reveal a Satellite/Street source switch + attribution. */}
+            <button
+              type="button"
+              className={`layers-row ${detailTiles ? 'layers-row--on' : ''}`}
+              onClick={onDetailTiles}
+              aria-pressed={detailTiles}
+              title="Stream Google-Maps-style detail tiles as you zoom in"
+            >
+              <LayoutGrid className="layers-row-icon h-4 w-4" aria-hidden="true" />
+              <span className="layers-row-label">Detail tiles</span>
+              <span className={`layers-switch ${detailTiles ? 'is-on' : ''}`} />
+            </button>
+            <AnimatePresence initial={false}>
+              {detailTiles && (
+                <motion.div
+                  key="tile-provider"
+                  className="layers-sub"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.18 }}
+                >
+                  <div className="layers-seg" role="group" aria-label="Tile imagery">
+                    {TILE_PROVIDER_ORDER.map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        className={`layers-seg-btn ${tileProvider === p ? 'is-on' : ''}`}
+                        onClick={() => onTileProvider(p)}
+                        aria-pressed={tileProvider === p}
+                      >
+                        {TILE_PROVIDERS[p].label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="layers-credit">{TILE_PROVIDERS[tileProvider].attribution}</div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             <div className="layers-section-title">Display</div>
             <button
