@@ -551,10 +551,35 @@ const LinkLines = memo(function LinkLines({
     [highlightIndices.length],
   )
 
-  useEffect(() => {
-    geometryRef.current = null
-    highlightGeometryRef.current = null
-  }, [geometryRef, highlightGeometryRef, links])
+  // Stable signature of the link SET (not just count) — when it changes we
+  // remount the geometry via `key` so its position/color buffers are
+  // re-sized to the new link list. A stable key means toggling WEB / PULSE
+  // (which doesn't change the set) does NOT remount, so the color-sync
+  // effect below handles those without a flicker.
+  const linksKey = useMemo(
+    () => links.map((l) => `${l.source}>${l.target}`).join('|'),
+    [links],
+  )
+
+  // Stable ref setters. Using inline `ref={geo => ...}` re-ran every render
+  // (new function identity → React detaches+reattaches), and an effect that
+  // nulled geometryRef on `links` change used to leave it null after mount
+  // with no re-render to restore it — so useFrame's `if (!geo) return`
+  // guard skipped writing line positions and the whole web stayed invisible
+  // until you toggled something. Stable callbacks fire only on mount /
+  // remount (driven by `linksKey`), so the ref is set once and stays valid.
+  const setGeoRef = useCallback(
+    (geo: THREE.BufferGeometry | null) => {
+      geometryRef.current = geo
+    },
+    [geometryRef],
+  )
+  const setHighlightGeoRef = useCallback(
+    (geo: THREE.BufferGeometry | null) => {
+      highlightGeometryRef.current = geo
+    },
+    [highlightGeometryRef],
+  )
 
   // R3F's <bufferAttribute args={[colors, 3]} /> only reads `args` at
   // construction. When useMemo recomputes `colors` because WEB / PULSE /
@@ -624,12 +649,8 @@ const LinkLines = memo(function LinkLines({
 
   return (
     <>
-      <lineSegments frustumCulled={false}>
-        <bufferGeometry
-          ref={(geo) => {
-            geometryRef.current = geo as THREE.BufferGeometry | null
-          }}
-        >
+      <lineSegments key={linksKey} frustumCulled={false}>
+        <bufferGeometry ref={setGeoRef}>
           <bufferAttribute attach="attributes-position" args={[positions, 3]} />
           <bufferAttribute attach="attributes-color" args={[colors, 3]} />
         </bufferGeometry>
@@ -637,12 +658,8 @@ const LinkLines = memo(function LinkLines({
       </lineSegments>
 
       {highlightIndices.length > 0 && (
-        <lineSegments frustumCulled={false}>
-          <bufferGeometry
-            ref={(geo) => {
-              highlightGeometryRef.current = geo as THREE.BufferGeometry | null
-            }}
-          >
+        <lineSegments key={`hi-${highlightIndices.length}`} frustumCulled={false}>
+          <bufferGeometry ref={setHighlightGeoRef}>
             <bufferAttribute
               attach="attributes-position"
               args={[highlightPositions, 3]}
