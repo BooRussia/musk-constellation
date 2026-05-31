@@ -8,6 +8,7 @@ import MapEarth from './MapEarth'
 import KeyboardCameraControls from './KeyboardCameraControls'
 import GlobeLabels from './GlobeLabels'
 import OrbitTrails from './OrbitTrails'
+import Borders from './Borders'
 import type { SatelliteEntry, ConstellationKey } from '../lib/tle'
 import { getMapStyle } from '../data/mapStyles'
 
@@ -908,6 +909,8 @@ interface EarthSceneProps {
   autoRotate?: boolean
   /** OrbitControls autoRotateSpeed (degrees/sec-ish; ~2 = default). */
   autoRotateSpeed?: number
+  /** Overlay country + US-state boundary lines on the globe. */
+  borders?: boolean
 }
 
 export default function EarthScene({
@@ -919,6 +922,7 @@ export default function EarthScene({
   dayCycle = true,
   autoRotate = false,
   autoRotateSpeed = 2,
+  borders = false,
 }: EarthSceneProps) {
   const style = getMapStyle(mapStyleId)
   const fullLit = !dayCycle
@@ -1068,6 +1072,10 @@ export default function EarthScene({
             zoom level-of-detail + back-side occlusion. Geographic, so
             shown in both Satellite and Map modes. */}
         <GlobeLabels />
+
+        {/* Country + US-state boundary overlay (lazy-loaded). Sits just
+            above the surface so it works on any map skin. */}
+        {borders && <Borders />}
 
         {/* Crisp star points sprinkled all over, drawn on top of the
             galaxy haze. More of them + a touch of color so the sky feels

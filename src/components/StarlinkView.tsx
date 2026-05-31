@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, ChevronDown, Globe, Map as MapIcon, RotateCw, Satellite, Sun, X } from 'lucide-react'
+import { ArrowLeft, ChevronDown, Globe, Grid3x3, Map as MapIcon, RotateCw, Satellite, Sun, X } from 'lucide-react'
 import {
   fetchAllConstellations,
   CONSTELLATIONS,
@@ -112,6 +112,8 @@ export default function StarlinkView({ onBack }: Props) {
   // Auto-rotation of the globe + which speed preset is active.
   const [autoRotate, setAutoRotate] = useState(false)
   const [rotateSpeedIdx, setRotateSpeedIdx] = useState(1) // 1× default
+  // Country + US-state border overlay (works on any map).
+  const [borders, setBorders] = useState(false)
 
   // Fetch TLEs on mount. Stays alive in sessionStorage for 2 hours
   // so a tab reload doesn't refetch.
@@ -338,6 +340,7 @@ export default function StarlinkView({ onBack }: Props) {
               dayCycle={dayCycle}
               autoRotate={autoRotate}
               autoRotateSpeed={ROTATE_SPEEDS[rotateSpeedIdx].value}
+              borders={borders}
             />
           </Suspense>
         </EarthErrorBoundary>
@@ -417,8 +420,18 @@ export default function StarlinkView({ onBack }: Props) {
           W/S — up/down &nbsp;•&nbsp; A/D — orbit &nbsp;•&nbsp; Q/E — zoom &nbsp;•&nbsp; Arrows — pan
         </div>
 
-        {/* Auto-rotate the globe + a speed stepper. */}
+        {/* Globe view controls — borders overlay, auto-rotate + speed. */}
         <div className="starlink-rotate">
+          <button
+            type="button"
+            className={`starlink-rotate-btn ${borders ? 'starlink-rotate-btn--on' : ''}`}
+            onClick={() => setBorders((b) => !b)}
+            aria-pressed={borders}
+            title="Toggle country + US state borders"
+          >
+            <Grid3x3 className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="starlink-rotate-label">Borders</span>
+          </button>
           <button
             type="button"
             className={`starlink-rotate-btn ${autoRotate ? 'starlink-rotate-btn--on' : ''}`}
