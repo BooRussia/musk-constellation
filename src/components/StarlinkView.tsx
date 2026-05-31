@@ -104,11 +104,11 @@ export default function StarlinkView({ onBack }: Props) {
   // Constellation legend collapse (mainly for mobile, where it covers the
   // globe). Collapsed shows just the tappable header bar.
   const [legendOpen, setLegendOpen] = useState(LEGEND_DEFAULT_OPEN)
-  // Auto-rotation of the globe + which speed preset is active.
-  const [autoRotate, setAutoRotate] = useState(false)
+  // Auto-rotation of the globe + which speed preset is active (on by default).
+  const [autoRotate, setAutoRotate] = useState(true)
   const [rotateSpeedIdx, setRotateSpeedIdx] = useState(1) // 1× default
-  // Country + US-state border overlay (works on any map).
-  const [borders, setBorders] = useState(false)
+  // Country + US-state border overlay (works on any map; on by default).
+  const [borders, setBorders] = useState(true)
   // Lon/lat graticule overlay (works on any map).
   const [graticule, setGraticule] = useState(false)
   // Worldwide rocket launch-site markers (on by default).
