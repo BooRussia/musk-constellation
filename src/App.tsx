@@ -896,8 +896,11 @@ export default function MuskConstellation() {
   const [showMobilePanel, setShowMobilePanel] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isNarrowViewport, setIsNarrowViewport] = useState(false)
-  const [showAllWeb, setShowAllWeb] = useState(false)
-  const [showAllPulse, setShowAllPulse] = useState(false)
+  // WEB (all connection lines) + PULSE (animated flow particles) default ON
+  // so the constellation loads as a living, wired web instead of a static
+  // field of orbs. Both stay user-toggleable and survive RESET.
+  const [showAllWeb, setShowAllWeb] = useState(true)
+  const [showAllPulse, setShowAllPulse] = useState(true)
   // Timeline mode: when active, only nodes with foundedYear <= timelineYear
   // are visible. timelineYear === null means Timeline is off (show all).
   const [timelineYear, setTimelineYear] = useState<number | null>(null)
