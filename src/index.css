@@ -82,6 +82,10 @@ html, body, #root {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
+  /* Chromium (Arc desktop/Android): kill horizontal swipe-back + vertical
+     pull-to-refresh at the root scroller. No-op for iOS WebKit history-swipe
+     (WebKit bug 240183) — handled by the edge guard in ConstellationCanvas. */
+  overscroll-behavior: none;
 }
 
 body {
@@ -681,6 +685,7 @@ body {
   background: #000;
   touch-action: none;
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 /* Canvas safe zone — keeps 3D center clear of panels */
@@ -738,6 +743,7 @@ body {
   max-width: 94vw;
   z-index: 30;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 28px 28px 32px;
   background: rgba(0, 0, 0, 0.82);
   backdrop-filter: blur(24px) saturate(140%);
@@ -1025,6 +1031,7 @@ body {
   width: var(--sidebar-visual-w, 288px);
   max-width: calc(100vw - 28px);
   overflow-y: auto;
+  overscroll-behavior: contain;
   /* Stronger blur + slightly darker bg so orbs behind the sidebar
      read as "muted background" instead of competing for attention. */
   background: rgba(0, 0, 0, 0.78);
@@ -1118,6 +1125,7 @@ body {
   max-width: 230px;
   max-height: calc(100vh - var(--topnav-h) - 36px);
   overflow-y: auto;
+  overscroll-behavior: contain;
   font-size: 11px;
 }
 
@@ -1242,6 +1250,7 @@ body {
   gap: 2px;
   max-height: 180px;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 2px 0;
 }
 

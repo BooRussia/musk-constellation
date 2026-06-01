@@ -867,7 +867,7 @@ function Scene({
   enabledGroups,
   cameraFocusId = null,
 }: Omit<Props, 'onExpand'>) {
-  const { camera, raycaster, mouse, scene, size } = useThree()
+  const { camera, raycaster, mouse, scene, size, gl } = useThree()
   const controlsRef = useRef<OrbitControlsImpl>(null)
   const groupRef = useRef<THREE.Group>(null!)
 
@@ -1059,6 +1059,29 @@ function Scene({
       simulationRef.current = null
     }
   }, [])
+
+  // iOS WebKit edge-swipe back/forward suppression.
+  // overscroll-behavior is ignored by WebKit for history-nav (bug 240183), so
+  // cancel the gesture at its source: a single-finger touch that STARTS in the
+  // iOS edge-pan band. Scoped to the canvas (gl.domElement) so overlay-panel
+  // scroll is untouched — the panels sit above the canvas in the stacking order,
+  // so a touch beginning on a panel never reaches this listener.
+  // preventDefault on touchstart does NOT cancel OrbitControls (it binds
+  // pointerdown/move/up) nor tap-to-select (raycaster is pointer-driven).
+  useEffect(() => {
+    const el = gl.domElement
+    const EDGE = 44 // px — iOS interactive edge-pan zone
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return // let two-finger pinch/dolly through
+      if (!e.cancelable) return // iOS dispatches some non-cancelable touches
+      const x = e.touches[0].clientX
+      if (x < EDGE || x > window.innerWidth - EDGE) {
+        e.preventDefault()
+      }
+    }
+    el.addEventListener('touchstart', onTouchStart, { passive: false })
+    return () => el.removeEventListener('touchstart', onTouchStart)
+  }, [gl])
 
   useFrame(() => {
     const sim = simulationRef.current
