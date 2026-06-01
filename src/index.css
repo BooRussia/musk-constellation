@@ -2870,8 +2870,19 @@ body {
   }
 }
 @media (max-width: 639px) {
-  .mapstyle-menu {
-    width: 200px;
+  /* On phones the top-bar dropdowns drop as a viewport-anchored sheet
+     instead of an absolute panel hung off the (left-of-centre) trigger —
+     that anchoring pushed the map thumbnails clean off the left edge. */
+  .mapstyle-menu,
+  .layers-menu {
+    position: fixed;
+    top: calc(56px + 6px);
+    left: 10px;
+    right: 10px;
+    width: auto;
+    max-width: none;
+    max-height: min(66vh, 480px);
+    overflow-y: auto;
   }
 }
 
