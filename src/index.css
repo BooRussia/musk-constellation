@@ -3516,6 +3516,108 @@ body {
   }
 }
 
+/* ============================================
+   Next-launch countdown card (bottom-right)
+   ============================================ */
+.launch-card {
+  position: absolute;
+  right: 16px;
+  bottom: 56px;
+  z-index: 18;
+  width: 252px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 150, 60, 0.22);
+  background: rgba(14, 10, 6, 0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+.launch-card-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1.4px;
+  color: #ffb066;
+}
+.launch-card-name {
+  margin-top: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.2;
+}
+.launch-card-meta {
+  margin-top: 2px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+}
+.launch-card-countdown {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 9px 0 8px;
+}
+.lc-sign {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: #ff9a4a;
+}
+.lc-time {
+  font-family: var(--font-mono);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.launch-card-foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 8px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.55);
+}
+.lc-status {
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: rgba(255, 255, 255, 0.8);
+}
+.lc-status--go {
+  border-color: rgba(80, 220, 140, 0.5);
+  color: #79f0b0;
+}
+.lc-status--tbd,
+.lc-status--tbc {
+  border-color: rgba(255, 180, 80, 0.45);
+  color: #ffc680;
+}
+.lc-more {
+  color: rgba(255, 255, 255, 0.4);
+}
+@media (max-width: 639px) {
+  .launch-card {
+    width: 200px;
+    right: 10px;
+    bottom: auto;
+    top: calc(56px + 8px);
+    padding: 10px 12px;
+  }
+  .lc-time {
+    font-size: 20px;
+  }
+}
+
 .globe-label {
   display: flex;
   align-items: center;

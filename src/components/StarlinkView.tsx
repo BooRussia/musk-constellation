@@ -12,6 +12,7 @@ import {
 } from '../lib/tle'
 import ISSInfoCard from './ISSInfoCard'
 import type { ISSTelemetry } from './ISSTracker'
+import LaunchCountdown from './LaunchCountdown'
 import type { SatelliteHit } from './SatelliteCloud'
 import {
   setHighlightedNoradIds,
@@ -362,6 +363,9 @@ export default function StarlinkView({ onBack }: Props) {
 
         {/* Live ISS readout — altitude/speed + docked Crew Dragon. */}
         {iss && issSat && <ISSInfoCard telemetryRef={issTelemetryRef} />}
+
+        {/* Next SpaceX launch — live countdown (Launch Library 2). */}
+        <LaunchCountdown />
 
         {/* Hover tooltip — follows cursor, fades in/out. Renders in
             the canvas wrapper (not document body) so it's clipped
