@@ -1,4 +1,4 @@
-import { Grid3x3, Layers, Rocket, Spline, Type, type LucideIcon } from 'lucide-react'
+import { Grid3x3, Layers, Orbit, Rocket, Spline, Type, type LucideIcon } from 'lucide-react'
 import MenuDropdown from './MenuDropdown'
 
 interface Props {
@@ -10,6 +10,8 @@ interface Props {
   onLaunchSites: () => void
   labels: boolean
   onLabels: () => void
+  iss: boolean
+  onIss: () => void
 }
 
 /**
@@ -26,12 +28,15 @@ export default function LayersMenu({
   onLaunchSites,
   labels,
   onLabels,
+  iss,
+  onIss,
 }: Props) {
   const rows: { label: string; icon: LucideIcon; on: boolean; toggle: () => void }[] = [
     { label: 'Place names', icon: Type, on: labels, toggle: onLabels },
     { label: 'Borders', icon: Spline, on: borders, toggle: onBorders },
     { label: 'Lat / long grid', icon: Grid3x3, on: graticule, toggle: onGraticule },
     { label: 'Launch sites', icon: Rocket, on: launchSites, toggle: onLaunchSites },
+    { label: 'Space Station (ISS)', icon: Orbit, on: iss, toggle: onIss },
   ]
   const activeCount = rows.filter((r) => r.on).length
 

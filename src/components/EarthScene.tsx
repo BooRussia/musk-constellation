@@ -12,7 +12,8 @@ import Borders from './Borders'
 import Graticule from './Graticule'
 import LaunchSites from './LaunchSites'
 import DetailTiles from './DetailTiles'
-import type { SatelliteEntry, ConstellationKey } from '../lib/tle'
+import ISSTracker, { type ISSTelemetry } from './ISSTracker'
+import type { SatelliteEntry, ConstellationKey, TrackedObject } from '../lib/tle'
 import { getMapStyle } from '../data/mapStyles'
 import type { TileProvider } from '../lib/tiles'
 
@@ -912,6 +913,12 @@ interface EarthSceneProps {
   launchSites?: boolean
   /** Show place-name labels (continents / oceans / cities). */
   labels?: boolean
+  /** Track the ISS live on the globe. */
+  iss?: boolean
+  /** The ISS tracked object (TLE/satrec), or null until fetched. */
+  issSat?: TrackedObject | null
+  /** Shared ref the ISS tracker writes live altitude/speed into. */
+  issTelemetryRef?: React.MutableRefObject<ISSTelemetry>
   /** Stream high-res map tiles as you zoom in (Google-Maps-style mosaic). */
   detailTiles?: boolean
   /** Which tile imagery the detail mosaic streams. */
@@ -930,6 +937,9 @@ export default function EarthScene({
   graticule = false,
   launchSites = false,
   labels = true,
+  iss = false,
+  issSat = null,
+  issTelemetryRef,
   detailTiles = false,
   tileProvider = 'satellite',
 }: EarthSceneProps) {
@@ -1075,6 +1085,11 @@ export default function EarthScene({
             satellites={satellites}
             enabledConstellations={enabledConstellations}
           />
+        )}
+
+        {/* International Space Station — live SGP4 marker + Crew Dragon tag. */}
+        {iss && issSat && issTelemetryRef && (
+          <ISSTracker satrec={issSat.satrec} telemetryRef={issTelemetryRef} />
         )}
 
         {/* Orbit trails for selected sats — flight paths showing each

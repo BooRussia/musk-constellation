@@ -242,6 +242,84 @@ export async function fetchConstellation(
   return parseTleText(tleText, group)
 }
 
+// ============================================
+// ISS — single tracked object (NORAD 25544)
+// ============================================
+// The station has a public TLE just like everything else, so we track its
+// live position with the same SGP4 pipeline rather than a separate
+// position API. Crew / docked-Dragon context is curated (see data/iss.ts).
+
+export interface TrackedObject {
+  name: string
+  noradId: number
+  satrec: SatRec
+}
+
+const ISS_NORAD = 25544
+const ISS_CACHE_KEY = 'mc.iss.v1'
+
+function parseSingleTle(tleText: string): TrackedObject | null {
+  const lines = tleText.split('\n').map((l) => l.trimEnd()).filter(Boolean)
+  for (let i = 0; i + 1 < lines.length; i++) {
+    const l1 = lines[i]
+    const l2 = lines[i + 1]
+    if (l1?.startsWith('1 ') && l2?.startsWith('2 ')) {
+      try {
+        const satrec = twoline2satrec(l1, l2)
+        const noradId = parseInt(l1.substring(2, 7).trim(), 10)
+        // The name line (if present) sits just above line 1.
+        const name = i > 0 ? lines[i - 1].trim() : 'ISS'
+        return { name, noradId, satrec }
+      } catch {
+        return null
+      }
+    }
+  }
+  return null
+}
+
+/** Fetch the ISS TLE from CelesTrak (CATNR lookup), with the same
+ *  fresh/fallback localStorage caching the constellations use. */
+export async function fetchISS(): Promise<TrackedObject | null> {
+  function readCache(maxAgeMs: number): TrackedObject | null {
+    try {
+      const raw = localStorage.getItem(ISS_CACHE_KEY)
+      if (!raw) return null
+      const e = JSON.parse(raw) as CachedEntry
+      if (Date.now() - e.fetchedAt > maxAgeMs) return null
+      return parseSingleTle(e.tleText)
+    } catch {
+      return null
+    }
+  }
+
+  const fresh = readCache(CACHE_FRESH_MS)
+  if (fresh) return fresh
+
+  const url = `https://celestrak.org/NORAD/elements/gp.php?CATNR=${ISS_NORAD}&FORMAT=tle`
+  try {
+    const res = await fetch(url)
+    if (res.ok) {
+      const text = await res.text()
+      if (!text.includes('GP data has not updated')) {
+        try {
+          localStorage.setItem(
+            ISS_CACHE_KEY,
+            JSON.stringify({ fetchedAt: Date.now(), tleText: text }),
+          )
+        } catch {
+          // quota / private mode — no caching
+        }
+        const parsed = parseSingleTle(text)
+        if (parsed) return parsed
+      }
+    }
+  } catch {
+    // fall through to stale cache
+  }
+  return readCache(CACHE_MAX_FALLBACK_MS)
+}
+
 /** Fetch every supported constellation in parallel. Tolerates per-
  *  constellation failures — if Starlink fails but OneWeb succeeds,
  *  you still see OneWeb. */

@@ -3372,6 +3372,150 @@ body {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 8px rgba(255, 140, 40, 0.4);
 }
 
+/* ============================================
+   ISS — live station marker + readout card
+   ============================================ */
+.iss-marker {
+  position: relative;
+  width: 0;
+  height: 0;
+}
+.iss-dot {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  border-radius: 50%;
+  background: #eafdff;
+  box-shadow: 0 0 10px 2px rgba(120, 230, 255, 0.95);
+}
+.iss-ping {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(130, 225, 255, 0.9);
+  animation: launch-ping 2.6s ease-out infinite;
+}
+.iss-label {
+  position: absolute;
+  left: 11px;
+  top: 0;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  line-height: 1;
+  color: #eafdff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 8px rgba(120, 220, 255, 0.5);
+}
+.iss-badge {
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(130, 225, 255, 0.45);
+  background: rgba(120, 220, 255, 0.16);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: #d6f6ff;
+}
+
+.iss-card {
+  position: absolute;
+  top: calc(56px + 12px);
+  left: 16px;
+  z-index: 18;
+  width: 232px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(120, 220, 255, 0.22);
+  background: rgba(6, 14, 24, 0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+.iss-card-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1.6px;
+  color: rgba(255, 255, 255, 0.85);
+}
+.iss-card-live {
+  color: #7fe6ff;
+  animation: iss-pulse 1.8s ease-in-out infinite;
+}
+@keyframes iss-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.iss-card-stats {
+  display: flex;
+  gap: 18px;
+  margin: 10px 0;
+}
+.iss-card-stats b {
+  display: block;
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.iss-card-stats span {
+  font-size: 9.5px;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.3px;
+}
+.iss-card-crew {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 9px;
+}
+.iss-card-exp {
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 4px;
+}
+.iss-card-dragon {
+  font-size: 12px;
+  font-weight: 600;
+  color: #eafdff;
+}
+.iss-card-names {
+  margin-top: 3px;
+  font-size: 10.5px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.62);
+}
+.iss-card-asof {
+  margin-top: 8px;
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.32);
+}
+@media (max-width: 639px) {
+  .iss-card {
+    width: 200px;
+    padding: 10px 12px;
+    top: calc(56px + 8px);
+    left: 10px;
+  }
+}
+
 .globe-label {
   display: flex;
   align-items: center;

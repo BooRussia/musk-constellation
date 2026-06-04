@@ -1,13 +1,17 @@
-import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft, ChevronDown, Satellite, X } from 'lucide-react'
 import {
   fetchAllConstellations,
+  fetchISS,
   CONSTELLATIONS,
   DEFAULT_ENABLED_CONSTELLATIONS,
   type ConstellationKey,
   type SatelliteEntry,
+  type TrackedObject,
 } from '../lib/tle'
+import ISSInfoCard from './ISSInfoCard'
+import type { ISSTelemetry } from './ISSTracker'
 import type { SatelliteHit } from './SatelliteCloud'
 import {
   setHighlightedNoradIds,
@@ -120,6 +124,11 @@ export default function StarlinkView({ onBack }: Props) {
   // Google-Maps-style high-res tile mosaic (streams in when you zoom in).
   const [detailTiles, setDetailTiles] = useState(true)
   const [tileProvider, setTileProvider] = useState<TileProvider>('satellite')
+  // Live ISS tracking (on by default). Position from its TLE; the shared
+  // ref carries per-frame altitude/speed to the info card without re-render.
+  const [iss, setIss] = useState(true)
+  const [issSat, setIssSat] = useState<TrackedObject | null>(null)
+  const issTelemetryRef = useRef<ISSTelemetry>({ altKm: 0, speedKms: 0, hasFix: false })
 
   // Fetch TLEs on mount. Stays alive in sessionStorage for 2 hours
   // so a tab reload doesn't refetch.
@@ -155,6 +164,20 @@ export default function StarlinkView({ onBack }: Props) {
         setLoadState('error')
         setErrorMsg(err instanceof Error ? err.message : String(err))
       })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Fetch the ISS TLE separately (single object, its own cache). Failure
+  // here is non-fatal — the rest of the sky still loads.
+  useEffect(() => {
+    let cancelled = false
+    fetchISS()
+      .then((sat) => {
+        if (!cancelled && sat) setIssSat(sat)
+      })
+      .catch((err) => console.warn('[StarlinkView] ISS fetch failed:', err))
     return () => {
       cancelled = true
     }
@@ -286,6 +309,8 @@ export default function StarlinkView({ onBack }: Props) {
             onLaunchSites={() => setLaunchSites((s) => !s)}
             labels={labels}
             onLabels={() => setLabels((l) => !l)}
+            iss={iss}
+            onIss={() => setIss((v) => !v)}
           />
 
           {/* Visuals menu — display options (detail tiles, lighting, motion). */}
@@ -326,11 +351,17 @@ export default function StarlinkView({ onBack }: Props) {
               graticule={graticule}
               launchSites={launchSites}
               labels={labels}
+              iss={iss}
+              issSat={issSat}
+              issTelemetryRef={issTelemetryRef}
               detailTiles={detailTiles}
               tileProvider={tileProvider}
             />
           </Suspense>
         </EarthErrorBoundary>
+
+        {/* Live ISS readout — altitude/speed + docked Crew Dragon. */}
+        {iss && issSat && <ISSInfoCard telemetryRef={issTelemetryRef} />}
 
         {/* Hover tooltip — follows cursor, fades in/out. Renders in
             the canvas wrapper (not document body) so it's clipped
