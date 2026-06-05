@@ -3919,36 +3919,67 @@ body {
   color: #fff;
   font-variant-numeric: tabular-nums;
 }
+.launchbar-divider {
+  flex: 0 0 auto;
+  width: 1px;
+  align-self: stretch;
+  min-height: 32px;
+  background: rgba(255, 255, 255, 0.12);
+}
+.launchbar-stats {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
 .launchbar-stat {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   flex: 0 0 auto;
 }
 .launchbar-stat-k {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 9px;
   letter-spacing: 0.8px;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.45);
 }
 .launchbar-stat-v {
+  display: inline-flex;
+  align-items: center;
   font-size: 13px;
   font-weight: 700;
   color: #fff;
   font-variant-numeric: tabular-nums;
-}
-.launchbar-wx {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  font-size: 11px;
-  color: rgba(255, 220, 180, 0.85);
-}
-.launchbar-wx span {
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+.launchbar-stat-v--muted {
+  color: rgba(255, 255, 255, 0.4);
+}
+.launchbar-wx-tag {
+  margin-left: 7px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+.launchbar-wx-tag--favorable {
+  background: rgba(80, 220, 140, 0.16);
+  color: #79f0b0;
+}
+.launchbar-wx-tag--marginal {
+  background: rgba(255, 190, 80, 0.16);
+  color: #ffc680;
+}
+.launchbar-wx-tag--rough {
+  background: rgba(255, 90, 90, 0.18);
+  color: #ff9a9a;
 }
 .launchbar-actions {
   display: flex;
@@ -4083,10 +4114,10 @@ body {
 @media (max-width: 860px) {
   .launchbar {
     gap: 12px;
-    flex-wrap: wrap;
   }
-  .launchbar-stat,
-  .launchbar-wx {
+  /* Collapse to mission + countdown + watch on small screens. */
+  .launchbar-stats,
+  .launchbar-divider {
     display: none;
   }
 }

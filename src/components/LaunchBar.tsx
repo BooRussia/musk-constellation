@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CloudSun, Play, Rocket, X } from 'lucide-react'
 import type { DetailedLaunch } from '../lib/launches'
+import { fetchLaunchWeather, type LaunchWeather } from '../lib/weather'
 
-// Top "launch ticker" bar — mission, live T-minus, window, weather /
-// probability, and a Watch button. Real data from Launch Library 2.
+// Top "launch ticker" bar — mission · live T-minus · window · go-prob ·
+// live launch-site weather · Watch. Real data from Launch Library 2 +
+// Open-Meteo. Laid out in clean divider-separated groups.
+
+const WEATHER_REFRESH_MS = 15 * 60 * 1000
 
 function pad(n: number): string {
   return String(n).padStart(2, '0')
@@ -34,12 +38,33 @@ interface Props {
 
 export default function LaunchBar({ launch, onWatch, onExit }: Props) {
   const [nowMs, setNowMs] = useState(0)
+  const [wx, setWx] = useState<LaunchWeather | null>(null)
+
   useEffect(() => {
     const tick = () => setNowMs(Date.now())
     tick()
     const id = window.setInterval(tick, 1000)
     return () => window.clearInterval(id)
   }, [])
+
+  // Live launch-site weather, refreshed every 15 min.
+  const padLat = launch?.pad?.lat
+  const padLon = launch?.pad?.lon
+  const net = launch?.net
+  useEffect(() => {
+    if (padLat == null || padLon == null || !net) return
+    let cancelled = false
+    const load = () =>
+      fetchLaunchWeather(padLat, padLon, net).then((w) => {
+        if (!cancelled) setWx(w)
+      })
+    load()
+    const id = window.setInterval(load, WEATHER_REFRESH_MS)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+    }
+  }, [padLat, padLon, net])
 
   const netMs = useMemo(() => (launch ? new Date(launch.net).getTime() : 0), [launch])
 
@@ -72,33 +97,48 @@ export default function LaunchBar({ launch, onWatch, onExit }: Props) {
         </div>
       </div>
 
+      <span className="launchbar-divider" />
+
       <div className="launchbar-cd">
         <span className="launchbar-cd-sign">{sign}</span>
         <span className="launchbar-cd-time">{core}</span>
       </div>
 
-      {hasWindow && (
+      <span className="launchbar-divider" />
+
+      <div className="launchbar-stats">
+        {hasWindow && (
+          <div className="launchbar-stat">
+            <span className="launchbar-stat-k">Window</span>
+            <span className="launchbar-stat-v">
+              {fmtTime(launch.windowStart)}–{fmtTime(launch.windowEnd)}
+            </span>
+          </div>
+        )}
+
         <div className="launchbar-stat">
-          <span className="launchbar-stat-k">Window</span>
+          <span className="launchbar-stat-k">Go prob.</span>
           <span className="launchbar-stat-v">
-            {fmtTime(launch.windowStart)}–{fmtTime(launch.windowEnd)}
+            {launch.probability != null ? `${launch.probability}%` : '—'}
           </span>
         </div>
-      )}
 
-      <div className="launchbar-stat">
-        <span className="launchbar-stat-k">Go prob.</span>
-        <span className="launchbar-stat-v">
-          {launch.probability != null ? `${launch.probability}%` : '—'}
-        </span>
-      </div>
-
-      {launch.weather && (
-        <div className="launchbar-wx" title={launch.weather}>
-          <CloudSun className="h-3.5 w-3.5" aria-hidden="true" />
-          <span>{launch.weather}</span>
+        <div className="launchbar-stat launchbar-wx">
+          <span className="launchbar-stat-k">
+            <CloudSun className="h-3 w-3" aria-hidden="true" /> Weather
+          </span>
+          {wx ? (
+            <span className="launchbar-stat-v">
+              {wx.tempC}° · {wx.windKmh} km/h · {wx.precipProb}%
+              <span className={`launchbar-wx-tag launchbar-wx-tag--${wx.outlook.toLowerCase()}`}>
+                {wx.outlook}
+              </span>
+            </span>
+          ) : (
+            <span className="launchbar-stat-v launchbar-stat-v--muted">—</span>
+          )}
         </div>
-      )}
+      </div>
 
       <div className="launchbar-actions">
         {canWatch && (
