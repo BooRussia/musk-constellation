@@ -14,6 +14,8 @@ import LaunchSites from './LaunchSites'
 import DetailTiles from './DetailTiles'
 import ISSTracker, { type ISSTelemetry } from './ISSTracker'
 import FollowController from './FollowController'
+import LaunchFocusController from './LaunchFocusController'
+import ActiveLaunchPad from './ActiveLaunchPad'
 import type { SatelliteEntry, ConstellationKey, TrackedObject } from '../lib/tle'
 import { getMapStyle } from '../data/mapStyles'
 import type { TileProvider } from '../lib/tiles'
@@ -922,6 +924,12 @@ interface EarthSceneProps {
   issTelemetryRef?: React.MutableRefObject<ISSTelemetry>
   /** Fly the camera to the ISS and follow it through orbit. */
   followISS?: boolean
+  /** Spin the globe so the next launch's pad faces the camera + stop spin. */
+  launchFocusActive?: boolean
+  /** The pad to focus on (lat/lon/name). */
+  launchPad?: { lat: number; lon: number; name: string } | null
+  /** Bump to re-centre on the pad (e.g. re-clicking the launch pill). */
+  launchFocusSignal?: number
   /** Stream high-res map tiles as you zoom in (Google-Maps-style mosaic). */
   detailTiles?: boolean
   /** Which tile imagery the detail mosaic streams. */
@@ -944,6 +952,9 @@ export default function EarthScene({
   issSat = null,
   issTelemetryRef,
   followISS = false,
+  launchFocusActive = false,
+  launchPad = null,
+  launchFocusSignal = 0,
   detailTiles = false,
   tileProvider = 'satellite',
 }: EarthSceneProps) {
@@ -1145,7 +1156,7 @@ export default function EarthScene({
           rotateSpeed={0.4}
           zoomSpeed={0.6}
           enablePan={false}
-          autoRotate={autoRotate && !followISS}
+          autoRotate={autoRotate && !followISS && !launchFocusActive}
           autoRotateSpeed={autoRotateSpeed}
         />
 
@@ -1155,6 +1166,21 @@ export default function EarthScene({
           active={followISS && iss && !!issSat}
           targetRef={issPosRef}
         />
+
+        {/* Spin-to-pad: rotates the globe so the next launch's site faces
+            the camera, then stops. A bright pulse marks the pad. */}
+        {launchFocusActive && launchPad && (
+          <>
+            <LaunchFocusController
+              controlsRef={controlsRef}
+              active
+              lat={launchPad.lat}
+              lon={launchPad.lon}
+              signal={launchFocusSignal}
+            />
+            <ActiveLaunchPad lat={launchPad.lat} lon={launchPad.lon} name={launchPad.name} />
+          </>
+        )}
 
         {/* WASD/QE keyboard camera controls — orbits + zooms + pans the
             camera around controls.target each frame. Mirrors the

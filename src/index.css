@@ -2199,6 +2199,46 @@ body {
   font-size: 10px;
 }
 
+/* Next-launch countdown chip — sits right of the tracked-sats status.
+   Click spins the globe to the pad + opens the launch tracker. */
+.launchpill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 11px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 150, 60, 0.3);
+  background: rgba(20, 12, 4, 0.62);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: #ffb066;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.launchpill:hover {
+  border-color: rgba(255, 150, 60, 0.55);
+  background: rgba(30, 16, 6, 0.78);
+}
+.launchpill--on {
+  border-color: rgba(255, 150, 60, 0.65);
+  box-shadow: 0 0 0 1px rgba(255, 150, 60, 0.2) inset, 0 0 12px rgba(255, 140, 40, 0.22);
+}
+.launchpill-label {
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 1.3px;
+  font-size: 9.5px;
+}
+.launchpill-cd {
+  color: #fff;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 @media (max-width: 639px) {
   .starlink-topnav {
     height: 52px;
@@ -2924,7 +2964,8 @@ body {
     gap: 12px;
   }
   .mapstyle-trigger-label,
-  .layers-trigger-label {
+  .layers-trigger-label,
+  .launchpill-label {
     display: none;
   }
   /* Drop the eyebrow on narrower screens — the title alone is enough. */
@@ -3433,6 +3474,62 @@ body {
   line-height: 1;
   color: #ffd9a8;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 8px rgba(255, 140, 40, 0.4);
+}
+
+/* Active launch pad — brighter, double-ringed pulse so it's unmissable. */
+.launchpad-marker {
+  position: relative;
+  width: 0;
+  height: 0;
+}
+.launchpad-dot {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 12px 3px rgba(255, 160, 60, 1);
+}
+.launchpad-ping {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 150, 60, 0.95);
+  animation: launchpad-ping 1.8s ease-out infinite;
+}
+.launchpad-ping--2 {
+  animation-delay: 0.9s;
+}
+@keyframes launchpad-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(5);
+    opacity: 0;
+  }
+}
+.launchpad-label {
+  position: absolute;
+  left: 13px;
+  top: 0;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  line-height: 1;
+  color: #ffd9a8;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 10px rgba(255, 140, 40, 0.55);
 }
 
 /* ============================================

@@ -12,7 +12,7 @@ import {
 } from '../lib/tle'
 import ISSInfoCard from './ISSInfoCard'
 import type { ISSTelemetry } from './ISSTracker'
-import LaunchCountdown from './LaunchCountdown'
+import LaunchPill from './LaunchPill'
 import LaunchBar from './LaunchBar'
 import WatchModal from './WatchModal'
 import { fetchNextLaunchDetailed, type DetailedLaunch } from '../lib/launches'
@@ -152,13 +152,15 @@ export default function StarlinkView({ onBack }: Props) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [trackISS])
-  // SpaceX launch tracker — top bar + webcast.
+  // SpaceX launch tracker — top-bar pill + ticker bar + webcast.
   const [trackLaunch, setTrackLaunch] = useState(false)
   const [detailedLaunch, setDetailedLaunch] = useState<DetailedLaunch | null>(null)
   const [watchOpen, setWatchOpen] = useState(false)
-  // Fetch the detailed next launch when the tracker is first switched on.
+  // Bumped each time the user clicks the pill, to re-centre on the pad.
+  const [launchFocusSignal, setLaunchFocusSignal] = useState(0)
+  // Fetch the detailed next launch on mount so the countdown pill is live
+  // immediately (and the pad coords are ready for the spin-to-pad action).
   useEffect(() => {
-    if (!trackLaunch || detailedLaunch) return
     let cancelled = false
     fetchNextLaunchDetailed()
       .then((l) => {
@@ -168,7 +170,22 @@ export default function StarlinkView({ onBack }: Props) {
     return () => {
       cancelled = true
     }
-  }, [trackLaunch, detailedLaunch])
+  }, [])
+
+  // The pad to spin to, and whether the spin-to-pad focus is engaged.
+  const launchPad = useMemo(() => {
+    const p = detailedLaunch?.pad
+    return p ? { lat: p.lat, lon: p.lon, name: p.name } : null
+  }, [detailedLaunch])
+  const launchFocusActive = trackLaunch && !!launchPad
+
+  // Click the launch pill / tracker → open the launch bar, stop the spin,
+  // and (re)centre the globe on the pad.
+  const focusNextLaunch = useCallback(() => {
+    setTrackLaunch(true)
+    setAutoRotate(false)
+    setLaunchFocusSignal((s) => s + 1)
+  }, [])
 
   // Fetch TLEs on mount. Stays alive in sessionStorage for 2 hours
   // so a tab reload doesn't refetch.
@@ -372,7 +389,7 @@ export default function StarlinkView({ onBack }: Props) {
             issActive={trackISS}
             onTrackISS={toggleTrackISS}
             launchActive={trackLaunch}
-            onTrackLaunch={() => setTrackLaunch((v) => !v)}
+            onTrackLaunch={() => (trackLaunch ? setTrackLaunch(false) : focusNextLaunch())}
           />
 
           <div className="starlink-status">
@@ -382,6 +399,9 @@ export default function StarlinkView({ onBack }: Props) {
             </span>
             <span className="starlink-status-label">tracked</span>
           </div>
+
+          {/* Next-launch countdown — click to spin the globe to the pad. */}
+          <LaunchPill launch={detailedLaunch} active={trackLaunch} onClick={focusNextLaunch} />
         </div>
       </header>
 
@@ -404,19 +424,17 @@ export default function StarlinkView({ onBack }: Props) {
               issSat={issSat}
               issTelemetryRef={issTelemetryRef}
               followISS={trackISS}
+              launchFocusActive={launchFocusActive}
+              launchPad={launchPad}
+              launchFocusSignal={launchFocusSignal}
               detailTiles={detailTiles}
               tileProvider={tileProvider}
             />
           </Suspense>
         </EarthErrorBoundary>
 
-        {/* Live tracker cards. On desktop each self-positions to a corner;
-            on phones this wrapper stacks them at the top so they never
-            overlap, and each card collapses to a slim header. */}
-        <div className="starlink-trackercards">
-          {iss && issSat && <ISSInfoCard telemetryRef={issTelemetryRef} />}
-          <LaunchCountdown />
-        </div>
+        {/* ISS crew / altitude readout — only while actively following. */}
+        {trackISS && issSat && <ISSInfoCard telemetryRef={issTelemetryRef} />}
 
         {/* Top launch ticker bar — next SpaceX launch + Watch button. */}
         <AnimatePresence>
