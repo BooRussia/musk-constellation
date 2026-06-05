@@ -410,11 +410,13 @@ export default function StarlinkView({ onBack }: Props) {
           </Suspense>
         </EarthErrorBoundary>
 
-        {/* Live ISS readout — altitude/speed + docked Crew Dragon. */}
-        {iss && issSat && <ISSInfoCard telemetryRef={issTelemetryRef} />}
-
-        {/* Next SpaceX launch — live countdown (Launch Library 2). */}
-        <LaunchCountdown />
+        {/* Live tracker cards. On desktop each self-positions to a corner;
+            on phones this wrapper stacks them at the top so they never
+            overlap, and each card collapses to a slim header. */}
+        <div className="starlink-trackercards">
+          {iss && issSat && <ISSInfoCard telemetryRef={issTelemetryRef} />}
+          <LaunchCountdown />
+        </div>
 
         {/* Top launch ticker bar — next SpaceX launch + Watch button. */}
         <AnimatePresence>

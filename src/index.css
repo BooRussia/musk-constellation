@@ -3506,16 +3506,43 @@ body {
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
-  pointer-events: none;
+  pointer-events: auto;
 }
 .iss-card-head {
   display: flex;
   align-items: center;
   gap: 7px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 1.6px;
   color: rgba(255, 255, 255, 0.85);
+}
+.iss-card-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.iss-card-mini {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.iss-card-chev {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  opacity: 0.55;
+  transition: transform 0.18s ease;
+}
+.iss-card-chev.is-open {
+  transform: rotate(180deg);
 }
 .iss-card-live {
   color: #7fe6ff;
@@ -3570,15 +3597,6 @@ body {
   font-size: 9px;
   color: rgba(255, 255, 255, 0.32);
 }
-@media (max-width: 639px) {
-  .iss-card {
-    width: 200px;
-    padding: 10px 12px;
-    top: calc(56px + 8px);
-    left: 10px;
-  }
-}
-
 /* ============================================
    Next-launch countdown card (bottom-right)
    ============================================ */
@@ -3595,16 +3613,43 @@ body {
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
-  pointer-events: none;
+  pointer-events: auto;
 }
 .launch-card-head {
   display: flex;
   align-items: center;
   gap: 7px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 1.4px;
   color: #ffb066;
+}
+.launch-card-title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.launch-card-mini {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 800;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.launch-card-chev {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  opacity: 0.55;
+  transition: transform 0.18s ease;
+}
+.launch-card-chev.is-open {
+  transform: rotate(180deg);
 }
 .launch-card-name {
   margin-top: 8px;
@@ -3668,12 +3713,30 @@ body {
 .lc-more {
   color: rgba(255, 255, 255, 0.4);
 }
+
+/* Tracker-card wrapper. On desktop it's transparent to layout so each
+   card keeps its own corner (absolute) positioning. On phones it stacks
+   both cards in a column at the top so they never overlap. */
+.starlink-trackercards {
+  display: contents;
+}
 @media (max-width: 639px) {
-  .launch-card {
-    width: 200px;
+  .starlink-trackercards {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    position: fixed;
+    top: calc(56px + 6px);
+    left: 10px;
     right: 10px;
-    bottom: auto;
-    top: calc(56px + 8px);
+    z-index: 18;
+    pointer-events: none;
+  }
+  .starlink-trackercards > * {
+    position: static;
+    inset: auto;
+    width: auto;
+    max-width: none;
     padding: 10px 12px;
   }
   .lc-time {

@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Rocket } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { ChevronDown, Rocket } from 'lucide-react'
 import { fetchUpcomingLaunches, type UpcomingLaunch } from '../lib/launches'
 
 // Live countdown to the next SpaceX launch (data from Launch Library 2).
 // One network fetch on mount; the clock then ticks client-side.
+
+// Collapsed by default on phones, expanded on desktop.
+const DEFAULT_OPEN = typeof window === 'undefined' ? true : window.innerWidth > 639
 
 function pad(n: number): string {
   return String(n).padStart(2, '0')
@@ -25,6 +29,7 @@ function formatCountdown(ms: number): { sign: string; core: string } {
 export default function LaunchCountdown() {
   const [launches, setLaunches] = useState<UpcomingLaunch[]>([])
   const [nowMs, setNowMs] = useState(0)
+  const [open, setOpen] = useState(DEFAULT_OPEN)
 
   useEffect(() => {
     let cancelled = false
@@ -67,25 +72,52 @@ export default function LaunchCountdown() {
   const extra = launches.length - 1
 
   return (
-    <div className="launch-card">
-      <div className="launch-card-head">
+    <div className={`launch-card ${open ? '' : 'launch-card--collapsed'}`}>
+      <button
+        type="button"
+        className="launch-card-head"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
         <Rocket className="h-3 w-3" aria-hidden="true" />
-        <span>NEXT SPACEX LAUNCH</span>
-      </div>
-      <div className="launch-card-name">{next.name}</div>
-      <div className="launch-card-meta">
-        {next.rocket}
-        {next.pad ? ` · ${next.pad}` : ''}
-      </div>
-      <div className="launch-card-countdown">
-        <span className="lc-sign">{sign}</span>
-        <span className="lc-time">{core}</span>
-      </div>
-      <div className="launch-card-foot">
-        <span className={`lc-status lc-status--${next.status.toLowerCase()}`}>{next.status}</span>
-        <span className="lc-when">{when}</span>
-        {extra > 0 && <span className="lc-more">+{extra} scheduled</span>}
-      </div>
+        <span className="launch-card-title">NEXT SPACEX LAUNCH</span>
+        {!open && (
+          <span className="launch-card-mini">
+            {sign} {core}
+          </span>
+        )}
+        <ChevronDown className={`launch-card-chev ${open ? 'is-open' : ''}`} aria-hidden="true" />
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="body"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+            style={{ overflow: 'hidden' }}
+          >
+            <div className="launch-card-name">{next.name}</div>
+            <div className="launch-card-meta">
+              {next.rocket}
+              {next.pad ? ` · ${next.pad}` : ''}
+            </div>
+            <div className="launch-card-countdown">
+              <span className="lc-sign">{sign}</span>
+              <span className="lc-time">{core}</span>
+            </div>
+            <div className="launch-card-foot">
+              <span className={`lc-status lc-status--${next.status.toLowerCase()}`}>
+                {next.status}
+              </span>
+              <span className="lc-when">{when}</span>
+              {extra > 0 && <span className="lc-more">+{extra} scheduled</span>}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
