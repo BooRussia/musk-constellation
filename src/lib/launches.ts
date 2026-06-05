@@ -81,6 +81,131 @@ function normalize(results: LL2ListResult[]): UpcomingLaunch[] {
   })
 }
 
+// ============================================
+// Detailed next launch (pad coords, window, weather, webcast)
+// ============================================
+
+export interface DetailedLaunch {
+  id: string
+  mission: string
+  rocket: string
+  /** No-earlier-than launch time, ISO. */
+  net: string
+  windowStart?: string
+  windowEnd?: string
+  /** Weather "go" probability % (null if LL2 doesn't have it). */
+  probability: number | null
+  /** Free-text weather concerns, if any. */
+  weather?: string
+  status: string
+  /** Best webcast URL (often the official YouTube stream). */
+  webcastUrl?: string
+  /** YouTube embed URL, if the webcast is an embeddable YouTube link. */
+  webcastEmbed?: string
+  pad?: { name: string; lat: number; lon: number; location: string }
+}
+
+interface LL2DetailedResult {
+  id: string
+  name?: string
+  net: string
+  window_start?: string
+  window_end?: string
+  probability?: number | null
+  weather_concerns?: string | null
+  status?: { abbrev?: string }
+  rocket?: { configuration?: { name?: string; full_name?: string } }
+  pad?: { name?: string; latitude?: string | number; longitude?: string | number; location?: { name?: string } }
+  vidURLs?: Array<{ url?: string; priority?: number }>
+}
+
+const LL2_DETAIL_URL =
+  'https://ll.thespacedevs.com/2.2.0/launch/upcoming/' +
+  '?limit=1&mode=detailed&hide_recent_previous=true&lsp__name=SpaceX'
+const DETAIL_CACHE_KEY = 'mc.launch.detail.v1'
+const DETAIL_FRESH_MS = 15 * 60 * 1000
+
+/** Turn a YouTube watch/short URL into an embed URL (or undefined). */
+export function toYouTubeEmbed(url?: string): string | undefined {
+  if (!url) return undefined
+  const m =
+    url.match(/[?&]v=([\w-]{11})/) ||
+    url.match(/youtu\.be\/([\w-]{11})/) ||
+    url.match(/youtube\.com\/(?:embed|live)\/([\w-]{11})/)
+  return m ? `https://www.youtube.com/embed/${m[1]}` : undefined
+}
+
+function normalizeDetailed(r: LL2DetailedResult): DetailedLaunch {
+  const parts = (r.name ?? '').split(' | ')
+  const rocketFromName = parts.length > 1 ? parts[0] : undefined
+  const mission = parts.length > 1 ? parts.slice(1).join(' | ') : (r.name ?? 'SpaceX launch')
+  const webcast = [...(r.vidURLs ?? [])].sort(
+    (a, b) => (a.priority ?? 99) - (b.priority ?? 99),
+  )[0]?.url
+  const lat = r.pad?.latitude != null ? Number(r.pad.latitude) : NaN
+  const lon = r.pad?.longitude != null ? Number(r.pad.longitude) : NaN
+  return {
+    id: r.id,
+    mission,
+    rocket: r.rocket?.configuration?.full_name ?? r.rocket?.configuration?.name ?? rocketFromName ?? 'Falcon 9',
+    net: r.net,
+    windowStart: r.window_start,
+    windowEnd: r.window_end,
+    probability: typeof r.probability === 'number' && r.probability >= 0 ? r.probability : null,
+    weather: r.weather_concerns ?? undefined,
+    status: r.status?.abbrev ?? 'TBD',
+    webcastUrl: webcast,
+    webcastEmbed: toYouTubeEmbed(webcast),
+    pad:
+      Number.isFinite(lat) && Number.isFinite(lon)
+        ? {
+            name: r.pad?.name ?? 'Launch pad',
+            lat,
+            lon,
+            location: r.pad?.location?.name ?? '',
+          }
+        : undefined,
+  }
+}
+
+/** Fetch the next SpaceX launch with full detail, cache-first. */
+export async function fetchNextLaunchDetailed(): Promise<DetailedLaunch | null> {
+  try {
+    const raw = localStorage.getItem(DETAIL_CACHE_KEY)
+    if (raw) {
+      const c = JSON.parse(raw) as { fetchedAt: number; launch: DetailedLaunch }
+      if (Date.now() - c.fetchedAt < DETAIL_FRESH_MS) return c.launch
+    }
+  } catch {
+    // ignore
+  }
+  try {
+    const res = await fetch(LL2_DETAIL_URL)
+    if (res.ok) {
+      const json = (await res.json()) as { results?: LL2DetailedResult[] }
+      const first = json.results?.[0]
+      if (first) {
+        const launch = normalizeDetailed(first)
+        try {
+          localStorage.setItem(DETAIL_CACHE_KEY, JSON.stringify({ fetchedAt: Date.now(), launch }))
+        } catch {
+          // quota
+        }
+        return launch
+      }
+    }
+  } catch {
+    // fall through to stale cache
+  }
+  try {
+    const raw = localStorage.getItem(DETAIL_CACHE_KEY)
+    if (raw) return (JSON.parse(raw) as { launch: DetailedLaunch }).launch
+  } catch {
+    // ignore
+  }
+  return null
+}
+
 /** Fetch the next few upcoming SpaceX launches, cache-first. Returns []
  *  on a cold start that's also rate-limited (rare). */
 export async function fetchUpcomingLaunches(): Promise<UpcomingLaunch[]> {

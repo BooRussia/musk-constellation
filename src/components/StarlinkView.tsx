@@ -13,6 +13,9 @@ import {
 import ISSInfoCard from './ISSInfoCard'
 import type { ISSTelemetry } from './ISSTracker'
 import LaunchCountdown from './LaunchCountdown'
+import LaunchBar from './LaunchBar'
+import WatchModal from './WatchModal'
+import { fetchNextLaunchDetailed, type DetailedLaunch } from '../lib/launches'
 import type { SatelliteHit } from './SatelliteCloud'
 import {
   setHighlightedNoradIds,
@@ -149,6 +152,23 @@ export default function StarlinkView({ onBack }: Props) {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [trackISS])
+  // SpaceX launch tracker — top bar + webcast.
+  const [trackLaunch, setTrackLaunch] = useState(false)
+  const [detailedLaunch, setDetailedLaunch] = useState<DetailedLaunch | null>(null)
+  const [watchOpen, setWatchOpen] = useState(false)
+  // Fetch the detailed next launch when the tracker is first switched on.
+  useEffect(() => {
+    if (!trackLaunch || detailedLaunch) return
+    let cancelled = false
+    fetchNextLaunchDetailed()
+      .then((l) => {
+        if (!cancelled && l) setDetailedLaunch(l)
+      })
+      .catch((err) => console.warn('[StarlinkView] launch detail fetch failed:', err))
+    return () => {
+      cancelled = true
+    }
+  }, [trackLaunch, detailedLaunch])
 
   // Fetch TLEs on mount. Stays alive in sessionStorage for 2 hours
   // so a tab reload doesn't refetch.
@@ -348,7 +368,12 @@ export default function StarlinkView({ onBack }: Props) {
           />
 
           {/* Trackers menu — fly the camera to & follow live objects. */}
-          <TrackersMenu issActive={trackISS} onTrackISS={toggleTrackISS} />
+          <TrackersMenu
+            issActive={trackISS}
+            onTrackISS={toggleTrackISS}
+            launchActive={trackLaunch}
+            onTrackLaunch={() => setTrackLaunch((v) => !v)}
+          />
 
           <div className="starlink-status">
             <Satellite className="h-3 w-3" aria-hidden="true" />
@@ -390,6 +415,33 @@ export default function StarlinkView({ onBack }: Props) {
 
         {/* Next SpaceX launch — live countdown (Launch Library 2). */}
         <LaunchCountdown />
+
+        {/* Top launch ticker bar — next SpaceX launch + Watch button. */}
+        <AnimatePresence>
+          {trackLaunch && (
+            <motion.div
+              key="launchbar"
+              className="launchbar-wrap"
+              initial={{ opacity: 0, y: -16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -16 }}
+              transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+            >
+              <LaunchBar
+                launch={detailedLaunch}
+                onWatch={() => setWatchOpen(true)}
+                onExit={() => setTrackLaunch(false)}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Webcast pop-up. */}
+        <AnimatePresence>
+          {watchOpen && detailedLaunch && (
+            <WatchModal launch={detailedLaunch} onClose={() => setWatchOpen(false)} />
+          )}
+        </AnimatePresence>
 
         {/* Follow-cam exit chip. */}
         <AnimatePresence>

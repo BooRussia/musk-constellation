@@ -3681,6 +3681,256 @@ body {
   }
 }
 
+/* ============================================
+   Launch tracker — top ticker bar + webcast modal
+   ============================================ */
+.launchbar-wrap {
+  position: absolute;
+  top: 56px;
+  left: 0;
+  right: 0;
+  z-index: 24;
+  display: flex;
+  justify-content: center;
+  padding: 8px 12px;
+  pointer-events: none;
+}
+.launchbar {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  max-width: 1100px;
+  width: 100%;
+  padding: 9px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 150, 60, 0.28);
+  background: rgba(14, 10, 6, 0.9);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+.launchbar--loading {
+  justify-content: center;
+  gap: 10px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+}
+.launchbar-id {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.launchbar-rocket-icon {
+  color: #ffb066;
+  flex: 0 0 auto;
+}
+.launchbar-mission {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.launchbar-sub {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+}
+.launchbar-cd {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  flex: 0 0 auto;
+}
+.launchbar-cd-sign {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: #ff9a4a;
+}
+.launchbar-cd-time {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 800;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.launchbar-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 0 0 auto;
+}
+.launchbar-stat-k {
+  font-size: 9px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+}
+.launchbar-stat-v {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.launchbar-wx {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 11px;
+  color: rgba(255, 220, 180, 0.85);
+}
+.launchbar-wx span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.launchbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+.launchbar-watch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 90, 90, 0.5);
+  background: linear-gradient(180deg, rgba(255, 80, 70, 0.92), rgba(220, 50, 45, 0.92));
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: filter 0.13s ease;
+}
+.launchbar-watch:hover {
+  filter: brightness(1.12);
+}
+.launchbar-exit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: all 0.13s ease;
+}
+.launchbar-exit:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+/* Webcast modal */
+.watch-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(2, 4, 10, 0.7);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.watch-modal {
+  width: min(960px, 94vw);
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #07080d;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+}
+.watch-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.watch-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+}
+.watch-live {
+  color: #ff5a5a;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  animation: iss-pulse 1.6s ease-in-out infinite;
+}
+.watch-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+}
+.watch-close:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+.watch-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+}
+.watch-frame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.watch-noembed {
+  padding: 40px 24px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.7);
+}
+.watch-extlink {
+  display: inline-block;
+  margin-top: 12px;
+  padding: 9px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(120, 180, 255, 0.5);
+  color: #bcd6ff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+@media (max-width: 860px) {
+  .launchbar {
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .launchbar-stat,
+  .launchbar-wx {
+    display: none;
+  }
+}
+
 .globe-label {
   display: flex;
   align-items: center;
