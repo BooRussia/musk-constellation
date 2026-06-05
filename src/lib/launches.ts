@@ -98,10 +98,12 @@ export interface DetailedLaunch {
   /** Free-text weather concerns, if any. */
   weather?: string
   status: string
-  /** Best webcast URL (often the official YouTube stream). */
+  /** Best webcast URL to open externally (highest-priority stream). */
   webcastUrl?: string
-  /** YouTube embed URL, if the webcast is an embeddable YouTube link. */
+  /** YouTube embed URL, if any of the webcasts is an embeddable YT link. */
   webcastEmbed?: string
+  /** Human label for the external-link button ("YouTube" / "X" / "stream"). */
+  webcastPlatform?: string
   pad?: { name: string; lat: number; lon: number; location: string }
 }
 
@@ -135,13 +137,24 @@ export function toYouTubeEmbed(url?: string): string | undefined {
   return m ? `https://www.youtube.com/embed/${m[1]}` : undefined
 }
 
+function platformOf(url?: string): string {
+  if (!url) return 'stream'
+  if (/youtube\.com|youtu\.be/.test(url)) return 'YouTube'
+  if (/(?:twitter|x)\.com/.test(url)) return 'X'
+  if (/spacex\.com/.test(url)) return 'SpaceX'
+  return 'stream'
+}
+
 function normalizeDetailed(r: LL2DetailedResult): DetailedLaunch {
   const parts = (r.name ?? '').split(' | ')
   const rocketFromName = parts.length > 1 ? parts[0] : undefined
   const mission = parts.length > 1 ? parts.slice(1).join(' | ') : (r.name ?? 'SpaceX launch')
-  const webcast = [...(r.vidURLs ?? [])].sort(
-    (a, b) => (a.priority ?? 99) - (b.priority ?? 99),
-  )[0]?.url
+  const urls = [...(r.vidURLs ?? [])].sort((a, b) => (a.priority ?? 99) - (b.priority ?? 99))
+  const webcast = urls[0]?.url
+  // Prefer ANY embeddable YouTube link for the in-app player, even if it's
+  // not the highest-priority url (SpaceX's top link is often X, which can't
+  // be embedded).
+  const webcastEmbed = urls.map((v) => toYouTubeEmbed(v.url)).find(Boolean)
   const lat = r.pad?.latitude != null ? Number(r.pad.latitude) : NaN
   const lon = r.pad?.longitude != null ? Number(r.pad.longitude) : NaN
   return {
@@ -155,7 +168,8 @@ function normalizeDetailed(r: LL2DetailedResult): DetailedLaunch {
     weather: r.weather_concerns ?? undefined,
     status: r.status?.abbrev ?? 'TBD',
     webcastUrl: webcast,
-    webcastEmbed: toYouTubeEmbed(webcast),
+    webcastEmbed,
+    webcastPlatform: platformOf(webcast),
     pad:
       Number.isFinite(lat) && Number.isFinite(lon)
         ? {
