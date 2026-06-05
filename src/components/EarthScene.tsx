@@ -13,6 +13,7 @@ import Graticule from './Graticule'
 import LaunchSites from './LaunchSites'
 import DetailTiles from './DetailTiles'
 import ISSTracker, { type ISSTelemetry } from './ISSTracker'
+import FollowController from './FollowController'
 import type { SatelliteEntry, ConstellationKey, TrackedObject } from '../lib/tle'
 import { getMapStyle } from '../data/mapStyles'
 import type { TileProvider } from '../lib/tiles'
@@ -919,6 +920,8 @@ interface EarthSceneProps {
   issSat?: TrackedObject | null
   /** Shared ref the ISS tracker writes live altitude/speed into. */
   issTelemetryRef?: React.MutableRefObject<ISSTelemetry>
+  /** Fly the camera to the ISS and follow it through orbit. */
+  followISS?: boolean
   /** Stream high-res map tiles as you zoom in (Google-Maps-style mosaic). */
   detailTiles?: boolean
   /** Which tile imagery the detail mosaic streams. */
@@ -940,11 +943,14 @@ export default function EarthScene({
   iss = false,
   issSat = null,
   issTelemetryRef,
+  followISS = false,
   detailTiles = false,
   tileProvider = 'satellite',
 }: EarthSceneProps) {
   const style = getMapStyle(mapStyleId)
   const fullLit = !dayCycle
+  // Live ISS world position, written by ISSTracker, read by FollowController.
+  const issPosRef = useRef<THREE.Vector3 | null>(null)
 
   // Real-Earth data maps (relief/night/water) load ONCE — they're only
   // used by the photoreal pipeline. The day/albedo map is separate and
@@ -1089,7 +1095,7 @@ export default function EarthScene({
 
         {/* International Space Station — live SGP4 marker + Crew Dragon tag. */}
         {iss && issSat && issTelemetryRef && (
-          <ISSTracker satrec={issSat.satrec} telemetryRef={issTelemetryRef} />
+          <ISSTracker satrec={issSat.satrec} telemetryRef={issTelemetryRef} posRef={issPosRef} />
         )}
 
         {/* Orbit trails for selected sats — flight paths showing each
@@ -1139,8 +1145,15 @@ export default function EarthScene({
           rotateSpeed={0.4}
           zoomSpeed={0.6}
           enablePan={false}
-          autoRotate={autoRotate}
+          autoRotate={autoRotate && !followISS}
           autoRotateSpeed={autoRotateSpeed}
+        />
+
+        {/* Chase-cam: flies to and follows the ISS when Trackers→ISS is on. */}
+        <FollowController
+          controlsRef={controlsRef}
+          active={followISS && iss && !!issSat}
+          targetRef={issPosRef}
         />
 
         {/* WASD/QE keyboard camera controls — orbits + zooms + pans the

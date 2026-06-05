@@ -48,9 +48,11 @@ function occludedByEarth(
 interface Props {
   satrec: SatRec
   telemetryRef: React.MutableRefObject<ISSTelemetry>
+  /** Optional — receives the ISS world position each frame (for follow-cam). */
+  posRef?: React.MutableRefObject<THREE.Vector3 | null>
 }
 
-export default function ISSTracker({ satrec, telemetryRef }: Props) {
+export default function ISSTracker({ satrec, telemetryRef, posRef }: Props) {
   const groupRef = useRef<THREE.Group>(null)
   const markerRef = useRef<HTMLDivElement>(null)
   const pos = useRef(new THREE.Vector3())
@@ -69,6 +71,10 @@ export default function ISSTracker({ satrec, telemetryRef }: Props) {
     const ecf = eciToEcf(pv.position, gmst)
     pos.current.set(ecf.x, ecf.z, -ecf.y).multiplyScalar(KM_TO_SCENE)
     group.position.copy(pos.current)
+    if (posRef) {
+      if (!posRef.current) posRef.current = pos.current.clone()
+      else posRef.current.copy(pos.current)
+    }
 
     telemetryRef.current.altKm =
       Math.hypot(pv.position.x, pv.position.y, pv.position.z) - EARTH_RADIUS_KM

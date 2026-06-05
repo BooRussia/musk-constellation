@@ -26,6 +26,7 @@ import type { TileProvider } from '../lib/tiles'
 import MapStylePicker from './MapStylePicker'
 import LayersMenu from './LayersMenu'
 import VisualsMenu from './VisualsMenu'
+import TrackersMenu from './TrackersMenu'
 
 const EarthScene = lazy(() => import('./EarthScene'))
 
@@ -130,6 +131,24 @@ export default function StarlinkView({ onBack }: Props) {
   const [iss, setIss] = useState(true)
   const [issSat, setIssSat] = useState<TrackedObject | null>(null)
   const issTelemetryRef = useRef<ISSTelemetry>({ altKm: 0, speedKms: 0, hasFix: false })
+  // Trackers — fly the camera to and follow a live object.
+  const [trackISS, setTrackISS] = useState(false)
+  const toggleTrackISS = useCallback(() => {
+    setTrackISS((v) => {
+      const next = !v
+      if (next) setIss(true) // following needs the ISS layer on
+      return next
+    })
+  }, [])
+  // Escape leaves follow-cam.
+  useEffect(() => {
+    if (!trackISS) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setTrackISS(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [trackISS])
 
   // Fetch TLEs on mount. Stays alive in sessionStorage for 2 hours
   // so a tab reload doesn't refetch.
@@ -327,6 +346,10 @@ export default function StarlinkView({ onBack }: Props) {
             speedLabel={ROTATE_SPEEDS[rotateSpeedIdx].label}
             onCycleSpeed={() => setRotateSpeedIdx((i) => (i + 1) % ROTATE_SPEEDS.length)}
           />
+
+          {/* Trackers menu — fly the camera to & follow live objects. */}
+          <TrackersMenu issActive={trackISS} onTrackISS={toggleTrackISS} />
+
           <div className="starlink-status">
             <Satellite className="h-3 w-3" aria-hidden="true" />
             <span className="starlink-status-count">
@@ -355,6 +378,7 @@ export default function StarlinkView({ onBack }: Props) {
               iss={iss}
               issSat={issSat}
               issTelemetryRef={issTelemetryRef}
+              followISS={trackISS}
               detailTiles={detailTiles}
               tileProvider={tileProvider}
             />
@@ -366,6 +390,26 @@ export default function StarlinkView({ onBack }: Props) {
 
         {/* Next SpaceX launch — live countdown (Launch Library 2). */}
         <LaunchCountdown />
+
+        {/* Follow-cam exit chip. */}
+        <AnimatePresence>
+          {trackISS && (
+            <motion.button
+              key="follow-chip"
+              type="button"
+              className="follow-chip"
+              onClick={() => setTrackISS(false)}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 12 }}
+              transition={{ duration: 0.2 }}
+            >
+              <span className="follow-chip-dot" />
+              Following ISS
+              <span className="follow-chip-exit">exit ✕</span>
+            </motion.button>
+          )}
+        </AnimatePresence>
 
         {/* Hover tooltip — follows cursor, fades in/out. Renders in
             the canvas wrapper (not document body) so it's clipped
