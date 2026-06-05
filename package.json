@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "preview": "vite preview",
-    "build-borders": "node scripts/build-borders.mjs"
+    "build-borders": "node scripts/build-borders.mjs",
+    "build-launches": "node scripts/build-launches.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
