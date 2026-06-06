@@ -33,6 +33,17 @@ function isVandenberg(lat: number, lon: number): boolean {
   return lon < -110 && lat > 30
 }
 
+/** SpaceX Starbase (Boca Chica, TX) — Starship flies an east-SOUTHEAST
+ *  corridor over the Gulf, threading the Florida Straits south of the Keys,
+ *  not the ENE heading a standard prograde insertion would imply. */
+function isStarbase(lat: number, lon: number): boolean {
+  return lat > 25 && lat < 27 && lon > -98 && lon < -96.5
+}
+
+/** Representative Starbase launch azimuth (deg) — east-southeast through the
+ *  Florida Straits, matching the real Starship test-flight ground tracks. */
+const STARBASE_AZIMUTH = 96
+
 /** Representative target inclination (deg) for an orbit category + site. */
 export function orbitInclination(orbit: string, padLat: number, padLon: number): number {
   const west = isVandenberg(padLat, padLon)
@@ -56,6 +67,9 @@ export function orbitInclination(orbit: string, padLat: number, padLon: number):
 /** Launch azimuth (deg clockwise from true north). Picks the southerly
  *  branch for retrograde orbits and for Vandenberg's coastal corridor. */
 export function launchAzimuth(inclDeg: number, padLat: number, padLon: number): number {
+  // Starbase flies a fixed east-southeast corridor regardless of the nominal
+  // suborbital inclination (the prograde relation would point it ENE).
+  if (isStarbase(padLat, padLon)) return STARBASE_AZIMUTH
   const a = Math.asin(clamp(Math.cos(inclDeg * RAD) / Math.cos(padLat * RAD), -1, 1)) * DEG
   const southerly = inclDeg > 90 || isVandenberg(padLat, padLon)
   return southerly ? 180 - a : a
