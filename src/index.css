@@ -2096,7 +2096,9 @@ body {
   right: 0;
   height: 56px;
   padding: 0 16px;
-  z-index: 20;
+  /* Above the launch/replay ticker bars (z-index 24/26) so the nav's
+     dropdowns (Layers/Visuals/Trackers) open OVER the bar, not behind it. */
+  z-index: 30;
   display: grid;
   /* 4 cells: back | brand | view-mode toggle | status pill.
      The two outer 1fr columns stay balanced so the brand block
