@@ -2897,8 +2897,8 @@ body {
   z-index: 22;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
+  gap: 4px;
+  padding: 5px 6px 5px 12px;
   border-radius: 999px;
   border: 1px solid rgba(120, 220, 255, 0.4);
   background: rgba(8, 16, 26, 0.85);
@@ -2908,8 +2908,13 @@ body {
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.4px;
-  cursor: pointer;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+.follow-chip-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 6px;
 }
 .follow-chip-dot {
   width: 8px;
@@ -2919,12 +2924,37 @@ body {
   box-shadow: 0 0 8px 1px rgba(120, 220, 255, 0.9);
   animation: iss-pulse 1.6s ease-in-out infinite;
 }
-.follow-chip-exit {
-  color: rgba(255, 255, 255, 0.55);
-  font-weight: 600;
+.follow-chip-recenter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(120, 220, 255, 0.6);
+  background: rgba(120, 220, 255, 0.16);
+  color: #eafdff;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
 }
-.follow-chip:hover {
-  border-color: rgba(120, 220, 255, 0.7);
+.follow-chip-recenter:hover {
+  background: rgba(120, 220, 255, 0.3);
+}
+.follow-chip-exit {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.follow-chip-exit:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
 }
 @media (max-width: 639px) {
   .follow-chip {

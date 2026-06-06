@@ -934,6 +934,10 @@ interface EarthSceneProps {
   issTelemetryRef?: React.MutableRefObject<ISSTelemetry>
   /** Fly the camera to the ISS and follow it through orbit. */
   followISS?: boolean
+  /** Fires when the user rotates away while following the ISS. */
+  onISSDetached?: () => void
+  /** Bump to re-fly to the ISS (recenter). */
+  issRecenterSignal?: number
   /** Spin the globe so the next launch's pad faces the camera + stop spin. */
   launchFocusActive?: boolean
   /** The pad to focus on (lat/lon/name). */
@@ -970,6 +974,8 @@ export default function EarthScene({
   issSat = null,
   issTelemetryRef,
   followISS = false,
+  onISSDetached,
+  issRecenterSignal = 0,
   launchFocusActive = false,
   launchPad = null,
   launchAzimuth = null,
@@ -1192,6 +1198,8 @@ export default function EarthScene({
           controlsRef={controlsRef}
           active={followISS && iss && !!issSat}
           targetRef={issPosRef}
+          onDetached={onISSDetached}
+          recenterSignal={issRecenterSignal}
         />
 
         {/* Reset-to-home camera ease. */}

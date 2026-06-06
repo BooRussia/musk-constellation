@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, ChevronDown, RotateCcw, Satellite, X } from 'lucide-react'
+import { ArrowLeft, ChevronDown, Crosshair, RotateCcw, Satellite, X } from 'lucide-react'
 import {
   fetchAllConstellations,
   fetchISS,
@@ -143,24 +143,45 @@ export default function StarlinkView({ onBack }: Props) {
   const [iss, setIss] = useState(true)
   const [issSat, setIssSat] = useState<TrackedObject | null>(null)
   const issTelemetryRef = useRef<ISSTelemetry>({ altKm: 0, speedKms: 0, hasFix: false })
+  // Reset-to-home signal (also used by the Reset button + replays).
+  const [homeSignal, setHomeSignal] = useState(0)
   // Trackers — fly the camera to and follow a live object.
   const [trackISS, setTrackISS] = useState(false)
+  // True once the user rotates the view away while following — the chase-cam
+  // hands off and we offer a "Recenter on ISS" prompt.
+  const [issDetached, setIssDetached] = useState(false)
+  const [issRecenterSignal, setIssRecenterSignal] = useState(0)
   const toggleTrackISS = useCallback(() => {
     setTrackISS((v) => {
       const next = !v
-      if (next) setIss(true) // following needs the ISS layer on
+      if (next) {
+        setIss(true) // following needs the ISS layer on
+        setIssDetached(false)
+      } else {
+        setIssDetached(false)
+        setHomeSignal((s) => s + 1) // zoom back out to the default view
+      }
       return next
     })
   }, [])
-  // Escape leaves follow-cam.
+  const stopFollowISS = useCallback(() => {
+    setTrackISS(false)
+    setIssDetached(false)
+    setHomeSignal((s) => s + 1)
+  }, [])
+  const recenterISS = useCallback(() => {
+    setIssDetached(false)
+    setIssRecenterSignal((s) => s + 1)
+  }, [])
+  // Escape leaves follow-cam (and zooms back out).
   useEffect(() => {
     if (!trackISS) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setTrackISS(false)
+      if (e.key === 'Escape') stopFollowISS()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [trackISS])
+  }, [trackISS, stopFollowISS])
   // SpaceX launch tracker — top-bar pill + ticker bar + webcast.
   const [trackLaunch, setTrackLaunch] = useState(false)
   const [detailedLaunch, setDetailedLaunch] = useState<DetailedLaunch | null>(null)
@@ -242,7 +263,6 @@ export default function StarlinkView({ onBack }: Props) {
   }, [])
 
   // Reset the globe to the default home view + clear every tracker/replay.
-  const [homeSignal, setHomeSignal] = useState(0)
   const resetGlobe = useCallback(() => {
     setTrackISS(false)
     setTrackLaunch(false)
@@ -520,6 +540,8 @@ export default function StarlinkView({ onBack }: Props) {
               issSat={issSat}
               issTelemetryRef={issTelemetryRef}
               followISS={trackISS}
+              onISSDetached={() => setIssDetached(true)}
+              issRecenterSignal={issRecenterSignal}
               launchFocusActive={launchFocusActive}
               launchPad={launchPad}
               launchAzimuth={launchAzimuthDeg}
@@ -619,23 +641,36 @@ export default function StarlinkView({ onBack }: Props) {
           )}
         </AnimatePresence>
 
-        {/* Follow-cam exit chip. */}
+        {/* Follow-cam status chip — "Following ISS" while locked on, or a
+            "Recenter on ISS" prompt once the user has panned away. */}
         <AnimatePresence>
           {trackISS && (
-            <motion.button
+            <motion.div
               key="follow-chip"
-              type="button"
               className="follow-chip"
-              onClick={() => setTrackISS(false)}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 12 }}
               transition={{ duration: 0.2 }}
             >
-              <span className="follow-chip-dot" />
-              Following ISS
-              <span className="follow-chip-exit">exit ✕</span>
-            </motion.button>
+              {issDetached ? (
+                <button type="button" className="follow-chip-recenter" onClick={recenterISS}>
+                  <Crosshair className="h-3.5 w-3.5" aria-hidden="true" /> Recenter on ISS
+                </button>
+              ) : (
+                <span className="follow-chip-status">
+                  <span className="follow-chip-dot" /> Following ISS
+                </span>
+              )}
+              <button
+                type="button"
+                className="follow-chip-exit"
+                onClick={stopFollowISS}
+                aria-label="Stop following the ISS"
+              >
+                exit ✕
+              </button>
+            </motion.div>
           )}
         </AnimatePresence>
 
