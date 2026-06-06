@@ -3964,32 +3964,21 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* Tracking layout — the hero T-minus dead-centre with the mission/window on
-   its left and weather/Watch on its right (data straddling either side). */
+/* Tracking layout — one tidy row that hugs its content and centres on screen,
+   with uniform gaps and dividers framing each group (identity · window · the
+   hero T-minus · weather · probability · actions). */
 .launchbar--tracking {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  gap: 20px;
-  max-width: 1180px;
-}
-.launchbar-side {
   display: flex;
   align-items: center;
-  gap: 18px;
-  min-width: 0;
-}
-.launchbar-side--left {
-  justify-self: start;
-}
-.launchbar-side--right {
-  justify-self: end;
+  justify-content: center;
+  gap: 20px;
+  width: auto;
+  max-width: calc(100vw - 24px);
 }
 .launchbar-center {
-  justify-self: center;
   display: flex;
   align-items: baseline;
   gap: 8px;
-  padding: 0 4px;
 }
 .launchbar-center .launchbar-cd-sign {
   font-size: 15px;
@@ -3998,6 +3987,11 @@ body {
   font-size: 30px;
   letter-spacing: 1px;
   text-shadow: 0 0 18px rgba(255, 154, 74, 0.35);
+}
+.launchbar-end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .launchbar-divider {
   flex: 0 0 auto;
@@ -4063,34 +4057,14 @@ body {
   color: #ff9a9a;
 }
 
-/* Go-for-launch probability pill — sits to the right of the weather with
-   the side's gap giving it breathing room. Colour tracks favourability. */
-.launchbar-go-pill {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  padding: 6px 13px;
-  border-radius: 999px;
-  font-size: 12.5px;
+/* Go-for-launch probability — colour reflects the odds (red→orange→green),
+   no background. Styled like a stat value so it centres under its label. */
+.launchbar-go-text {
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.2px;
   white-space: nowrap;
-  border: 1px solid transparent;
-}
-.launchbar-go-pill--favorable {
-  background: rgba(80, 220, 140, 0.16);
-  color: #79f0b0;
-  border-color: rgba(80, 220, 140, 0.4);
-}
-.launchbar-go-pill--marginal {
-  background: rgba(255, 190, 80, 0.16);
-  color: #ffc680;
-  border-color: rgba(255, 190, 80, 0.4);
-}
-.launchbar-go-pill--rough {
-  background: rgba(255, 90, 90, 0.18);
-  color: #ff9a9a;
-  border-color: rgba(255, 90, 90, 0.4);
+  font-variant-numeric: tabular-nums;
 }
 .launchbar-actions {
   display: flex;
@@ -4141,7 +4115,8 @@ body {
     gap: 10px;
   }
   .launchbar--tracking .launchbar-stat,
-  .launchbar--tracking .launchbar-go-pill {
+  .launchbar--tracking .launchbar-go-text,
+  .launchbar--tracking .launchbar-divider {
     display: none;
   }
   .launchbar-center .launchbar-cd-time {
@@ -4155,7 +4130,7 @@ body {
 .launchseq-wrap {
   position: absolute;
   left: 14px;
-  top: 112px;
+  top: 128px;
   bottom: 96px;
   z-index: 22;
   width: 250px;

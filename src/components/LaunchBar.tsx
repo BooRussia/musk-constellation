@@ -42,8 +42,13 @@ function goProbability(
   const penalty = wx.precipProb * 0.6 + Math.max(0, wx.windKmh - 24) * 0.9
   return Math.round(Math.max(20, Math.min(98, 100 - penalty)))
 }
-function goClass(go: number): 'favorable' | 'marginal' | 'rough' {
-  return go >= 80 ? 'favorable' : go >= 50 ? 'marginal' : 'rough'
+/** Continuous red → orange → green by probability (no background; the text
+ *  colour carries the meaning). Low % is red, easing through orange to green
+ *  as the odds improve. */
+function goColor(go: number): string {
+  const t = Math.max(0, Math.min(1, (go - 35) / (92 - 35)))
+  const hue = Math.round(t * 125) // 0 = red · ~30 orange · 125 green
+  return `hsl(${hue}, 95%, 62%)`
 }
 
 interface Props {
@@ -104,53 +109,63 @@ export default function LaunchBar({ launch, onWatch, onExit, imperial }: Props) 
 
   return (
     <div className="launchbar launchbar--tracking">
-      {/* Left — mission identity + window. */}
-      <div className="launchbar-side launchbar-side--left">
-        <div className="launchbar-id">
-          <Rocket className="launchbar-rocket-icon h-4 w-4" aria-hidden="true" />
-          <div className="launchbar-id-text">
-            <div className="launchbar-mission">{launch.mission}</div>
-            <div className="launchbar-sub">{launch.rocket}</div>
-          </div>
+      {/* Mission identity. */}
+      <div className="launchbar-id">
+        <Rocket className="launchbar-rocket-icon h-4 w-4" aria-hidden="true" />
+        <div className="launchbar-id-text">
+          <div className="launchbar-mission">{launch.mission}</div>
+          <div className="launchbar-sub">{launch.rocket}</div>
         </div>
-        {hasWindow && (
+      </div>
+
+      {hasWindow && (
+        <>
+          <span className="launchbar-divider" />
           <div className="launchbar-stat">
             <span className="launchbar-stat-k">Window</span>
             <span className="launchbar-stat-v">
               {fmtTime(launch.windowStart)}–{fmtTime(launch.windowEnd)}
             </span>
           </div>
-        )}
-      </div>
+        </>
+      )}
 
-      {/* Centre — the hero T-minus. */}
+      {/* Hero T-minus. */}
+      <span className="launchbar-divider" />
       <div className="launchbar-center">
         <span className="launchbar-cd-sign">{sign}</span>
         <span className="launchbar-cd-time">{core}</span>
       </div>
+      <span className="launchbar-divider" />
 
-      {/* Right — weather, go-for-launch probability, Watch. */}
-      <div className="launchbar-side launchbar-side--right">
-        <div className="launchbar-stat launchbar-wx">
-          <span className="launchbar-stat-k">
-            <CloudSun className="h-3 w-3" aria-hidden="true" /> Weather
+      {/* Weather. */}
+      <div className="launchbar-stat launchbar-wx">
+        <span className="launchbar-stat-k">
+          <CloudSun className="h-3 w-3" aria-hidden="true" /> Weather
+        </span>
+        {wx ? (
+          <span className="launchbar-stat-v">
+            {imperial ? `${Math.round(wx.tempC * 1.8 + 32)}°F` : `${wx.tempC}°C`} ·{' '}
+            {imperial ? `${Math.round(wx.windKmh * 0.621371)} mph` : `${wx.windKmh} km/h`}
           </span>
-          {wx ? (
-            <span className="launchbar-stat-v">
-              {imperial ? `${Math.round(wx.tempC * 1.8 + 32)}°F` : `${wx.tempC}°C`} ·{' '}
-              {imperial ? `${Math.round(wx.windKmh * 0.621371)} mph` : `${wx.windKmh} km/h`}
-            </span>
-          ) : (
-            <span className="launchbar-stat-v launchbar-stat-v--muted">—</span>
-          )}
-        </div>
+        ) : (
+          <span className="launchbar-stat-v launchbar-stat-v--muted">—</span>
+        )}
+      </div>
 
-        {go != null && (
-          <span className={`launchbar-go-pill launchbar-go-pill--${goClass(go)}`}>
+      {/* Go-for-launch probability — colour reflects the odds. */}
+      {go != null && (
+        <div className="launchbar-stat">
+          <span className="launchbar-stat-k">Probability</span>
+          <span className="launchbar-go-text" style={{ color: goColor(go) }}>
             {go}% Go for Launch
           </span>
-        )}
+        </div>
+      )}
 
+      {/* Actions. */}
+      <span className="launchbar-divider" />
+      <div className="launchbar-end">
         <button className="launchbar-watch" onClick={onWatch}>
           <Play className="h-3.5 w-3.5" aria-hidden="true" /> Watch
         </button>
