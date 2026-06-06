@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion'
-import { LayoutGrid, RotateCw, Sparkles, Sun } from 'lucide-react'
+import { Gauge, LayoutGrid, RotateCw, Sparkles, Sun } from 'lucide-react'
 import MenuDropdown from './MenuDropdown'
 import { TILE_PROVIDERS, TILE_PROVIDER_ORDER, type TileProvider } from '../lib/tiles'
 
@@ -14,6 +14,8 @@ interface Props {
   onAutoRotate: () => void
   speedLabel: string
   onCycleSpeed: () => void
+  imperial: boolean
+  onToggleUnits: () => void
 }
 
 /**
@@ -32,6 +34,8 @@ export default function VisualsMenu({
   onAutoRotate,
   speedLabel,
   onCycleSpeed,
+  imperial,
+  onToggleUnits,
 }: Props) {
   const activeCount = [detailTiles, fullSun, autoRotate].filter(Boolean).length
 
@@ -118,6 +122,30 @@ export default function VisualsMenu({
           </motion.button>
         )}
       </AnimatePresence>
+
+      {/* Units — metric / imperial for weather + telemetry. */}
+      <div className="layers-row layers-row--static">
+        <Gauge className="layers-row-icon h-4 w-4" aria-hidden="true" />
+        <span className="layers-row-label">Units</span>
+        <div className="layers-seg layers-seg--inline" role="group" aria-label="Units">
+          <button
+            type="button"
+            className={`layers-seg-btn ${!imperial ? 'is-on' : ''}`}
+            onClick={() => imperial && onToggleUnits()}
+            aria-pressed={!imperial}
+          >
+            °C
+          </button>
+          <button
+            type="button"
+            className={`layers-seg-btn ${imperial ? 'is-on' : ''}`}
+            onClick={() => !imperial && onToggleUnits()}
+            aria-pressed={imperial}
+          >
+            °F
+          </button>
+        </div>
+      </div>
     </MenuDropdown>
   )
 }

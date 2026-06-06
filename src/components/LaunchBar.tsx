@@ -34,9 +34,11 @@ interface Props {
   launch: DetailedLaunch | null
   onWatch: () => void
   onExit: () => void
+  /** Show temperatures in °F and wind in mph instead of °C / km/h. */
+  imperial: boolean
 }
 
-export default function LaunchBar({ launch, onWatch, onExit }: Props) {
+export default function LaunchBar({ launch, onWatch, onExit, imperial }: Props) {
   const [nowMs, setNowMs] = useState(0)
   const [wx, setWx] = useState<LaunchWeather | null>(null)
 
@@ -90,10 +92,7 @@ export default function LaunchBar({ launch, onWatch, onExit }: Props) {
         <Rocket className="launchbar-rocket-icon h-4 w-4" aria-hidden="true" />
         <div className="launchbar-id-text">
           <div className="launchbar-mission">{launch.mission}</div>
-          <div className="launchbar-sub">
-            {launch.rocket}
-            {launch.pad ? ` · ${launch.pad.name}` : ''}
-          </div>
+          <div className="launchbar-sub">{launch.rocket}</div>
         </div>
       </div>
 
@@ -116,12 +115,14 @@ export default function LaunchBar({ launch, onWatch, onExit }: Props) {
           </div>
         )}
 
-        <div className="launchbar-stat">
-          <span className="launchbar-stat-k">Go prob.</span>
-          <span className="launchbar-stat-v">
-            {launch.probability != null ? `${launch.probability}%` : '—'}
-          </span>
-        </div>
+        {/* Go probability only when the feed actually has it (Starlink
+            launches don't, so the stat is hidden rather than showing "—"). */}
+        {launch.probability != null && (
+          <div className="launchbar-stat">
+            <span className="launchbar-stat-k">Go prob.</span>
+            <span className="launchbar-stat-v">{launch.probability}%</span>
+          </div>
+        )}
 
         <div className="launchbar-stat launchbar-wx">
           <span className="launchbar-stat-k">
@@ -129,7 +130,9 @@ export default function LaunchBar({ launch, onWatch, onExit }: Props) {
           </span>
           {wx ? (
             <span className="launchbar-stat-v">
-              {wx.tempC}° · {wx.windKmh} km/h · {wx.precipProb}%
+              {imperial ? `${Math.round(wx.tempC * 1.8 + 32)}°F` : `${wx.tempC}°C`} ·{' '}
+              {imperial ? `${Math.round(wx.windKmh * 0.621371)} mph` : `${wx.windKmh} km/h`} ·{' '}
+              {wx.precipProb}%
               <span className={`launchbar-wx-tag launchbar-wx-tag--${wx.outlook.toLowerCase()}`}>
                 {wx.outlook}
               </span>

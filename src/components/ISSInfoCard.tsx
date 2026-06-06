@@ -6,6 +6,8 @@ import type { ISSTelemetry } from './ISSTracker'
 
 interface Props {
   telemetryRef: React.MutableRefObject<ISSTelemetry>
+  /** Show altitude in miles + speed in mph instead of km / km·s. */
+  imperial: boolean
 }
 
 // Collapsed by default on phones (so it doesn't swallow the screen next to
@@ -17,7 +19,7 @@ const DEFAULT_OPEN = typeof window === 'undefined' ? true : window.innerWidth > 
  * telemetry ref at 1 Hz) plus the curated expedition + docked Crew Dragon.
  * Collapsible: the header always shows a compact live altitude.
  */
-export default function ISSInfoCard({ telemetryRef }: Props) {
+export default function ISSInfoCard({ telemetryRef, imperial }: Props) {
   const [tele, setTele] = useState<ISSTelemetry>({ altKm: 0, speedKms: 0, hasFix: false })
   const [open, setOpen] = useState(DEFAULT_OPEN)
 
@@ -61,12 +63,22 @@ export default function ISSInfoCard({ telemetryRef }: Props) {
           >
             <div className="iss-card-stats">
               <div>
-                <b>{tele.hasFix ? Math.round(tele.altKm).toLocaleString() : '—'}</b>
-                <span>km altitude</span>
+                <b>
+                  {tele.hasFix
+                    ? Math.round(tele.altKm * (imperial ? 0.621371 : 1)).toLocaleString()
+                    : '—'}
+                </b>
+                <span>{imperial ? 'mi altitude' : 'km altitude'}</span>
               </div>
               <div>
-                <b>{tele.hasFix ? tele.speedKms.toFixed(2) : '—'}</b>
-                <span>km / s</span>
+                <b>
+                  {tele.hasFix
+                    ? imperial
+                      ? Math.round(tele.speedKms * 2236.94).toLocaleString()
+                      : tele.speedKms.toFixed(2)
+                    : '—'}
+                </b>
+                <span>{imperial ? 'mph' : 'km / s'}</span>
               </div>
             </div>
 

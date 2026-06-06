@@ -133,6 +133,8 @@ export default function StarlinkView({ onBack }: Props) {
   // Google-Maps-style high-res tile mosaic (streams in when you zoom in).
   const [detailTiles, setDetailTiles] = useState(true)
   const [tileProvider, setTileProvider] = useState<TileProvider>('satellite')
+  // Imperial (°F / mph / mi) vs metric units for weather + telemetry.
+  const [imperial, setImperial] = useState(false)
   // Live ISS tracking (on by default). Position from its TLE; the shared
   // ref carries per-frame altitude/speed to the info card without re-render.
   const [iss, setIss] = useState(true)
@@ -458,6 +460,8 @@ export default function StarlinkView({ onBack }: Props) {
             onAutoRotate={() => setAutoRotate((r) => !r)}
             speedLabel={ROTATE_SPEEDS[rotateSpeedIdx].label}
             onCycleSpeed={() => setRotateSpeedIdx((i) => (i + 1) % ROTATE_SPEEDS.length)}
+            imperial={imperial}
+            onToggleUnits={() => setImperial((v) => !v)}
           />
 
           {/* Trackers menu — fly the camera to & follow live objects. */}
@@ -514,7 +518,7 @@ export default function StarlinkView({ onBack }: Props) {
         </EarthErrorBoundary>
 
         {/* ISS crew / altitude readout — only while actively following. */}
-        {trackISS && issSat && <ISSInfoCard telemetryRef={issTelemetryRef} />}
+        {trackISS && issSat && <ISSInfoCard telemetryRef={issTelemetryRef} imperial={imperial} />}
 
         {/* Top launch ticker bar — next SpaceX launch + Watch button. */}
         <AnimatePresence>
@@ -531,6 +535,7 @@ export default function StarlinkView({ onBack }: Props) {
                 launch={detailedLaunch}
                 onWatch={() => setWatchOpen(true)}
                 onExit={() => setTrackLaunch(false)}
+                imperial={imperial}
               />
             </motion.div>
           )}

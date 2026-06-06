@@ -2946,6 +2946,24 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(0, 0, 0, 0.35);
 }
+/* Compact inline variant (right side of a row, e.g. the Units toggle). */
+.layers-seg--inline {
+  flex: 0 0 auto;
+  margin-top: 0;
+  padding: 2px;
+}
+.layers-seg--inline .layers-seg-btn {
+  flex: 0 0 auto;
+  padding: 3px 9px;
+}
+/* A row that's a label + control rather than a tappable toggle. */
+.layers-row--static {
+  cursor: default;
+}
+.layers-row--static:hover {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.78);
+}
 .layers-seg-btn {
   flex: 1;
   padding: 5px 8px;
