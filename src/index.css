@@ -4290,6 +4290,120 @@ body {
   }
 }
 
+/* ============================================
+   Webcast mini-player — floating, draggable, resizable
+   ============================================ */
+.miniplayer {
+  position: fixed;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: #0a0c14;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.6);
+}
+.miniplayer-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 8px;
+  background: rgba(18, 20, 28, 0.96);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.miniplayer-head:active {
+  cursor: grabbing;
+}
+.miniplayer-grip {
+  flex: 0 0 auto;
+  color: rgba(255, 255, 255, 0.4);
+}
+.miniplayer-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.miniplayer-live {
+  flex: 0 0 auto;
+  color: #ff5a5a;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+}
+.miniplayer-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.miniplayer-pop,
+.miniplayer-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+}
+.miniplayer-pop:hover,
+.miniplayer-close:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+.miniplayer-body {
+  position: relative;
+  width: 100%;
+  background: #000;
+}
+.miniplayer-body iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+/* Transparent shield over the iframe while dragging/resizing so the pointer
+   stream stays with us instead of being swallowed by the embed. */
+.miniplayer-shield {
+  position: absolute;
+  inset: 0;
+  cursor: grabbing;
+}
+.miniplayer-resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 20px;
+  height: 20px;
+  cursor: nwse-resize;
+  touch-action: none;
+  background: linear-gradient(
+    135deg,
+    transparent 0 52%,
+    rgba(255, 255, 255, 0.45) 52% 60%,
+    transparent 60% 72%,
+    rgba(255, 255, 255, 0.45) 72% 80%,
+    transparent 80%
+  );
+}
+
 /* Webcast modal */
 .watch-overlay {
   position: fixed;

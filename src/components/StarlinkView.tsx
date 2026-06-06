@@ -15,7 +15,7 @@ import type { ISSTelemetry } from './ISSTracker'
 import LaunchPill from './LaunchPill'
 import LaunchBar from './LaunchBar'
 import LaunchSequence from './LaunchSequence'
-import WatchModal from './WatchModal'
+import MiniPlayer from './MiniPlayer'
 import ReplayPicker from './ReplayPicker'
 import ReplayControls from './ReplayControls'
 import ReplayInfoBar from './ReplayInfoBar'
@@ -572,12 +572,11 @@ export default function StarlinkView({ onBack }: Props) {
           )}
         </AnimatePresence>
 
-        {/* Webcast pop-up. */}
-        <AnimatePresence>
-          {watchOpen && detailedLaunch && (
-            <WatchModal launch={detailedLaunch} onClose={() => setWatchOpen(false)} />
-          )}
-        </AnimatePresence>
+        {/* Floating, draggable + resizable webcast mini-player — watch the
+            YouTube livestream while the launch plays out on the globe. */}
+        {watchOpen && detailedLaunch && (
+          <MiniPlayer launch={detailedLaunch} onClose={() => setWatchOpen(false)} />
+        )}
 
         {/* Past-launch replay: picker + transport bar. */}
         {replayPickerOpen && (
