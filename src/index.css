@@ -4016,6 +4016,7 @@ body {
 .launchbar-stat {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 2px;
   flex: 0 0 auto;
 }
@@ -4060,6 +4061,36 @@ body {
 .launchbar-wx-tag--rough {
   background: rgba(255, 90, 90, 0.18);
   color: #ff9a9a;
+}
+
+/* Go-for-launch probability pill — sits to the right of the weather with
+   the side's gap giving it breathing room. Colour tracks favourability. */
+.launchbar-go-pill {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 13px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.launchbar-go-pill--favorable {
+  background: rgba(80, 220, 140, 0.16);
+  color: #79f0b0;
+  border-color: rgba(80, 220, 140, 0.4);
+}
+.launchbar-go-pill--marginal {
+  background: rgba(255, 190, 80, 0.16);
+  color: #ffc680;
+  border-color: rgba(255, 190, 80, 0.4);
+}
+.launchbar-go-pill--rough {
+  background: rgba(255, 90, 90, 0.18);
+  color: #ff9a9a;
+  border-color: rgba(255, 90, 90, 0.4);
 }
 .launchbar-actions {
   display: flex;
@@ -4109,7 +4140,8 @@ body {
   .launchbar--tracking {
     gap: 10px;
   }
-  .launchbar--tracking .launchbar-stat {
+  .launchbar--tracking .launchbar-stat,
+  .launchbar--tracking .launchbar-go-pill {
     display: none;
   }
   .launchbar-center .launchbar-cd-time {

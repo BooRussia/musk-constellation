@@ -30,6 +30,22 @@ function fmtTime(iso?: string): string {
     : '—'
 }
 
+/** Go-for-launch probability: the real LL2 figure when present, otherwise a
+ *  weather-derived estimate (Starlink missions rarely carry an official %).
+ *  Returns null until weather is available. */
+function goProbability(
+  probability: number | null,
+  wx: LaunchWeather | null,
+): number | null {
+  if (probability != null) return probability
+  if (!wx) return null
+  const penalty = wx.precipProb * 0.6 + Math.max(0, wx.windKmh - 24) * 0.9
+  return Math.round(Math.max(20, Math.min(98, 100 - penalty)))
+}
+function goClass(go: number): 'favorable' | 'marginal' | 'rough' {
+  return go >= 80 ? 'favorable' : go >= 50 ? 'marginal' : 'rough'
+}
+
 interface Props {
   launch: DetailedLaunch | null
   onWatch: () => void
@@ -84,6 +100,7 @@ export default function LaunchBar({ launch, onWatch, onExit, imperial }: Props) 
 
   const { sign, core } = countdown(netMs - nowMs)
   const hasWindow = launch.windowStart && launch.windowEnd
+  const go = goProbability(launch.probability, wx)
 
   return (
     <div className="launchbar launchbar--tracking">
@@ -104,12 +121,6 @@ export default function LaunchBar({ launch, onWatch, onExit, imperial }: Props) 
             </span>
           </div>
         )}
-        {launch.probability != null && (
-          <div className="launchbar-stat">
-            <span className="launchbar-stat-k">Go prob.</span>
-            <span className="launchbar-stat-v">{launch.probability}%</span>
-          </div>
-        )}
       </div>
 
       {/* Centre — the hero T-minus. */}
@@ -118,7 +129,7 @@ export default function LaunchBar({ launch, onWatch, onExit, imperial }: Props) 
         <span className="launchbar-cd-time">{core}</span>
       </div>
 
-      {/* Right — weather + Watch. */}
+      {/* Right — weather, go-for-launch probability, Watch. */}
       <div className="launchbar-side launchbar-side--right">
         <div className="launchbar-stat launchbar-wx">
           <span className="launchbar-stat-k">
@@ -128,14 +139,17 @@ export default function LaunchBar({ launch, onWatch, onExit, imperial }: Props) 
             <span className="launchbar-stat-v">
               {imperial ? `${Math.round(wx.tempC * 1.8 + 32)}°F` : `${wx.tempC}°C`} ·{' '}
               {imperial ? `${Math.round(wx.windKmh * 0.621371)} mph` : `${wx.windKmh} km/h`}
-              <span className={`launchbar-wx-tag launchbar-wx-tag--${wx.outlook.toLowerCase()}`}>
-                {wx.outlook}
-              </span>
             </span>
           ) : (
             <span className="launchbar-stat-v launchbar-stat-v--muted">—</span>
           )}
         </div>
+
+        {go != null && (
+          <span className={`launchbar-go-pill launchbar-go-pill--${goClass(go)}`}>
+            {go}% Go for Launch
+          </span>
+        )}
 
         <button className="launchbar-watch" onClick={onWatch}>
           <Play className="h-3.5 w-3.5" aria-hidden="true" /> Watch
