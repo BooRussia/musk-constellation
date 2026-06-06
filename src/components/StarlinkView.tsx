@@ -17,6 +17,7 @@ import LaunchBar from './LaunchBar'
 import WatchModal from './WatchModal'
 import ReplayPicker from './ReplayPicker'
 import ReplayControls from './ReplayControls'
+import ReplayInfoBar from './ReplayInfoBar'
 import type { ReplayControl } from './LaunchReplay'
 import { fetchNextLaunchDetailed, type DetailedLaunch } from '../lib/launches'
 import { loadPastLaunches, type PastLaunch } from '../lib/pastLaunches'
@@ -556,6 +557,20 @@ export default function StarlinkView({ onBack }: Props) {
             onClose={() => setReplayPickerOpen(false)}
           />
         )}
+        <AnimatePresence>
+          {replayLaunch && (
+            <motion.div
+              key="replay-infobar"
+              className="launchbar-wrap"
+              initial={{ opacity: 0, y: -16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -16 }}
+              transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+            >
+              <ReplayInfoBar launch={replayLaunch} />
+            </motion.div>
+          )}
+        </AnimatePresence>
         <AnimatePresence>
           {replayLaunch && (
             <motion.div

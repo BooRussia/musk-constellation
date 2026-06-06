@@ -50,6 +50,7 @@ export default function ReplayControls({ launch, ctrlRef, onClose }: Props) {
     month: 'short',
     day: 'numeric',
   })
+  const events = launch.events.filter((e) => e.t >= 0 && e.t <= dur)
 
   return (
     <div className="replaybar">
@@ -79,18 +80,30 @@ export default function ReplayControls({ launch, ctrlRef, onClose }: Props) {
         {snap.currentEvent && <span className="replaybar-event">{snap.currentEvent}</span>}
       </div>
 
-      <input
-        className="replaybar-scrub"
-        type="range"
-        min={0}
-        max={Math.round(dur)}
-        step={1}
-        value={Math.round(t)}
-        onChange={(e) => {
-          ctrlRef.current.seekTo = Number(e.target.value)
-        }}
-        aria-label="Scrub launch timeline"
-      />
+      <div className="replaybar-scrubwrap">
+        <div className="replaybar-ticks" aria-hidden="true">
+          {events.map((e, i) => (
+            <span
+              key={`${e.t}-${i}`}
+              className={`replaybar-tick ${e.t <= t ? 'is-passed' : ''}`}
+              style={{ left: `${(e.t / dur) * 100}%` }}
+              title={`${e.label} · ${fmtT(e.t)}`}
+            />
+          ))}
+        </div>
+        <input
+          className="replaybar-scrub"
+          type="range"
+          min={0}
+          max={Math.round(dur)}
+          step={1}
+          value={Math.round(t)}
+          onChange={(e) => {
+            ctrlRef.current.seekTo = Number(e.target.value)
+          }}
+          aria-label="Scrub launch timeline"
+        />
+      </div>
 
       <div className="replaybar-speeds">
         {SPEEDS.map((s) => (

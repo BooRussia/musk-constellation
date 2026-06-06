@@ -10,9 +10,11 @@ import { buildProfile } from '../lib/trajectory'
 // ============================================
 // Draws the modeled ascent-to-orbit track, flies a vehicle marker along it
 // on the real mission clock (driven by the shared control ref so the UI can
-// play / scrub / change speed without per-frame React re-renders), pops an
-// event nameplate at each real event, and writes the sun-time so lighting
-// matches the launch's actual time of day.
+// play / scrub / change speed without per-frame React re-renders), and marks
+// every real event (MECO, stage sep, SECO, deploy…) with a dot on the path
+// that lights up as the vehicle passes it — the way SpaceX timelines their
+// webcasts. Also writes the sun-time so lighting matches the launch's actual
+// time of day.
 
 const EARTH_RADIUS_SCENE = 5
 const KM_TO_SCENE = EARTH_RADIUS_SCENE / 6371
@@ -40,6 +42,30 @@ function toScene(lat: number, lon: number, altKm: number, out: THREE.Vector3): T
   return out.set(cp * Math.cos(lam), Math.sin(phi), -cp * Math.sin(lam)).multiplyScalar(r)
 }
 
+/** True when the Earth sphere blocks the straight line from camera to point. */
+function occludedByEarth(cam: THREE.Vector3, point: THREE.Vector3, dir: THREE.Vector3): boolean {
+  dir.subVectors(cam, point)
+  const dist = dir.length()
+  if (dist < 1e-4) return false
+  dir.divideScalar(dist)
+  const b = 2 * point.dot(dir)
+  const c = point.lengthSq() - EARTH_RADIUS_SCENE * EARTH_RADIUS_SCENE
+  const disc = b * b - 4 * c
+  if (disc <= 0) return false
+  const sq = Math.sqrt(disc)
+  const t1 = (-b - sq) / 2
+  const t2 = (-b + sq) / 2
+  const tHit = t1 > 1e-3 ? t1 : t2 > 1e-3 ? t2 : -1
+  return tHit > 1e-3 && tHit < dist - 1e-3
+}
+
+/** Compact a verbose event label (prefer a parenthetical acronym). */
+function shortLabel(s: string): string {
+  const m = s.match(/\(([^)]+)\)/)
+  if (m) return m[1]
+  return s.length > 20 ? `${s.slice(0, 19)}…` : s
+}
+
 interface Props {
   launch: PastLaunch
   ctrlRef: React.MutableRefObject<ReplayControl>
@@ -61,9 +87,27 @@ export default function LaunchReplay({ launch, ctrlRef, sunTimeRef }: Props) {
     return pts
   }, [profile])
 
+  // Each real event, positioned on the path.
+  const markers = useMemo(() => {
+    return launch.events
+      .filter((e) => e.t >= 0 && e.t <= profile.totalDur)
+      .map((e) => {
+        const p = profile.sample(e.t)
+        return {
+          label: shortLabel(e.label),
+          full: e.label,
+          t: e.t,
+          pos: toScene(p.lat, p.lon, p.altKm, new THREE.Vector3()),
+        }
+      })
+  }, [launch, profile])
+
   const groupRef = useRef<THREE.Group>(null)
-  const labelRef = useRef<HTMLDivElement>(null)
   const tmp = useRef(new THREE.Vector3())
+  const tmpDir = useRef(new THREE.Vector3())
+  const markerRefs = useRef<(HTMLDivElement | null)[]>([])
+  const clsCache = useRef<string[]>([])
+  const dispCache = useRef<string[]>([])
 
   // Reset the clock when the launch changes.
   useEffect(() => {
@@ -72,6 +116,8 @@ export default function LaunchReplay({ launch, ctrlRef, sunTimeRef }: Props) {
     c.duration = profile.totalDur
     c.currentEvent = null
     c.seekTo = null
+    clsCache.current = []
+    dispCache.current = []
   }, [profile, ctrlRef])
 
   // Restore live lighting on unmount.
@@ -81,7 +127,7 @@ export default function LaunchReplay({ launch, ctrlRef, sunTimeRef }: Props) {
     }
   }, [sunTimeRef])
 
-  useFrame((_, deltaRaw) => {
+  useFrame((state, deltaRaw) => {
     const c = ctrlRef.current
     const dt = Math.min(deltaRaw, 0.05)
     if (c.seekTo != null) {
@@ -97,33 +143,63 @@ export default function LaunchReplay({ launch, ctrlRef, sunTimeRef }: Props) {
 
     sunTimeRef.current = netMs + c.t * 1000
 
-    let label: string | null = null
-    for (const e of launch.events) {
-      if (e.t <= c.t) label = e.label
+    // Which events have happened; the last one is "active".
+    let active = -1
+    for (let i = 0; i < markers.length; i++) {
+      if (markers[i].t <= c.t) active = i
       else break
     }
-    if (label !== c.currentEvent) {
-      c.currentEvent = label
-      if (labelRef.current) labelRef.current.textContent = label ?? ''
+    c.currentEvent = active >= 0 ? markers[active].full : null
+
+    // Light up / occlude each event marker.
+    const cam = state.camera.position
+    for (let i = 0; i < markers.length; i++) {
+      const el = markerRefs.current[i]
+      if (!el) continue
+      const disp = occludedByEarth(cam, markers[i].pos, tmpDir.current) ? 'none' : ''
+      if (dispCache.current[i] !== disp) {
+        el.style.display = disp
+        dispCache.current[i] = disp
+      }
+      const cls = `replay-evt${i <= active ? ' is-passed' : ''}${i === active ? ' is-active' : ''}`
+      if (clsCache.current[i] !== cls) {
+        el.className = cls
+        clsCache.current[i] = cls
+      }
     }
   })
 
   return (
     <>
-      <Line points={points} color="#ff9a4a" lineWidth={2} transparent opacity={0.55} />
+      <Line points={points} color="#ff9a4a" lineWidth={2} transparent opacity={0.5} />
+
+      {/* Event markers — a dot on the path per real event, lit as it passes. */}
+      {markers.map((m, i) => (
+        <group key={`${m.t}-${i}`} position={m.pos}>
+          <Html
+            center
+            zIndexRange={[14, 0]}
+            style={{ pointerEvents: 'none' }}
+            wrapperClass="replay-evt-wrapper"
+          >
+            <div className="replay-evt" ref={(el) => { markerRefs.current[i] = el }}>
+              <span className="replay-evt-dot" />
+              <span className="replay-evt-label">{m.label}</span>
+            </div>
+          </Html>
+        </group>
+      ))}
+
+      {/* The vehicle. */}
       <group ref={groupRef}>
         <mesh>
-          <sphereGeometry args={[0.045, 14, 14]} />
+          <sphereGeometry args={[0.05, 16, 16]} />
           <meshBasicMaterial color="#fff4d6" toneMapped={false} />
         </mesh>
-        <Html
-          center
-          zIndexRange={[15, 0]}
-          style={{ pointerEvents: 'none' }}
-          wrapperClass="replay-wrapper"
-        >
-          <div className="replay-nameplate" ref={labelRef} />
-        </Html>
+        <mesh>
+          <sphereGeometry args={[0.1, 16, 16]} />
+          <meshBasicMaterial color="#ff9a4a" transparent opacity={0.25} toneMapped={false} />
+        </mesh>
       </group>
     </>
   )

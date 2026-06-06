@@ -4195,21 +4195,74 @@ body {
 }
 
 /* ============================================
-   Launch replay — nameplate, transport bar, picker
+   Launch replay — info bar, event markers, transport bar, picker
    ============================================ */
-.replay-nameplate {
-  transform: translate(14px, -50%);
+
+/* "Replay" tag on the top info bar. */
+.replay-infobar-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 150, 60, 0.4);
+  background: rgba(255, 150, 60, 0.14);
+  color: #ffc28a;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Event markers on the flight path (MECO, SECO, deploy…). */
+.replay-evt-wrapper {
+  pointer-events: none;
+}
+.replay-evt {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.replay-evt-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(20, 14, 8, 0.6);
+  border: 1.5px solid rgba(255, 200, 150, 0.55);
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35);
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+.replay-evt.is-passed .replay-evt-dot {
+  background: #ff9a4a;
+  border-color: #ffd9b0;
+}
+.replay-evt.is-active .replay-evt-dot {
+  transform: scale(1.5);
+  background: #ffe9c2;
+  border-color: #fff;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.4), 0 0 12px 3px rgba(255, 154, 74, 0.85);
+}
+.replay-evt-label {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
   white-space: nowrap;
   font-family: var(--font-sans, system-ui, sans-serif);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.3px;
   color: #fff;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 10px rgba(255, 150, 60, 0.6);
-  pointer-events: none;
-}
-.replay-nameplate:empty {
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 10px rgba(255, 150, 60, 0.7);
+  transform: translateX(-50%);
+  /* Only the current event is labelled near the path (SpaceX-style callout);
+     the full timeline lives on the scrubber ticks. Other events stay as dots. */
   display: none;
+}
+.replay-evt.is-active .replay-evt-label {
+  display: block;
 }
 
 .replaybar {
@@ -4289,11 +4342,42 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.replaybar-scrubwrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 60px;
+  display: flex;
+  align-items: center;
+}
 .replaybar-scrub {
   flex: 1 1 auto;
   min-width: 60px;
   accent-color: #ff8a3a;
   cursor: pointer;
+}
+/* Event ticks overlaid on the scrubber track — SpaceX-livestream style. */
+.replaybar-ticks {
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  top: 50%;
+  height: 0;
+  pointer-events: none;
+}
+.replaybar-tick {
+  position: absolute;
+  top: 0;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  margin-top: -2px;
+  border-radius: 50%;
+  background: rgba(255, 224, 196, 0.4);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+}
+.replaybar-tick.is-passed {
+  background: #ff9a4a;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 0 5px rgba(255, 154, 74, 0.8);
 }
 .replaybar-speeds {
   flex: 0 0 auto;
