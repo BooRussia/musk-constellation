@@ -22,6 +22,7 @@ import ReplayInfoBar from './ReplayInfoBar'
 import type { ReplayControl } from './LaunchReplay'
 import { fetchNextLaunchDetailed, type DetailedLaunch } from '../lib/launches'
 import { loadPastLaunches, type PastLaunch } from '../lib/pastLaunches'
+import { launchAzimuth as computeLaunchAzimuth, orbitInclination } from '../lib/trajectory'
 import type { SatelliteHit } from './SatelliteCloud'
 import {
   setHighlightedNoradIds,
@@ -192,6 +193,18 @@ export default function StarlinkView({ onBack }: Props) {
     return p ? { lat: p.lat, lon: p.lon, name: p.name } : null
   }, [replayLaunch, detailedLaunch])
   const launchFocusActive = (!!replayLaunch || trackLaunch) && !!launchPad
+
+  // Launch heading for the trajectory cone — only for the live tracked
+  // launch (a replay draws its own full flight path instead).
+  const launchAzimuthDeg = useMemo(() => {
+    if (!trackLaunch || !launchPad) return null
+    const orbit = detailedLaunch?.orbit ?? 'LEO'
+    return computeLaunchAzimuth(
+      orbitInclination(orbit, launchPad.lat, launchPad.lon),
+      launchPad.lat,
+      launchPad.lon,
+    )
+  }, [trackLaunch, launchPad, detailedLaunch])
 
   // Past-launch replay state.
   const [replayPickerOpen, setReplayPickerOpen] = useState(false)
@@ -508,6 +521,7 @@ export default function StarlinkView({ onBack }: Props) {
               followISS={trackISS}
               launchFocusActive={launchFocusActive}
               launchPad={launchPad}
+              launchAzimuth={launchAzimuthDeg}
               launchFocusSignal={launchFocusSignal}
               homeSignal={homeSignal}
               replayLaunch={replayLaunch}

@@ -104,6 +104,8 @@ export interface DetailedLaunch {
   webcastEmbed?: string
   /** Human label for the external-link button ("YouTube" / "X" / "stream"). */
   webcastPlatform?: string
+  /** Target orbit abbreviation (LEO / SSO / GTO …), if LL2 has it. */
+  orbit?: string
   pad?: { name: string; lat: number; lon: number; location: string }
 }
 
@@ -118,6 +120,7 @@ interface LL2DetailedResult {
   status?: { abbrev?: string }
   rocket?: { configuration?: { name?: string; full_name?: string } }
   pad?: { name?: string; latitude?: string | number; longitude?: string | number; location?: { name?: string } }
+  mission?: { orbit?: { abbrev?: string; name?: string } | null }
   vidURLs?: Array<{ url?: string; priority?: number }>
 }
 
@@ -170,6 +173,7 @@ function normalizeDetailed(r: LL2DetailedResult): DetailedLaunch {
     webcastUrl: webcast,
     webcastEmbed,
     webcastPlatform: platformOf(webcast),
+    orbit: r.mission?.orbit?.abbrev ?? undefined,
     pad:
       Number.isFinite(lat) && Number.isFinite(lon)
         ? {

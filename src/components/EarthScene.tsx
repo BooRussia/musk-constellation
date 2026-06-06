@@ -17,6 +17,7 @@ import FollowController from './FollowController'
 import HomeController from './HomeController'
 import LaunchFocusController from './LaunchFocusController'
 import ActiveLaunchPad from './ActiveLaunchPad'
+import LaunchCone from './LaunchCone'
 import LaunchReplay, { type ReplayControl } from './LaunchReplay'
 import type { PastLaunch } from '../lib/pastLaunches'
 import type { SatelliteEntry, ConstellationKey, TrackedObject } from '../lib/tle'
@@ -936,6 +937,8 @@ interface EarthSceneProps {
   launchFocusActive?: boolean
   /** The pad to focus on (lat/lon/name). */
   launchPad?: { lat: number; lon: number; name: string } | null
+  /** Launch azimuth (deg from N) — draws the trajectory cone when set. */
+  launchAzimuth?: number | null
   /** Bump to re-centre on the pad (e.g. re-clicking the launch pill). */
   launchFocusSignal?: number
   /** Bump to reset the camera to the default home framing. */
@@ -968,6 +971,7 @@ export default function EarthScene({
   followISS = false,
   launchFocusActive = false,
   launchPad = null,
+  launchAzimuth = null,
   launchFocusSignal = 0,
   homeSignal = 0,
   replayLaunch = null,
@@ -1201,6 +1205,9 @@ export default function EarthScene({
               signal={launchFocusSignal}
             />
             <ActiveLaunchPad lat={launchPad.lat} lon={launchPad.lon} name={launchPad.name} />
+            {launchAzimuth != null && (
+              <LaunchCone lat={launchPad.lat} lon={launchPad.lon} azimuth={launchAzimuth} />
+            )}
           </>
         )}
 

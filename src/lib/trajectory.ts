@@ -93,7 +93,7 @@ function orbitAltKm(orbit: string): number {
 
 /** Destination lat/lon (deg) a great-circle distance `arcDeg` from the pad
  *  along heading `azDeg`. */
-function destPoint(
+export function destPoint(
   latDeg: number,
   lonDeg: number,
   azDeg: number,
