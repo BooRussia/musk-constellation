@@ -3961,6 +3961,42 @@ body {
   color: #fff;
   font-variant-numeric: tabular-nums;
 }
+
+/* Tracking layout — the hero T-minus dead-centre with the mission/window on
+   its left and weather/Watch on its right (data straddling either side). */
+.launchbar--tracking {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 20px;
+  max-width: 1180px;
+}
+.launchbar-side {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+}
+.launchbar-side--left {
+  justify-self: start;
+}
+.launchbar-side--right {
+  justify-self: end;
+}
+.launchbar-center {
+  justify-self: center;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 0 4px;
+}
+.launchbar-center .launchbar-cd-sign {
+  font-size: 15px;
+}
+.launchbar-center .launchbar-cd-time {
+  font-size: 30px;
+  letter-spacing: 1px;
+  text-shadow: 0 0 18px rgba(255, 154, 74, 0.35);
+}
 .launchbar-divider {
   flex: 0 0 auto;
   width: 1px;
@@ -4064,6 +4100,194 @@ body {
 .launchbar-exit:hover {
   color: #fff;
   border-color: rgba(255, 255, 255, 0.35);
+}
+
+/* Narrow screens: keep mission + hero clock + Watch; drop the side stats. */
+@media (max-width: 860px) {
+  .launchbar--tracking {
+    gap: 10px;
+  }
+  .launchbar--tracking .launchbar-stat {
+    display: none;
+  }
+  .launchbar-center .launchbar-cd-time {
+    font-size: 24px;
+  }
+}
+
+/* ============================================
+   Launch sequence — left-side live timeline
+   ============================================ */
+.launchseq-wrap {
+  position: absolute;
+  left: 14px;
+  top: 112px;
+  bottom: 96px;
+  z-index: 22;
+  width: 250px;
+  max-width: calc(100vw - 28px);
+  display: flex;
+  pointer-events: none;
+}
+.launchseq {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: 100%;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 150, 60, 0.22);
+  background: rgba(10, 12, 20, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+.launchseq-head {
+  flex: 0 0 auto;
+  padding: 12px 14px 9px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.launchseq-mission {
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.launchseq-rocket {
+  margin-top: 1px;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.5);
+}
+.launchseq-clock {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.launchseq-clock-sign {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 800;
+  color: #ff9a4a;
+}
+.launchseq-clock-grid {
+  display: flex;
+  gap: 6px;
+}
+.launchseq-clock-unit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 34px;
+  padding: 5px 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.launchseq-clock-val {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.launchseq-clock-lab {
+  margin-top: 4px;
+  font-size: 8px;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.45);
+}
+.launchseq-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px 8px 10px;
+  overflow-y: auto;
+}
+.launchseq-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 6px 6px 2px;
+}
+/* dotted connector running through the bullets */
+.launchseq-item::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 0;
+  bottom: 0;
+  border-left: 2px dotted rgba(255, 255, 255, 0.16);
+}
+.launchseq-item:first-child::before {
+  top: 50%;
+}
+.launchseq-item:last-child::before {
+  bottom: 50%;
+}
+.launchseq-bullet {
+  position: relative;
+  z-index: 1;
+  justify-self: center;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: rgba(14, 16, 24, 1);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 0 3px rgba(10, 12, 20, 0.82);
+}
+.launchseq-item.is-passed .launchseq-bullet {
+  background: #ff9a4a;
+  border-color: #ffd9b0;
+}
+.launchseq-item.is-active .launchseq-bullet {
+  background: #ffe9c2;
+  border-color: #fff;
+  box-shadow: 0 0 0 3px rgba(10, 12, 20, 0.82), 0 0 10px 2px rgba(255, 154, 74, 0.8);
+}
+.launchseq-evt {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.62);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.launchseq-item.is-passed .launchseq-evt {
+  color: #fff;
+}
+.launchseq-item.is-active .launchseq-evt {
+  font-weight: 800;
+}
+.launchseq-evt-time {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.4);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.launchseq-item.is-passed .launchseq-evt-time {
+  color: rgba(255, 217, 176, 0.85);
+}
+@media (max-width: 639px) {
+  .launchseq-wrap {
+    width: 192px;
+    top: 150px;
+    bottom: 78px;
+  }
+  .launchseq-clock-unit {
+    min-width: 28px;
+  }
+  .launchseq-clock-val {
+    font-size: 18px;
+  }
 }
 
 /* Webcast modal */

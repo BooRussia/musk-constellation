@@ -14,6 +14,7 @@ import ISSInfoCard from './ISSInfoCard'
 import type { ISSTelemetry } from './ISSTracker'
 import LaunchPill from './LaunchPill'
 import LaunchBar from './LaunchBar'
+import LaunchSequence from './LaunchSequence'
 import WatchModal from './WatchModal'
 import ReplayPicker from './ReplayPicker'
 import ReplayControls from './ReplayControls'
@@ -38,11 +39,10 @@ import TrackersMenu from './TrackersMenu'
 
 const EarthScene = lazy(() => import('./EarthScene'))
 
-// Default the constellation legend open on desktop, collapsed on phones
-// (where it would otherwise cover most of the screen). Read once at module
-// load so it's not a render-time side effect.
-const LEGEND_DEFAULT_OPEN =
-  typeof window === 'undefined' ? true : window.innerWidth > 639
+// The constellation legend starts minimized — it's a reference panel, not the
+// main event, so it opens collapsed (tap the header to expand) and stays out
+// of the globe's way on every screen size.
+const LEGEND_DEFAULT_OPEN = false
 
 // Auto-rotation speed presets (label → OrbitControls autoRotateSpeed).
 const ROTATE_SPEEDS = [
@@ -538,6 +538,22 @@ export default function StarlinkView({ onBack }: Props) {
                 onExit={() => setTrackLaunch(false)}
                 imperial={imperial}
               />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Left-side launch timeline — live T-minus + the event sequence. */}
+        <AnimatePresence>
+          {trackLaunch && detailedLaunch && (
+            <motion.div
+              key="launchseq"
+              className="launchseq-wrap"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.24, ease: [0.23, 1, 0.32, 1] }}
+            >
+              <LaunchSequence launch={detailedLaunch} />
             </motion.div>
           )}
         </AnimatePresence>

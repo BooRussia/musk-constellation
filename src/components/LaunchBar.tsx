@@ -3,9 +3,9 @@ import { CloudSun, Play, Rocket, X } from 'lucide-react'
 import type { DetailedLaunch } from '../lib/launches'
 import { fetchLaunchWeather, type LaunchWeather } from '../lib/weather'
 
-// Top "launch ticker" bar — mission · live T-minus · window · go-prob ·
-// live launch-site weather · Watch. Real data from Launch Library 2 +
-// Open-Meteo. Laid out in clean divider-separated groups.
+// Top "launch ticker" bar. The live T-minus is the hero — big, bold, dead
+// centre — with the mission identity + window on its left and the launch-site
+// weather + Watch on its right. Real data from Launch Library 2 + Open-Meteo.
 
 const WEATHER_REFRESH_MS = 15 * 60 * 1000
 
@@ -84,28 +84,18 @@ export default function LaunchBar({ launch, onWatch, onExit, imperial }: Props) 
 
   const { sign, core } = countdown(netMs - nowMs)
   const hasWindow = launch.windowStart && launch.windowEnd
-  const canWatch = !!(launch.webcastEmbed || launch.webcastUrl)
 
   return (
-    <div className="launchbar">
-      <div className="launchbar-id">
-        <Rocket className="launchbar-rocket-icon h-4 w-4" aria-hidden="true" />
-        <div className="launchbar-id-text">
-          <div className="launchbar-mission">{launch.mission}</div>
-          <div className="launchbar-sub">{launch.rocket}</div>
+    <div className="launchbar launchbar--tracking">
+      {/* Left — mission identity + window. */}
+      <div className="launchbar-side launchbar-side--left">
+        <div className="launchbar-id">
+          <Rocket className="launchbar-rocket-icon h-4 w-4" aria-hidden="true" />
+          <div className="launchbar-id-text">
+            <div className="launchbar-mission">{launch.mission}</div>
+            <div className="launchbar-sub">{launch.rocket}</div>
+          </div>
         </div>
-      </div>
-
-      <span className="launchbar-divider" />
-
-      <div className="launchbar-cd">
-        <span className="launchbar-cd-sign">{sign}</span>
-        <span className="launchbar-cd-time">{core}</span>
-      </div>
-
-      <span className="launchbar-divider" />
-
-      <div className="launchbar-stats">
         {hasWindow && (
           <div className="launchbar-stat">
             <span className="launchbar-stat-k">Window</span>
@@ -114,16 +104,22 @@ export default function LaunchBar({ launch, onWatch, onExit, imperial }: Props) 
             </span>
           </div>
         )}
-
-        {/* Go probability only when the feed actually has it (Starlink
-            launches don't, so the stat is hidden rather than showing "—"). */}
         {launch.probability != null && (
           <div className="launchbar-stat">
             <span className="launchbar-stat-k">Go prob.</span>
             <span className="launchbar-stat-v">{launch.probability}%</span>
           </div>
         )}
+      </div>
 
+      {/* Centre — the hero T-minus. */}
+      <div className="launchbar-center">
+        <span className="launchbar-cd-sign">{sign}</span>
+        <span className="launchbar-cd-time">{core}</span>
+      </div>
+
+      {/* Right — weather + Watch. */}
+      <div className="launchbar-side launchbar-side--right">
         <div className="launchbar-stat launchbar-wx">
           <span className="launchbar-stat-k">
             <CloudSun className="h-3 w-3" aria-hidden="true" /> Weather
@@ -131,8 +127,7 @@ export default function LaunchBar({ launch, onWatch, onExit, imperial }: Props) 
           {wx ? (
             <span className="launchbar-stat-v">
               {imperial ? `${Math.round(wx.tempC * 1.8 + 32)}°F` : `${wx.tempC}°C`} ·{' '}
-              {imperial ? `${Math.round(wx.windKmh * 0.621371)} mph` : `${wx.windKmh} km/h`} ·{' '}
-              {wx.precipProb}%
+              {imperial ? `${Math.round(wx.windKmh * 0.621371)} mph` : `${wx.windKmh} km/h`}
               <span className={`launchbar-wx-tag launchbar-wx-tag--${wx.outlook.toLowerCase()}`}>
                 {wx.outlook}
               </span>
@@ -141,14 +136,10 @@ export default function LaunchBar({ launch, onWatch, onExit, imperial }: Props) 
             <span className="launchbar-stat-v launchbar-stat-v--muted">—</span>
           )}
         </div>
-      </div>
 
-      <div className="launchbar-actions">
-        {canWatch && (
-          <button className="launchbar-watch" onClick={onWatch}>
-            <Play className="h-3.5 w-3.5" aria-hidden="true" /> Watch Launch
-          </button>
-        )}
+        <button className="launchbar-watch" onClick={onWatch}>
+          <Play className="h-3.5 w-3.5" aria-hidden="true" /> Watch
+        </button>
         <button className="launchbar-exit" onClick={onExit} aria-label="Close launch tracker">
           <X className="h-4 w-4" />
         </button>
