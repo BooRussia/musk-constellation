@@ -14,8 +14,11 @@ import LaunchSites from './LaunchSites'
 import DetailTiles from './DetailTiles'
 import ISSTracker, { type ISSTelemetry } from './ISSTracker'
 import FollowController from './FollowController'
+import HomeController from './HomeController'
 import LaunchFocusController from './LaunchFocusController'
 import ActiveLaunchPad from './ActiveLaunchPad'
+import LaunchReplay, { type ReplayControl } from './LaunchReplay'
+import type { PastLaunch } from '../lib/pastLaunches'
 import type { SatelliteEntry, ConstellationKey, TrackedObject } from '../lib/tle'
 import { getMapStyle } from '../data/mapStyles'
 import type { TileProvider } from '../lib/tiles'
@@ -553,12 +556,17 @@ function computeSunDirection(now: Date, out: THREE.Vector3): THREE.Vector3 {
 function SunDriver({
   sunDirRef,
   sunLightRef,
+  simTimeRef,
 }: {
   sunDirRef: React.MutableRefObject<THREE.Vector3>
   sunLightRef: React.RefObject<THREE.DirectionalLight | null>
+  /** When non-null, the sun is computed for this timestamp (ms) instead of
+   *  now — used by launch replays to light the scene at the launch time. */
+  simTimeRef?: React.MutableRefObject<number | null>
 }) {
   useFrame(() => {
-    const dir = computeSunDirection(new Date(), sunDirRef.current)
+    const sim = simTimeRef?.current
+    const dir = computeSunDirection(sim != null ? new Date(sim) : new Date(), sunDirRef.current)
     if (sunLightRef.current) {
       sunLightRef.current.position.copy(dir).multiplyScalar(50)
     }
@@ -930,6 +938,12 @@ interface EarthSceneProps {
   launchPad?: { lat: number; lon: number; name: string } | null
   /** Bump to re-centre on the pad (e.g. re-clicking the launch pill). */
   launchFocusSignal?: number
+  /** Bump to reset the camera to the default home framing. */
+  homeSignal?: number
+  /** Replay a past launch's flight path (null = no replay). */
+  replayLaunch?: PastLaunch | null
+  /** Shared control ref for the replay clock (play/scrub/speed). */
+  replayCtrlRef?: React.MutableRefObject<ReplayControl>
   /** Stream high-res map tiles as you zoom in (Google-Maps-style mosaic). */
   detailTiles?: boolean
   /** Which tile imagery the detail mosaic streams. */
@@ -955,6 +969,9 @@ export default function EarthScene({
   launchFocusActive = false,
   launchPad = null,
   launchFocusSignal = 0,
+  homeSignal = 0,
+  replayLaunch = null,
+  replayCtrlRef,
   detailTiles = false,
   tileProvider = 'satellite',
 }: EarthSceneProps) {
@@ -980,6 +997,8 @@ export default function EarthScene({
   // updates it from real UTC each render tick.
   const sunDirRef = useRef(new THREE.Vector3(1, 0.25, 0.6).normalize())
   const sunLightRef = useRef<THREE.DirectionalLight | null>(null)
+  // Replay overrides the sun time so a past launch is lit at its real time.
+  const replaySunTimeRef = useRef<number | null>(null)
 
   // Ref to the OrbitControls instance so the keyboard handler can
   // manipulate controls.target + the camera and call controls.update().
@@ -1072,7 +1091,7 @@ export default function EarthScene({
             atmosphere halo was removed (it washed out satellite
             contrast); LimbGlow restores just a thin sun-gated crescent
             of light at the edge. */}
-        <SunDriver sunDirRef={sunDirRef} sunLightRef={sunLightRef} />
+        <SunDriver sunDirRef={sunDirRef} sunLightRef={sunLightRef} simTimeRef={replaySunTimeRef} />
         <LimbGlow sunDirRef={sunDirRef} fullLit={fullLit} />
 
         {style.kind === 'map' ? (
@@ -1156,7 +1175,7 @@ export default function EarthScene({
           rotateSpeed={0.4}
           zoomSpeed={0.6}
           enablePan={false}
-          autoRotate={autoRotate && !followISS && !launchFocusActive}
+          autoRotate={autoRotate && !followISS && !launchFocusActive && !replayLaunch}
           autoRotateSpeed={autoRotateSpeed}
         />
 
@@ -1166,6 +1185,9 @@ export default function EarthScene({
           active={followISS && iss && !!issSat}
           targetRef={issPosRef}
         />
+
+        {/* Reset-to-home camera ease. */}
+        <HomeController controlsRef={controlsRef} signal={homeSignal} autoRotate={autoRotate} />
 
         {/* Spin-to-pad: rotates the globe so the next launch's site faces
             the camera, then stops. A bright pulse marks the pad. */}
@@ -1180,6 +1202,15 @@ export default function EarthScene({
             />
             <ActiveLaunchPad lat={launchPad.lat} lon={launchPad.lon} name={launchPad.name} />
           </>
+        )}
+
+        {/* Past-launch replay — animated flight path + event nameplates. */}
+        {replayLaunch && replayCtrlRef && (
+          <LaunchReplay
+            launch={replayLaunch}
+            ctrlRef={replayCtrlRef}
+            sunTimeRef={replaySunTimeRef}
+          />
         )}
 
         {/* WASD/QE keyboard camera controls — orbits + zooms + pans the

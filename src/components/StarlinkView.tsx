@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, ChevronDown, Satellite, X } from 'lucide-react'
+import { ArrowLeft, ChevronDown, RotateCcw, Satellite, X } from 'lucide-react'
 import {
   fetchAllConstellations,
   fetchISS,
@@ -15,7 +15,11 @@ import type { ISSTelemetry } from './ISSTracker'
 import LaunchPill from './LaunchPill'
 import LaunchBar from './LaunchBar'
 import WatchModal from './WatchModal'
+import ReplayPicker from './ReplayPicker'
+import ReplayControls from './ReplayControls'
+import type { ReplayControl } from './LaunchReplay'
 import { fetchNextLaunchDetailed, type DetailedLaunch } from '../lib/launches'
+import { loadPastLaunches, type PastLaunch } from '../lib/pastLaunches'
 import type { SatelliteHit } from './SatelliteCloud'
 import {
   setHighlightedNoradIds,
@@ -156,6 +160,8 @@ export default function StarlinkView({ onBack }: Props) {
   const [trackLaunch, setTrackLaunch] = useState(false)
   const [detailedLaunch, setDetailedLaunch] = useState<DetailedLaunch | null>(null)
   const [watchOpen, setWatchOpen] = useState(false)
+  // Past-launch replay (declared here so the pad-focus memo can see it).
+  const [replayLaunch, setReplayLaunch] = useState<PastLaunch | null>(null)
   // Bumped each time the user clicks the pill, to re-centre on the pad.
   const [launchFocusSignal, setLaunchFocusSignal] = useState(0)
   // Fetch the detailed next launch on mount so the countdown pill is live
@@ -173,17 +179,76 @@ export default function StarlinkView({ onBack }: Props) {
   }, [])
 
   // The pad to spin to, and whether the spin-to-pad focus is engaged.
+  // A replay's pad takes precedence over the next-launch pad.
   const launchPad = useMemo(() => {
+    if (replayLaunch) {
+      const p = replayLaunch.pad
+      return { lat: p.lat, lon: p.lon, name: p.name }
+    }
     const p = detailedLaunch?.pad
     return p ? { lat: p.lat, lon: p.lon, name: p.name } : null
-  }, [detailedLaunch])
-  const launchFocusActive = trackLaunch && !!launchPad
+  }, [replayLaunch, detailedLaunch])
+  const launchFocusActive = (!!replayLaunch || trackLaunch) && !!launchPad
+
+  // Past-launch replay state.
+  const [replayPickerOpen, setReplayPickerOpen] = useState(false)
+  const [pastLaunches, setPastLaunches] = useState<PastLaunch[]>([])
+  const replayCtrlRef = useRef<ReplayControl>({
+    t: 0,
+    duration: 0,
+    playing: true,
+    speed: 8,
+    seekTo: null,
+    currentEvent: null,
+  })
+  // Lazy-load the baked dataset the first time the picker opens.
+  useEffect(() => {
+    if (!replayPickerOpen || pastLaunches.length) return
+    let cancelled = false
+    loadPastLaunches()
+      .then((l) => {
+        if (!cancelled) setPastLaunches(l)
+      })
+      .catch((err) => console.warn('[StarlinkView] past launches load failed:', err))
+    return () => {
+      cancelled = true
+    }
+  }, [replayPickerOpen, pastLaunches.length])
 
   // Click the launch pill / tracker → open the launch bar, stop the spin,
   // and (re)centre the globe on the pad.
   const focusNextLaunch = useCallback(() => {
+    setReplayLaunch(null)
     setTrackLaunch(true)
     setAutoRotate(false)
+    setLaunchFocusSignal((s) => s + 1)
+  }, [])
+
+  // Reset the globe to the default home view + clear every tracker/replay.
+  const [homeSignal, setHomeSignal] = useState(0)
+  const resetGlobe = useCallback(() => {
+    setTrackISS(false)
+    setTrackLaunch(false)
+    setReplayLaunch(null)
+    setReplayPickerOpen(false)
+    setWatchOpen(false)
+    setAutoRotate(true)
+    setRotateSpeedIdx(0)
+    setHomeSignal((s) => s + 1)
+  }, [])
+
+  // Pick a past launch → start its replay, stop spin, spin to the pad.
+  const startReplay = useCallback((l: PastLaunch) => {
+    setReplayPickerOpen(false)
+    setTrackLaunch(false)
+    setTrackISS(false)
+    setReplayLaunch(l)
+    setAutoRotate(false)
+    const c = replayCtrlRef.current
+    c.t = 0
+    c.playing = true
+    c.seekTo = 0
+    c.currentEvent = null
     setLaunchFocusSignal((s) => s + 1)
   }, [])
 
@@ -351,6 +416,17 @@ export default function StarlinkView({ onBack }: Props) {
         </div>
 
         <div className="starlink-topright">
+          {/* Reset the globe to the default home view. */}
+          <button
+            type="button"
+            className="starlink-reset"
+            onClick={resetGlobe}
+            title="Reset the globe to the default view"
+            aria-label="Reset view"
+          >
+            <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+
           {/* Map-style picker — drops a column of thumbnail previews down
               the right side. Picks the globe skin, including the dark
               procedural "Dark Map". */}
@@ -390,6 +466,7 @@ export default function StarlinkView({ onBack }: Props) {
             onTrackISS={toggleTrackISS}
             launchActive={trackLaunch}
             onTrackLaunch={() => (trackLaunch ? setTrackLaunch(false) : focusNextLaunch())}
+            onOpenReplays={() => setReplayPickerOpen(true)}
           />
 
           <div className="starlink-status">
@@ -427,6 +504,9 @@ export default function StarlinkView({ onBack }: Props) {
               launchFocusActive={launchFocusActive}
               launchPad={launchPad}
               launchFocusSignal={launchFocusSignal}
+              homeSignal={homeSignal}
+              replayLaunch={replayLaunch}
+              replayCtrlRef={replayCtrlRef}
               detailTiles={detailTiles}
               tileProvider={tileProvider}
             />
@@ -460,6 +540,32 @@ export default function StarlinkView({ onBack }: Props) {
         <AnimatePresence>
           {watchOpen && detailedLaunch && (
             <WatchModal launch={detailedLaunch} onClose={() => setWatchOpen(false)} />
+          )}
+        </AnimatePresence>
+
+        {/* Past-launch replay: picker + transport bar. */}
+        {replayPickerOpen && (
+          <ReplayPicker
+            launches={pastLaunches}
+            onSelect={startReplay}
+            onClose={() => setReplayPickerOpen(false)}
+          />
+        )}
+        <AnimatePresence>
+          {replayLaunch && (
+            <motion.div
+              key="replaybar"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 16 }}
+              transition={{ duration: 0.2 }}
+            >
+              <ReplayControls
+                launch={replayLaunch}
+                ctrlRef={replayCtrlRef}
+                onClose={() => setReplayLaunch(null)}
+              />
+            </motion.div>
           )}
         </AnimatePresence>
 

@@ -2199,6 +2199,28 @@ body {
   font-size: 10px;
 }
 
+/* Reset-to-home icon button in the top bar. */
+.starlink-reset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.starlink-reset:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.78);
+}
+
 /* Next-launch countdown chip — sits right of the tracked-sats status.
    Click spins the globe to the pad + opens the launch tracker. */
 .launchpill {
@@ -2958,8 +2980,10 @@ body {
 }
 
 /* Collapse the top-right control labels to icons on narrower screens so
-   the topnav doesn't crowd / wrap the brand. */
-@media (max-width: 1100px) {
+   the topnav doesn't crowd / wrap the brand. Raised to 1366px so common
+   laptops show the compact icon row (the reset + launch pill need the
+   room) and only wide displays get the text labels. */
+@media (max-width: 1366px) {
   .starlink-topnav {
     gap: 12px;
   }
@@ -4150,6 +4174,238 @@ body {
 }
 .watch-backlink:hover {
   color: rgba(255, 255, 255, 0.85);
+}
+
+/* ============================================
+   Launch replay — nameplate, transport bar, picker
+   ============================================ */
+.replay-nameplate {
+  transform: translate(14px, -50%);
+  white-space: nowrap;
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 10px rgba(255, 150, 60, 0.6);
+  pointer-events: none;
+}
+.replay-nameplate:empty {
+  display: none;
+}
+
+.replaybar {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 26;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: 760px;
+  width: calc(100% - 32px);
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 150, 60, 0.28);
+  background: rgba(14, 10, 6, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+.replaybar-id {
+  min-width: 0;
+  flex: 0 1 150px;
+}
+.replaybar-mission {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.replaybar-sub {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.replaybar-play {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 150, 60, 0.5);
+  background: rgba(255, 150, 60, 0.16);
+  color: #ffb066;
+  cursor: pointer;
+  transition: all 0.13s ease;
+}
+.replaybar-play:hover {
+  background: rgba(255, 150, 60, 0.28);
+  color: #fff;
+}
+.replaybar-clock {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 88px;
+}
+.replaybar-time {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.replaybar-event {
+  font-size: 10px;
+  color: #ffb066;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.replaybar-scrub {
+  flex: 1 1 auto;
+  min-width: 60px;
+  accent-color: #ff8a3a;
+  cursor: pointer;
+}
+.replaybar-speeds {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 3px;
+}
+.replaybar-speed {
+  padding: 4px 7px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.replaybar-speed.is-on {
+  color: #fff;
+  background: rgba(255, 150, 60, 0.18);
+  border-color: rgba(255, 150, 60, 0.5);
+}
+.replaybar-close {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+}
+.replaybar-close:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.replaypicker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 12vh 16px 16px;
+  background: rgba(2, 4, 10, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.replaypicker {
+  width: min(520px, 94vw);
+  max-height: 72vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 12, 22, 0.96);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+.replaypicker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.replaypicker-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 1.4px;
+  color: #ffb066;
+  text-transform: uppercase;
+}
+.replaypicker-close {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+}
+.replaypicker-empty {
+  padding: 30px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 13px;
+}
+.replaypicker-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+}
+.replaypicker-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.replaypicker-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.replaypicker-mission {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+}
+.replaypicker-meta {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 @media (max-width: 860px) {

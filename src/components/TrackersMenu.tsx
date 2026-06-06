@@ -1,4 +1,4 @@
-import { Crosshair, Orbit, Rocket } from 'lucide-react'
+import { ChevronRight, Crosshair, History, Orbit, Rocket } from 'lucide-react'
 import MenuDropdown from './MenuDropdown'
 
 interface Props {
@@ -6,6 +6,7 @@ interface Props {
   onTrackISS: () => void
   launchActive: boolean
   onTrackLaunch: () => void
+  onOpenReplays: () => void
 }
 
 /**
@@ -17,6 +18,7 @@ export default function TrackersMenu({
   onTrackISS,
   launchActive,
   onTrackLaunch,
+  onOpenReplays,
 }: Props) {
   const count = (issActive ? 1 : 0) + (launchActive ? 1 : 0)
   return (
@@ -48,6 +50,17 @@ export default function TrackersMenu({
         <Rocket className="layers-row-icon h-4 w-4" aria-hidden="true" />
         <span className="layers-row-label">SpaceX Launches</span>
         <span className={`layers-switch ${launchActive ? 'is-on' : ''}`} />
+      </button>
+
+      <button
+        type="button"
+        className="layers-row"
+        onClick={onOpenReplays}
+        title="Replay a past SpaceX launch's flight path on the globe"
+      >
+        <History className="layers-row-icon h-4 w-4" aria-hidden="true" />
+        <span className="layers-row-label">Past launches</span>
+        <ChevronRight className="h-4 w-4" aria-hidden="true" style={{ opacity: 0.5 }} />
       </button>
     </MenuDropdown>
   )

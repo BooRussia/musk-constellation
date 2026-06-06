@@ -6,14 +6,17 @@ import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 // ============================================
 // FOLLOW CONTROLLER — chase-cam for a moving target (the ISS)
 // ============================================
-// When `active`, locks the OrbitControls target onto the live target
-// position and flies the camera in to a close distance, then tracks the
-// target rigidly so it stays centred as it sweeps through orbit (the user
-// can still orbit around it). On release it eases the target back to the
-// Earth's centre and restores the normal zoom limits.
+// Engage in two phases so the camera NEVER flies through the planet:
+//   1) ORIENT — sweep the camera around the globe at its current distance
+//      until it's on the same side as the target (target stays the Earth
+//      centre, so the ISS swings into view), then
+//   2) FOLLOW — pull in to a close distance and track the target rigidly as
+//      it sweeps through orbit (the user can still orbit around it).
+// On release it eases the target back to Earth centre and restores limits.
 
 const FOLLOW_DIST = 1.5 // scene units from the target while following
 const FOLLOW_MIN_DISTANCE = 0.35 // let the camera get this close to the target
+const ORIENT_ALIGN = 0.12 // rad (~7°) — switch to FOLLOW once this aligned
 
 interface Props {
   controlsRef: React.RefObject<OrbitControlsImpl | null>
@@ -23,9 +26,11 @@ interface Props {
 
 export default function FollowController({ controlsRef, active, targetRef }: Props) {
   const camera = useThree((s) => s.camera)
-  const phase = useRef<'idle' | 'follow' | 'release'>('idle')
+  const phase = useRef<'idle' | 'orient' | 'follow' | 'release'>('idle')
   const prevTarget = useRef(new THREE.Vector3())
   const savedMinDistance = useRef<number | null>(null)
+  const curDir = useRef(new THREE.Vector3())
+  const issDir = useRef(new THREE.Vector3())
   const tmp = useRef(new THREE.Vector3())
   const releaseT = useRef(0)
 
@@ -34,19 +39,34 @@ export default function FollowController({ controlsRef, active, targetRef }: Pro
     if (!controls) return
     const dt = Math.min(deltaRaw, 0.05)
 
-    // --- transition into / out of follow mode ---
+    // --- transitions ---
     if (active && phase.current === 'idle') {
-      phase.current = 'follow'
+      phase.current = 'orient'
       savedMinDistance.current = controls.minDistance
       controls.minDistance = FOLLOW_MIN_DISTANCE
-      const t = targetRef.current
-      prevTarget.current.copy(t ?? controls.target)
-    } else if (!active && phase.current === 'follow') {
+    } else if (!active && (phase.current === 'orient' || phase.current === 'follow')) {
       phase.current = 'release'
       releaseT.current = 0
     }
 
-    if (phase.current === 'follow') {
+    if (phase.current === 'orient') {
+      const target = targetRef.current
+      if (!target) return // wait for a live ISS position
+      // Sweep the camera direction toward the ISS direction at constant
+      // distance — an arc AROUND the globe, never across it. Target stays
+      // at the centre so the station rotates into frame.
+      const dist = camera.position.length()
+      curDir.current.copy(camera.position).normalize()
+      issDir.current.copy(target).normalize()
+      curDir.current.lerp(issDir.current, 1 - Math.exp(-3.5 * dt)).normalize()
+      camera.position.copy(curDir.current).multiplyScalar(dist)
+      controls.target.set(0, 0, 0)
+      controls.update()
+      if (curDir.current.angleTo(issDir.current) < ORIENT_ALIGN) {
+        phase.current = 'follow'
+        prevTarget.current.copy(target)
+      }
+    } else if (phase.current === 'follow') {
       const target = targetRef.current
       if (!target) return
       // 1) Rigid follow — shift camera + target by however far the target
@@ -55,8 +75,7 @@ export default function FollowController({ controlsRef, active, targetRef }: Pro
       camera.position.add(tmp.current)
       controls.target.add(tmp.current)
       prevTarget.current.copy(target)
-      // 2) Ease the target onto the ISS and pull the camera in to
-      //    FOLLOW_DIST (smooth zoom-in on engage; steady-state no-op).
+      // 2) Ease the target onto the ISS and pull the camera in to FOLLOW_DIST.
       controls.target.lerp(target, 0.1)
       const dir = tmp.current.copy(camera.position).sub(controls.target)
       const dist = dir.length()
@@ -66,7 +85,6 @@ export default function FollowController({ controlsRef, active, targetRef }: Pro
       }
       controls.update()
     } else if (phase.current === 'release') {
-      // Ease the target back to Earth centre, then hand control back.
       releaseT.current += dt
       controls.target.lerp(ORIGIN, 0.08)
       controls.update()
