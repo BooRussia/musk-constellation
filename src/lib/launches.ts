@@ -106,7 +106,7 @@ export interface DetailedLaunch {
   webcastPlatform?: string
   /** Target orbit abbreviation (LEO / SSO / GTO …), if LL2 has it. */
   orbit?: string
-  pad?: { name: string; lat: number; lon: number; location: string }
+  pad?: { name: string; lat: number; lon: number; location: string; timezone?: string }
 }
 
 interface LL2DetailedResult {
@@ -119,7 +119,12 @@ interface LL2DetailedResult {
   weather_concerns?: string | null
   status?: { abbrev?: string }
   rocket?: { configuration?: { name?: string; full_name?: string } }
-  pad?: { name?: string; latitude?: string | number; longitude?: string | number; location?: { name?: string } }
+  pad?: {
+    name?: string
+    latitude?: string | number
+    longitude?: string | number
+    location?: { name?: string; timezone_name?: string }
+  }
   mission?: { orbit?: { abbrev?: string; name?: string } | null }
   vidURLs?: Array<{ url?: string; priority?: number }>
 }
@@ -127,7 +132,7 @@ interface LL2DetailedResult {
 const LL2_DETAIL_URL =
   'https://ll.thespacedevs.com/2.2.0/launch/upcoming/' +
   '?limit=1&mode=detailed&hide_recent_previous=true&lsp__name=SpaceX'
-const DETAIL_CACHE_KEY = 'mc.launch.detail.v1'
+const DETAIL_CACHE_KEY = 'mc.launch.detail.v2'
 const DETAIL_FRESH_MS = 15 * 60 * 1000
 
 /** Turn a YouTube watch/short URL into an embed URL (or undefined). */
@@ -181,6 +186,7 @@ function normalizeDetailed(r: LL2DetailedResult): DetailedLaunch {
             lat,
             lon,
             location: r.pad?.location?.name ?? '',
+            timezone: r.pad?.location?.timezone_name ?? undefined,
           }
         : undefined,
   }

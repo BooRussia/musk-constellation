@@ -24,10 +24,45 @@ function countdown(ms: number): { sign: string; core: string } {
   const core = d > 0 ? `${d}d ${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(h)}:${pad(m)}:${pad(s)}`
   return { sign: past ? 'T+' : 'T-', core }
 }
-function fmtTime(iso?: string): string {
-  return iso
-    ? new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
-    : '—'
+/** Time-of-day at the launch site (its local timezone), 12-hour. */
+function fmtTime(iso: string | undefined, tz?: string): string {
+  if (!iso) return '—'
+  try {
+    return new Date(iso).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: tz,
+    })
+  } catch {
+    return new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+  }
+}
+
+/** Short timezone label for the launch site (e.g. "PDT", "EDT", "GMT-8"). */
+function tzAbbr(iso: string | undefined, tz?: string): string {
+  if (!iso) return ''
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      timeZoneName: 'short',
+    }).formatToParts(new Date(iso))
+    return parts.find((p) => p.type === 'timeZoneName')?.value ?? ''
+  } catch {
+    return ''
+  }
+}
+
+/** The launch site's IANA timezone, or a longitude-based fallback. */
+function padTimeZone(launch: DetailedLaunch): string | undefined {
+  if (launch.pad?.timezone) return launch.pad.timezone
+  const lon = launch.pad?.lon
+  if (lon != null && Number.isFinite(lon)) {
+    const off = Math.round(lon / 15)
+    if (off === 0) return 'UTC'
+    // Etc/GMT signs are inverted (Etc/GMT+8 == UTC-8).
+    return `Etc/GMT${off > 0 ? '-' : '+'}${Math.abs(off)}`
+  }
+  return undefined
 }
 
 /** Go-for-launch probability: the real LL2 figure when present, otherwise a
@@ -106,6 +141,7 @@ export default function LaunchBar({ launch, onWatch, onExit, imperial }: Props) 
   const { sign, core } = countdown(netMs - nowMs)
   const hasWindow = launch.windowStart && launch.windowEnd
   const go = goProbability(launch.probability, wx)
+  const tz = padTimeZone(launch)
 
   return (
     <div className="launchbar launchbar--tracking">
@@ -124,8 +160,11 @@ export default function LaunchBar({ launch, onWatch, onExit, imperial }: Props) 
           <div className="launchbar-stat">
             <span className="launchbar-stat-k">Window</span>
             <span className="launchbar-stat-v">
-              {fmtTime(launch.windowStart)}–{fmtTime(launch.windowEnd)}
+              {fmtTime(launch.windowStart, tz)}–{fmtTime(launch.windowEnd, tz)}
             </span>
+            {tzAbbr(launch.windowStart, tz) && (
+              <span className="launchbar-stat-sub">{tzAbbr(launch.windowStart, tz)}</span>
+            )}
           </div>
         </>
       )}

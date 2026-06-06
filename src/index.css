@@ -4065,6 +4065,13 @@ body {
 .launchbar-stat-v--muted {
   color: rgba(255, 255, 255, 0.4);
 }
+.launchbar-stat-sub {
+  margin-top: 1px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.6px;
+  color: rgba(255, 255, 255, 0.42);
+}
 .launchbar-wx-tag {
   margin-left: 7px;
   padding: 1px 7px;
