@@ -136,7 +136,8 @@ export default function StarlinkView({ onBack }: Props) {
   const [detailTiles, setDetailTiles] = useState(true)
   const [tileProvider, setTileProvider] = useState<TileProvider>('satellite')
   // Imperial (°F / mph / mi) vs metric units for weather + telemetry.
-  const [imperial, setImperial] = useState(false)
+  // Defaults to imperial.
+  const [imperial, setImperial] = useState(true)
   // Live ISS tracking (on by default). Position from its TLE; the shared
   // ref carries per-frame altitude/speed to the info card without re-render.
   const [iss, setIss] = useState(true)
