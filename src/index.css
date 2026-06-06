@@ -4478,16 +4478,80 @@ body {
   color: rgba(255, 255, 255, 0.5);
   font-size: 13px;
 }
+/* Ship-family filter chips. */
+.replaypicker-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.replaypicker-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.replaypicker-chip:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.32);
+}
+.replaypicker-chip.is-on {
+  color: #ffd9b0;
+  background: rgba(255, 150, 60, 0.16);
+  border-color: rgba(255, 150, 60, 0.5);
+}
+.replaypicker-chip-count {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.45);
+}
+.replaypicker-chip.is-on .replaypicker-chip-count {
+  color: rgba(255, 217, 176, 0.8);
+}
+
+/* Scroll region holding the grouped lists. */
+.replaypicker-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 6px;
+}
+.replaypicker-group + .replaypicker-group {
+  margin-top: 4px;
+}
+.replaypicker-grouphead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px 4px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: rgba(255, 176, 102, 0.85);
+}
+.replaypicker-grouphead-count {
+  color: rgba(255, 255, 255, 0.4);
+}
+
 .replaypicker-list {
   list-style: none;
   margin: 0;
-  padding: 6px;
-  overflow-y: auto;
+  padding: 0;
 }
 .replaypicker-item {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   width: 100%;
   padding: 10px 12px;
   border-radius: 8px;
@@ -4500,10 +4564,32 @@ body {
 .replaypicker-item:hover {
   background: rgba(255, 255, 255, 0.06);
 }
+.replaypicker-item-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .replaypicker-mission {
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: 13px;
   font-weight: 700;
   color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.replaypicker-ship {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 150, 60, 0.32);
+  background: rgba(255, 150, 60, 0.12);
+  color: #ffc28a;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
 }
 .replaypicker-meta {
   font-size: 11px;
