@@ -13,6 +13,7 @@ import Graticule from './Graticule'
 import LaunchSites from './LaunchSites'
 import DetailTiles from './DetailTiles'
 import ISSTracker, { type ISSTelemetry } from './ISSTracker'
+import ISSOrbitPath from './ISSOrbitPath'
 import FollowController from './FollowController'
 import HomeController from './HomeController'
 import LaunchFocusController from './LaunchFocusController'
@@ -1131,6 +1132,9 @@ export default function EarthScene({
         {iss && issSat && issTelemetryRef && (
           <ISSTracker satrec={issSat.satrec} telemetryRef={issTelemetryRef} posRef={issPosRef} />
         )}
+
+        {/* ISS ground track while following — thicker behind, skinny ahead. */}
+        {followISS && issSat && <ISSOrbitPath satrec={issSat.satrec} />}
 
         {/* Orbit trails for selected sats — flight paths showing each
             one's full last orbit, fading from tail to current position. */}
