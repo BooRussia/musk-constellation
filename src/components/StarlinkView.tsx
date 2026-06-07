@@ -188,6 +188,9 @@ export default function StarlinkView({ onBack }: Props) {
   const [watchOpen, setWatchOpen] = useState(false)
   // Past-launch replay (declared here so the pad-focus memo can see it).
   const [replayLaunch, setReplayLaunch] = useState<PastLaunch | null>(null)
+  // Chase-cam detach (user rotated away while following the replay vehicle).
+  const [replayDetached, setReplayDetached] = useState(false)
+  const [replayRecenterSignal, setReplayRecenterSignal] = useState(0)
   // Bumped each time the user clicks the pill, to re-centre on the pad.
   const [launchFocusSignal, setLaunchFocusSignal] = useState(0)
   // Fetch the detailed next launch on mount so the countdown pill is live
@@ -274,11 +277,12 @@ export default function StarlinkView({ onBack }: Props) {
     setHomeSignal((s) => s + 1)
   }, [])
 
-  // Pick a past launch → start its replay, stop spin, spin to the pad.
+  // Pick a past launch → start its replay and chase the vehicle.
   const startReplay = useCallback((l: PastLaunch) => {
     setReplayPickerOpen(false)
     setTrackLaunch(false)
     setTrackISS(false)
+    setReplayDetached(false)
     setReplayLaunch(l)
     setAutoRotate(false)
     const c = replayCtrlRef.current
@@ -287,6 +291,16 @@ export default function StarlinkView({ onBack }: Props) {
     c.seekTo = 0
     c.currentEvent = null
     setLaunchFocusSignal((s) => s + 1)
+  }, [])
+  // Close the replay → clear it and ease the camera back to the home view.
+  const stopReplay = useCallback(() => {
+    setReplayLaunch(null)
+    setReplayDetached(false)
+    setHomeSignal((s) => s + 1)
+  }, [])
+  const recenterReplay = useCallback(() => {
+    setReplayDetached(false)
+    setReplayRecenterSignal((s) => s + 1)
   }, [])
 
   // Fetch TLEs on mount. Stays alive in sessionStorage for 2 hours
@@ -549,6 +563,8 @@ export default function StarlinkView({ onBack }: Props) {
               homeSignal={homeSignal}
               replayLaunch={replayLaunch}
               replayCtrlRef={replayCtrlRef}
+              onReplayDetached={() => setReplayDetached(true)}
+              replayRecenterSignal={replayRecenterSignal}
               detailTiles={detailTiles}
               tileProvider={tileProvider}
             />
@@ -632,11 +648,24 @@ export default function StarlinkView({ onBack }: Props) {
               exit={{ opacity: 0, y: 16 }}
               transition={{ duration: 0.2 }}
             >
-              <ReplayControls
-                launch={replayLaunch}
-                ctrlRef={replayCtrlRef}
-                onClose={() => setReplayLaunch(null)}
-              />
+              <ReplayControls launch={replayLaunch} ctrlRef={replayCtrlRef} onClose={stopReplay} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+        {/* Recenter prompt when the user rotates away from the chased rocket. */}
+        <AnimatePresence>
+          {replayLaunch && replayDetached && (
+            <motion.div
+              key="replay-recenter"
+              className="follow-chip follow-chip--replay"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 12 }}
+              transition={{ duration: 0.2 }}
+            >
+              <button type="button" className="follow-chip-recenter" onClick={recenterReplay}>
+                <Crosshair className="h-3.5 w-3.5" aria-hidden="true" /> Recenter on rocket
+              </button>
             </motion.div>
           )}
         </AnimatePresence>

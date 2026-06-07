@@ -70,9 +70,11 @@ interface Props {
   launch: PastLaunch
   ctrlRef: React.MutableRefObject<ReplayControl>
   sunTimeRef: React.MutableRefObject<number | null>
+  /** Receives the vehicle's live world position (for the chase-cam). */
+  posRef?: React.MutableRefObject<THREE.Vector3 | null>
 }
 
-export default function LaunchReplay({ launch, ctrlRef, sunTimeRef }: Props) {
+export default function LaunchReplay({ launch, ctrlRef, sunTimeRef, posRef }: Props) {
   const profile = useMemo(() => buildProfile(launch), [launch])
   const netMs = useMemo(() => new Date(launch.net).getTime(), [launch])
 
@@ -140,6 +142,10 @@ export default function LaunchReplay({ launch, ctrlRef, sunTimeRef }: Props) {
     const p = profile.sample(c.t)
     toScene(p.lat, p.lon, p.altKm, tmp.current)
     if (groupRef.current) groupRef.current.position.copy(tmp.current)
+    if (posRef) {
+      if (!posRef.current) posRef.current = tmp.current.clone()
+      else posRef.current.copy(tmp.current)
+    }
 
     sunTimeRef.current = netMs + c.t * 1000
 

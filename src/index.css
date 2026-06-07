@@ -2910,6 +2910,11 @@ body {
   letter-spacing: 0.4px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
 }
+/* During a replay the transport bar sits at the bottom, so lift the
+   recenter chip above it. */
+.follow-chip--replay {
+  bottom: 92px;
+}
 .follow-chip-status {
   display: inline-flex;
   align-items: center;

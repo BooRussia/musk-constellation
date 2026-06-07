@@ -952,6 +952,10 @@ interface EarthSceneProps {
   replayLaunch?: PastLaunch | null
   /** Shared control ref for the replay clock (play/scrub/speed). */
   replayCtrlRef?: React.MutableRefObject<ReplayControl>
+  /** Fires when the user rotates away while chasing the replay vehicle. */
+  onReplayDetached?: () => void
+  /** Bump to re-fly the chase-cam back onto the replay vehicle. */
+  replayRecenterSignal?: number
   /** Stream high-res map tiles as you zoom in (Google-Maps-style mosaic). */
   detailTiles?: boolean
   /** Which tile imagery the detail mosaic streams. */
@@ -983,6 +987,8 @@ export default function EarthScene({
   homeSignal = 0,
   replayLaunch = null,
   replayCtrlRef,
+  onReplayDetached,
+  replayRecenterSignal = 0,
   detailTiles = false,
   tileProvider = 'satellite',
 }: EarthSceneProps) {
@@ -990,6 +996,9 @@ export default function EarthScene({
   const fullLit = !dayCycle
   // Live ISS world position, written by ISSTracker, read by FollowController.
   const issPosRef = useRef<THREE.Vector3 | null>(null)
+  // Replay vehicle world position, written by LaunchReplay, read by the
+  // replay chase-cam FollowController.
+  const replayPosRef = useRef<THREE.Vector3 | null>(null)
 
   // Real-Earth data maps (relief/night/water) load ONCE — they're only
   // used by the photoreal pipeline. The day/albedo map is separate and
@@ -1205,17 +1214,20 @@ export default function EarthScene({
         {/* Reset-to-home camera ease. */}
         <HomeController controlsRef={controlsRef} signal={homeSignal} autoRotate={autoRotate} />
 
-        {/* Spin-to-pad: rotates the globe so the next launch's site faces
-            the camera, then stops. A bright pulse marks the pad. */}
+        {/* Live launch: spin-to-pad (stops on the site) + the trajectory
+            cone. A replay instead chases the vehicle (below), so its
+            spin-to-pad is skipped. A bright pulse marks the pad either way. */}
         {launchFocusActive && launchPad && (
           <>
-            <LaunchFocusController
-              controlsRef={controlsRef}
-              active
-              lat={launchPad.lat}
-              lon={launchPad.lon}
-              signal={launchFocusSignal}
-            />
+            {!replayLaunch && (
+              <LaunchFocusController
+                controlsRef={controlsRef}
+                active
+                lat={launchPad.lat}
+                lon={launchPad.lon}
+                signal={launchFocusSignal}
+              />
+            )}
             <ActiveLaunchPad lat={launchPad.lat} lon={launchPad.lon} name={launchPad.name} />
             {launchAzimuth != null && (
               <LaunchCone lat={launchPad.lat} lon={launchPad.lon} azimuth={launchAzimuth} />
@@ -1223,14 +1235,23 @@ export default function EarthScene({
           </>
         )}
 
-        {/* Past-launch replay — animated flight path + event nameplates. */}
+        {/* Past-launch replay — animated flight path + event markers, and a
+            chase-cam that flies in and follows the vehicle (like the ISS). */}
         {replayLaunch && replayCtrlRef && (
           <LaunchReplay
             launch={replayLaunch}
             ctrlRef={replayCtrlRef}
             sunTimeRef={replaySunTimeRef}
+            posRef={replayPosRef}
           />
         )}
+        <FollowController
+          controlsRef={controlsRef}
+          active={!!replayLaunch}
+          targetRef={replayPosRef}
+          onDetached={onReplayDetached}
+          recenterSignal={replayRecenterSignal}
+        />
 
         {/* WASD/QE keyboard camera controls — orbits + zooms + pans the
             camera around controls.target each frame. Mirrors the
