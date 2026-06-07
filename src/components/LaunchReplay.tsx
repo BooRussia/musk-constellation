@@ -171,7 +171,15 @@ export default function LaunchReplay({ launch, ctrlRef, sunTimeRef }: Props) {
 
   return (
     <>
-      <Line points={points} color="#ff9a4a" lineWidth={2} transparent opacity={0.5} />
+      <Line
+        points={points}
+        color="#ff9a4a"
+        lineWidth={2}
+        transparent
+        opacity={0.5}
+        depthWrite={false}
+        renderOrder={5}
+      />
 
       {/* Event markers — a dot on the path per real event, lit as it passes. */}
       {markers.map((m, i) => (

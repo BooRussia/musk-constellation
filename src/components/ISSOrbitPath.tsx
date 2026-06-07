@@ -68,6 +68,7 @@ export default function ISSOrbitPath({ satrec }: { satrec: SatRec }) {
           transparent
           opacity={0.9}
           depthWrite={false}
+          renderOrder={5}
         />
       )}
       {paths.future.length > 1 && (
@@ -78,6 +79,7 @@ export default function ISSOrbitPath({ satrec }: { satrec: SatRec }) {
           transparent
           opacity={0.5}
           depthWrite={false}
+          renderOrder={5}
         />
       )}
     </group>
