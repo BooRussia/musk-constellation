@@ -151,6 +151,46 @@ function writeCache(group: ConstellationKey, tleText: string) {
   }
 }
 
+// Bundled TLE snapshot (public/data/tle/<key>.txt), baked at build time via
+// scripts/build-tle-snapshot.mjs. Same-origin, so it's never subject to
+// CelesTrak's per-IP "GP data has not updated" 403 throttle — the safety net
+// that keeps the sky populated on a cold start behind a shared IP (corporate
+// / mobile NAT, incognito, cleared cache) where CelesTrak refuses a fresh
+// download and there's no local cache. Slightly stale (positions drift over
+// days) but the shells still read correctly.
+async function fetchSnapshot(name: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${import.meta.env.BASE_URL}data/tle/${name}.txt`)
+    if (!res.ok) return null
+    const text = await res.text()
+    return text.trim() ? text : null
+  } catch {
+    return null
+  }
+}
+
+/** Best available fallback when a live download fails: persisted cache first
+ *  (freshest), then the bundled snapshot. Returns null if neither exists. */
+async function fallbackEntries(
+  group: ConstellationKey,
+  reason: string,
+): Promise<SatelliteEntry[] | null> {
+  const cached = readFallbackCache(group)
+  if (cached) {
+    console.warn(`[tle] ${group} ${reason}, using cached data`)
+    return parseTleText(cached, group)
+  }
+  const snap = await fetchSnapshot(group)
+  if (snap) {
+    const entries = parseTleText(snap, group)
+    if (entries.length) {
+      console.warn(`[tle] ${group} ${reason}, using bundled snapshot`)
+      return entries
+    }
+  }
+  return null
+}
+
 /** Parse CelesTrak 3-line TLE text into satellite entries. */
 function parseTleText(tleText: string, constellation: ConstellationKey): SatelliteEntry[] {
   const lines = tleText.split('\n').map(l => l.trimEnd()).filter(Boolean)
@@ -204,37 +244,27 @@ export async function fetchConstellation(
     res = await fetch(url)
   } catch (err) {
     // Network-level failure (DNS, refused, CSP-blocked, offline).
-    // Use any non-expired cached data before giving up.
-    const fallback = readFallbackCache(group)
-    if (fallback) {
-      console.warn(`[tle] ${group} fetch failed, using cached data`)
-      return parseTleText(fallback, group)
-    }
+    const fb = await fallbackEntries(group, 'fetch failed')
+    if (fb) return fb
     const msg = err instanceof Error ? err.message : String(err)
     throw new Error(`TLE fetch network error for ${group}: ${msg}`, { cause: err })
   }
 
   if (!res.ok) {
-    const fallback = readFallbackCache(group)
-    if (fallback) {
-      console.warn(`[tle] ${group} returned ${res.status}, using cached data`)
-      return parseTleText(fallback, group)
-    }
+    // CelesTrak returns its "GP data has not updated" throttle as a 403, so
+    // any non-OK status lands here — fall back to cache, then the snapshot.
+    const fb = await fallbackEntries(group, `returned ${res.status}`)
+    if (fb) return fb
     throw new Error(`CelesTrak returned ${res.status} for ${group}`)
   }
 
   const tleText = await res.text()
 
-  // CelesTrak's throttle notice — fall back to cached data.
+  // CelesTrak's throttle notice can also arrive on a 200 — same fallback.
   if (tleText.includes('GP data has not updated')) {
-    const fallback = readFallbackCache(group)
-    if (fallback) {
-      console.warn(`[tle] ${group} throttled by CelesTrak, using cached data`)
-      return parseTleText(fallback, group)
-    }
-    // Cold start + throttled (rare — only if this IP already pulled
-    // recently with no local cache). Surface as empty.
-    console.warn(`[tle] ${group} throttled by CelesTrak and no cache available`)
+    const fb = await fallbackEntries(group, 'throttled by CelesTrak')
+    if (fb) return fb
+    console.warn(`[tle] ${group} throttled by CelesTrak and no fallback available`)
     return []
   }
 
@@ -315,9 +345,14 @@ export async function fetchISS(): Promise<TrackedObject | null> {
       }
     }
   } catch {
-    // fall through to stale cache
+    // fall through to stale cache / snapshot
   }
-  return readCache(CACHE_MAX_FALLBACK_MS)
+  const cached = readCache(CACHE_MAX_FALLBACK_MS)
+  if (cached) return cached
+  // Bundled snapshot — keeps the station on the globe even on a throttled
+  // cold start with no cache.
+  const snap = await fetchSnapshot('iss')
+  return snap ? parseSingleTle(snap) : null
 }
 
 /** Fetch every supported constellation in parallel. Tolerates per-
