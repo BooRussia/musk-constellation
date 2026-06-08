@@ -72,9 +72,12 @@ interface Props {
   sunTimeRef: React.MutableRefObject<number | null>
   /** Receives the vehicle's live world position (for the chase-cam). */
   posRef?: React.MutableRefObject<THREE.Vector3 | null>
+  /** When set, the clock is driven by real time since this liftoff (ms epoch)
+   *  instead of the play/scrub controls — a LIVE launch simulation. */
+  liveNetMs?: number
 }
 
-export default function LaunchReplay({ launch, ctrlRef, sunTimeRef, posRef }: Props) {
+export default function LaunchReplay({ launch, ctrlRef, sunTimeRef, posRef, liveNetMs }: Props) {
   const profile = useMemo(() => buildProfile(launch), [launch])
   const netMs = useMemo(() => new Date(launch.net).getTime(), [launch])
 
@@ -132,7 +135,10 @@ export default function LaunchReplay({ launch, ctrlRef, sunTimeRef, posRef }: Pr
   useFrame((state, deltaRaw) => {
     const c = ctrlRef.current
     const dt = Math.min(deltaRaw, 0.05)
-    if (c.seekTo != null) {
+    if (liveNetMs != null) {
+      // LIVE: clock = real time since liftoff (no play/scrub).
+      c.t = THREE.MathUtils.clamp((Date.now() - liveNetMs) / 1000, 0, profile.totalDur)
+    } else if (c.seekTo != null) {
       c.t = THREE.MathUtils.clamp(c.seekTo, 0, profile.totalDur)
       c.seekTo = null
     } else if (c.playing) {

@@ -956,6 +956,13 @@ interface EarthSceneProps {
   onReplayDetached?: () => void
   /** Bump to re-fly the chase-cam back onto the replay vehicle. */
   replayRecenterSignal?: number
+  /** LIVE launch simulation — same animation as a replay but the clock is
+   *  driven by real time. Set while a tracked launch is in flight. */
+  liveSimLaunch?: PastLaunch | null
+  /** Liftoff time (ms epoch) for the live simulation clock. */
+  liveSimNetMs?: number
+  /** Shared control ref for the live-sim clock. */
+  liveCtrlRef?: React.MutableRefObject<ReplayControl>
   /** Stream high-res map tiles as you zoom in (Google-Maps-style mosaic). */
   detailTiles?: boolean
   /** Which tile imagery the detail mosaic streams. */
@@ -989,6 +996,9 @@ export default function EarthScene({
   replayCtrlRef,
   onReplayDetached,
   replayRecenterSignal = 0,
+  liveSimLaunch = null,
+  liveSimNetMs,
+  liveCtrlRef,
   detailTiles = false,
   tileProvider = 'satellite',
 }: EarthSceneProps) {
@@ -1219,7 +1229,9 @@ export default function EarthScene({
             spin-to-pad is skipped. A bright pulse marks the pad either way. */}
         {launchFocusActive && launchPad && (
           <>
-            {!replayLaunch && (
+            {/* Pre-liftoff: spin to the pad + show the heading cone. Once the
+                live sim or a replay takes over, the chase-cam handles framing. */}
+            {!replayLaunch && !liveSimLaunch && (
               <LaunchFocusController
                 controlsRef={controlsRef}
                 active
@@ -1229,14 +1241,13 @@ export default function EarthScene({
               />
             )}
             <ActiveLaunchPad lat={launchPad.lat} lon={launchPad.lon} name={launchPad.name} />
-            {launchAzimuth != null && (
+            {launchAzimuth != null && !liveSimLaunch && (
               <LaunchCone lat={launchPad.lat} lon={launchPad.lon} azimuth={launchAzimuth} />
             )}
           </>
         )}
 
-        {/* Past-launch replay — animated flight path + event markers, and a
-            chase-cam that flies in and follows the vehicle (like the ISS). */}
+        {/* Past-launch replay — animated flight path + event markers. */}
         {replayLaunch && replayCtrlRef && (
           <LaunchReplay
             launch={replayLaunch}
@@ -1245,9 +1256,24 @@ export default function EarthScene({
             posRef={replayPosRef}
           />
         )}
+
+        {/* LIVE launch simulation — same animation, clock driven by real
+            time since liftoff. */}
+        {liveSimLaunch && liveCtrlRef && (
+          <LaunchReplay
+            launch={liveSimLaunch}
+            ctrlRef={liveCtrlRef}
+            sunTimeRef={replaySunTimeRef}
+            posRef={replayPosRef}
+            liveNetMs={liveSimNetMs}
+          />
+        )}
+
+        {/* Chase-cam: flies in and follows the vehicle for both a replay and
+            a live launch simulation (like the ISS follow). */}
         <FollowController
           controlsRef={controlsRef}
-          active={!!replayLaunch}
+          active={!!replayLaunch || !!liveSimLaunch}
           targetRef={replayPosRef}
           onDetached={onReplayDetached}
           recenterSignal={replayRecenterSignal}

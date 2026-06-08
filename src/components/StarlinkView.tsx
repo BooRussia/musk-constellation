@@ -23,6 +23,30 @@ import type { ReplayControl } from './LaunchReplay'
 import { fetchNextLaunchDetailed, type DetailedLaunch } from '../lib/launches'
 import { loadPastLaunches, type PastLaunch } from '../lib/pastLaunches'
 import { launchAzimuth as computeLaunchAzimuth, orbitInclination } from '../lib/trajectory'
+import { FALCON9_SEQUENCE } from '../lib/launchSequence'
+
+/** Build a replay-shaped launch from the live next-launch detail so the same
+ *  trajectory + event animation can run live. Flight events come from the
+ *  canonical Falcon 9 sequence (LL2's upcoming feed has no per-launch one). */
+function buildLiveSim(d: DetailedLaunch | null): PastLaunch | null {
+  if (!d?.pad) return null
+  return {
+    id: `live-${d.id}`,
+    mission: d.mission,
+    rocket: d.rocket,
+    net: d.net,
+    pad: { name: d.pad.name, lat: d.pad.lat, lon: d.pad.lon, location: d.pad.location },
+    orbit: d.orbit ?? 'LEO',
+    missionType: 'Live',
+    webcastUrl: d.webcastUrl,
+    landing: null,
+    events: FALCON9_SEQUENCE.filter((e) => e.t >= 0).map((e) => ({ label: e.label, t: e.t })),
+    hasRealTimeline: false,
+  }
+}
+
+// How long after liftoff the live simulation stays engaged (through deploy).
+const LIVE_SIM_MS = 66 * 60 * 1000
 import type { SatelliteHit } from './SatelliteCloud'
 import {
   setHighlightedNoradIds,
@@ -242,6 +266,34 @@ export default function StarlinkView({ onBack }: Props) {
     seekTo: null,
     currentEvent: null,
   })
+
+  // LIVE launch simulation — once a tracked launch lifts off, run the same
+  // animated trajectory + event markers + chase-cam as a replay, driven by
+  // real time, through deploy.
+  const liveCtrlRef = useRef<ReplayControl>({
+    t: 0,
+    duration: 0,
+    playing: true,
+    speed: 1,
+    seekTo: null,
+    currentEvent: null,
+  })
+  const [nowMs, setNowMs] = useState(0)
+  useEffect(() => {
+    if (!trackLaunch) return
+    const id = window.setInterval(() => setNowMs(Date.now()), 1000)
+    return () => window.clearInterval(id)
+  }, [trackLaunch])
+  const launchNetMs = useMemo(
+    () => (detailedLaunch ? new Date(detailedLaunch.net).getTime() : 0),
+    [detailedLaunch],
+  )
+  // Stable per launch so LaunchReplay doesn't rebuild its profile each second.
+  const simLaunch = useMemo(() => buildLiveSim(detailedLaunch), [detailedLaunch])
+  const liveSimActive =
+    trackLaunch && !!simLaunch && nowMs >= launchNetMs && nowMs < launchNetMs + LIVE_SIM_MS
+  const liveSimLaunch = liveSimActive ? simLaunch : null
+
   // Lazy-load the baked dataset the first time the picker opens.
   useEffect(() => {
     if (!replayPickerOpen || pastLaunches.length) return
@@ -565,6 +617,9 @@ export default function StarlinkView({ onBack }: Props) {
               replayCtrlRef={replayCtrlRef}
               onReplayDetached={() => setReplayDetached(true)}
               replayRecenterSignal={replayRecenterSignal}
+              liveSimLaunch={liveSimLaunch}
+              liveSimNetMs={launchNetMs}
+              liveCtrlRef={liveCtrlRef}
               detailTiles={detailTiles}
               tileProvider={tileProvider}
             />
@@ -652,12 +707,13 @@ export default function StarlinkView({ onBack }: Props) {
             </motion.div>
           )}
         </AnimatePresence>
-        {/* Recenter prompt when the user rotates away from the chased rocket. */}
+        {/* Recenter prompt when the user rotates away from the chased rocket
+            (during a replay or a live launch simulation). */}
         <AnimatePresence>
-          {replayLaunch && replayDetached && (
+          {(replayLaunch || liveSimActive) && replayDetached && (
             <motion.div
               key="replay-recenter"
-              className="follow-chip follow-chip--replay"
+              className={`follow-chip ${replayLaunch ? 'follow-chip--replay' : ''}`}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 12 }}
