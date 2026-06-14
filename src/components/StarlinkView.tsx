@@ -148,6 +148,18 @@ export default function StarlinkView({ onBack }: Props) {
   // Auto-rotation of the globe + which speed preset is active (on by default).
   const [autoRotate, setAutoRotate] = useState(true)
   const [rotateSpeedIdx, setRotateSpeedIdx] = useState(0) // 0.5× default
+  // Press R to toggle auto-rotation (part of the WASD camera controls).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'r' && e.key !== 'R') return
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      const el = e.target as HTMLElement | null
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+      setAutoRotate((r) => !r)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
   // Country + US-state border overlay (works on any map; on by default).
   const [borders, setBorders] = useState(true)
   // Lon/lat graticule overlay (works on any map).
@@ -831,7 +843,7 @@ export default function StarlinkView({ onBack }: Props) {
             clears the bottom-left sidebar and the top-right pinned card.
             Mirrors the constellation view's hints chrome. */}
         <div className="starlink-kbd-hints">
-          W/S — up/down &nbsp;•&nbsp; A/D — orbit &nbsp;•&nbsp; Q/E — zoom &nbsp;•&nbsp; Arrows — pan
+          W/S — up/down &nbsp;•&nbsp; A/D — orbit &nbsp;•&nbsp; Q/E — zoom &nbsp;•&nbsp; Arrows — pan &nbsp;•&nbsp; R — rotate
         </div>
       </div>
 
