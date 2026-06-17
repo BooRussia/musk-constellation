@@ -114,7 +114,7 @@ export default function SearchBar({
                 id={listboxId}
                 role="listbox"
                 aria-label="Search results"
-                className="max-h-64 overflow-y-auto"
+                className="max-h-64 overflow-y-auto overscroll-contain"
               >
                 {results.map((node, index) => {
                   const isActive = index === safeActiveIndex
