@@ -75,11 +75,11 @@ export interface Link {
 // sees actually reflects what each entity is worth.
 //
 //   cores / externals: val = cbrt(valuationBillions) * 0.36
-//     SpaceX     $1850B → 4.43 (S-1 filed May 20 2026, $1.75-2T target)
+//     SpaceX     $2100B → 4.61 (IPO'd Jun 12 2026, Nasdaq SPCX, ~$2.1T)
 //     Tesla      $1600B → 4.21
 //     Anthropic  $380B  → 2.61 (Series G post Feb 2026)
 //     xAI        $250B  → 2.27 (merger price Feb 2026, now part of SpaceX)
-//     Cursor     $50B   → 1.33 (in talks at $50B Apr 2026; $60B SpaceX option)
+//     Cursor     $60B   → 1.41 (acq. by SpaceX Jun 16 2026, $60B all-stock)
 //     X          $45B   → 1.28
 //     Neuralink  $14B   → 0.87 (secondary, May 2026)
 //     Boring     $7B    → 0.69
@@ -112,13 +112,13 @@ export const NODES: Node[] = [
     label: 'SpaceX',
     type: 'core',
     group: 'spacex',
-    valuationB: 1850,
-    val: 4.43, // cbrt(1850)*0.36
+    valuationB: 2100,
+    val: 4.61, // cbrt(2100)*0.36
     foundedYear: 2002,
-    short: 'Rockets • Starlink • Starship • Starshield • Orbital DCs • Acq. xAI',
+    short: 'Public (SPCX) • Rockets • Starlink • Starship • Acq. xAI + Cursor',
     mission: 'Making life multiplanetary.',
-    metric: 'S-1 filed May 20, 2026 • Valuation ~$1.85T • SPCX listing late June',
-    revenueNote: 'S-1 filed targeting $1.75-2T at ~$75B raise (largest IPO ever). On pace for ~140 Falcon launches in 2026 (61 done by May 25, ~40% of global cadence). Starlink at ~10M subs / ~$11.8B run-rate, targeting 25M by year-end via T-Mobile Direct-to-Cell. Starship V3 flew its 12th test May 22, 2026. First "Aether-1" 100MW orbital data center module targeted late 2026 post-xAI merger. EchoStar $19.6B spectrum acquisition FCC-approved May 2026.',
+    metric: 'Public Jun 12, 2026 (Nasdaq: SPCX) • ~$2.1T market cap • largest IPO ever',
+    revenueNote: 'IPO\'d June 12, 2026 on Nasdaq (SPCX) at $135/share, raising ~$75B — the largest IPO in history — and closed day one near $161 for a ~$2.1T valuation (above Tesla). Days later agreed to acquire Anysphere (Cursor) for $60B all-stock. Past ~50 Falcon launches by mid-2026 after a record 165 in 2025 (~40% of global cadence). Starlink ~10,400 active / ~10M subs / ~$11.8B run-rate, targeting 25M via T-Mobile Direct-to-Cell. Starship V3 flew its 12th test from Pad 2 on May 22, 2026. EchoStar spectrum FCC-approved May 2026; orbital data centers (Aether/Celestia) targeted post-xAI merger.',
     children: ['spacex-starlink', 'spacex-starship', 'spacex-falcon', 'spacex-starshield', 'spacex-celestia'],
     assists: [
       { target: 'nasa', description: 'Dragon crew/cargo (CRS-34 launched May 15, 2026) + Artemis HLS Starship lunar lander ($4.04B awards combined).' }
@@ -596,6 +596,21 @@ export const NODES: Node[] = [
     assists: []
   },
   {
+    id: 'cursor',
+    label: 'Cursor',
+    type: 'external',
+    group: 'external',
+    color: '#0ea5e9', // sky / dev-tool blue
+    valuationB: 60,
+    val: 1.41, // cbrt(60)*0.36
+    foundedYear: 2026, // entered the empire via the June 2026 acquisition
+    short: 'AI code editor (Anysphere) — acquired by SpaceX 2026',
+    mission: 'AI-native code editor; the developer surface for the SpaceX-xAI / Grok coding stack.',
+    metric: '$60B all-stock acquisition (announced Jun 16, 2026) • ~$2B ARR',
+    revenueNote: 'Anysphere, maker of the Cursor AI code editor, agreed to be acquired by SpaceX on June 16, 2026 in a $60B all-stock deal — an option struck in April, exercised days after the IPO, closing ~Q3 2026. Folds AI-assisted coding into the merged SpaceX-xAI / Grok developer stack. Cursor\'s ARR reportedly reached ~$2B in early 2026 (up from ~$100M a year earlier), among the fastest-growing software tools ever.',
+    assists: []
+  },
+  {
     id: 'global-customers',
     label: 'Global Starlink Customers',
     type: 'external',
@@ -607,21 +622,6 @@ export const NODES: Node[] = [
     mission: 'Connectivity everywhere on Earth.',
     metric: '>10M subscribers (Feb 2026) • Available to 3.1B people in 100+ countries',
     revenueNote: 'Doubled subscriber base in 2025; +1M subs in 53 days late 2025. T-Mobile T-Satellite (Starlink↔T-Mobile direct-to-cell) commercially live since Jul 2025. Targeting 25M total subs by year-end 2026.',
-    assists: []
-  },
-  {
-    id: 'cursor',
-    label: 'Cursor',
-    type: 'external',
-    group: 'external',
-    color: '#0ea5e9', // sky / dev-tool blue
-    valuationB: 50, // in talks Apr 2026 at $50B; SpaceX acq option struck at $60B
-    val: 1.33, // cbrt(50)*0.36
-    foundedYear: 2026,
-    short: 'AI coding IDE • Anysphere • $60B SpaceX acquisition option',
-    mission: 'AI-native software development at scale.',
-    metric: '~$50B in talks (Apr 2026) • $2B+ ARR (Feb 2026) • $60B SpaceX option',
-    revenueNote: 'Talks to raise $2B at $50B pre-money in April 2026 (a16z + Thrive lead, Nvidia strategic). Mgmt forecasts $6B ARR by EOY 2026. SpaceX holds option to acquire Anysphere for $60B in 2026 or pay $10B for compute-only collaboration. Cursor Composer training on Colossus.',
     assists: []
   },
   {
@@ -689,6 +689,7 @@ export const LINKS: Link[] = [
   { source: 'xai', target: 'xai-grok-imagine', type: 'owns', strength: 0.9, label: 'PRODUCT', note: 'Grok Imagine + Voice — multimodal product line spun out as a distinct surface.' },
   { source: 'xai', target: 'x', type: 'acquired', strength: 0.85, label: 'ACQUIRED 2025', note: 'X Corp acquired by xAI in 2025, creating deep data + distribution integration.' },
   { source: 'spacex', target: 'xai', type: 'acquired', strength: 1.0, label: 'ACQUIRED FEB 2026', note: 'SpaceX acquired xAI in Feb 2026 — largest M&A deal ever, $1.25T combined entity. Plans orbital data centers powered by Colossus.' },
+  { source: 'spacex', target: 'cursor', type: 'acquired', strength: 0.85, label: 'ACQUIRED JUN 2026', note: 'SpaceX agreed to acquire Anysphere (Cursor) on June 16, 2026 for $60B all-stock — folding the AI code editor into the merged SpaceX-xAI / Grok developer stack. Closing ~Q3 2026.' },
   { source: 'spacex', target: 'spacex-starship', type: 'owns', strength: 1.0, label: 'PROGRAM', note: 'Starship / Super Heavy — the fully-reusable super-heavy lift system.' },
   { source: 'spacex', target: 'spacex-falcon', type: 'owns', strength: 1.0, label: 'PROGRAM', note: 'Falcon 9 / Heavy — the workhorse responsible for ~40% of all global orbital launches.' },
   { source: 'spacex', target: 'spacex-starshield', type: 'owns', strength: 1.0, label: 'PROGRAM', note: 'Starshield — classified national security variant of Starlink.' },
@@ -724,7 +725,6 @@ export const LINKS: Link[] = [
   { source: 'xai-colossus-2', target: 'anthropic', type: 'contracts', strength: 0.6, label: 'CAPACITY RAMP', note: 'Anthropic lease ramps into Colossus 2 capacity as Memphis 1 saturates.' },
   { source: 'xai-colossus-2', target: 'cursor', type: 'contracts', strength: 0.7, label: 'COMPUTE', note: 'Cursor Composer training on Colossus 2 per the SpaceX-Cursor April 2026 deal.' },
   { source: 'spacex-starlink', target: 'nasa', type: 'contracts', strength: 0.5, label: 'COMMS', note: 'Starlink provides high-bandwidth connectivity for the ISS and future deep-space missions.' },
-  { source: 'spacex', target: 'cursor', type: 'contracts', strength: 0.85, label: '$60B ACQ OPTION', note: 'SpaceX has right to acquire Anysphere (Cursor) for $60B in 2026, or $10B for collaboration only. Cursor unlocks Colossus compute access.' },
   { source: 'spacex', target: 'us-space-force', type: 'contracts', strength: 0.9, label: 'NSSL + STARSHIELD', note: '$714M NSSL Phase 3 Lane 2 (FY26, 5 missions incl. NROL-86) + ~$1B Starshield SDA/USSF awards.' },
   { source: 'spacex-starshield', target: 'us-space-force', type: 'contracts', strength: 0.95, label: 'MILNET 480 SATS', note: '480-satellite MILNET constellation deployment begins mid-2026, IOC late 2027. PLEO ceiling raised to $13B.' },
   { source: 'spacex-starlink', target: 't-mobile', type: 'contracts', strength: 0.85, label: 'T-SATELLITE D2C', note: 'Starlink Direct-to-Cell powering T-Mobile T-Satellite service: $10-17/mo, live across CONUS + PR + HI + AK + NZ. 657+ D2C sats in orbit.' },
@@ -1035,6 +1035,7 @@ export const EVENTS: TimelineEvent[] = [
   { year: 2025, title: 'R1 robot deployed at Miami Project and Barrow', detail: 'Neuralink\'s R1 surgical robot is installed at the Miami Project to Cure Paralysis and Barrow Neurological Institute, expanding US surgical capacity.', nodes: ['neuralink', 'nlink-r1', 'miami-project'] },
   { year: 2025, title: 'First Starshield contracts disclosed', detail: 'Reporting confirms SpaceX\'s Starshield division is building a classified reconnaissance constellation for the National Reconnaissance Office under a $1.8B deal.', nodes: ['spacex-starshield', 'us-space-force'] },
   { year: 2025, title: 'EchoStar spectrum acquisition', detail: 'SpaceX acquires roughly $17B of EchoStar\'s S-band and AWS-4 spectrum, dramatically expanding Direct-to-Cell capacity for Starlink.', nodes: ['spacex-starlink', 't-mobile'] },
+  { year: 2025, title: 'SpaceX flies a record 165 launches', detail: 'SpaceX closes 2025 with roughly 165 orbital launches — a new annual record and about 40% of all global launch activity — driven by Falcon 9 reuse and the relentless Starlink cadence.', nodes: ['spacex', 'spacex-falcon', 'spacex-starlink'] },
   { year: 2026, title: '21+ Neuralink patients by January', detail: 'Neuralink discloses more than 21 humans now implanted with the Telepathy device across PRIME, CONVOY and international study arms.', nodes: ['neuralink', 'nlink-telepathy'] },
   { year: 2026, title: 'SpaceX-xAI merger closes', detail: 'In February, SpaceX and xAI complete a combination integrating Starlink distribution, Colossus compute and Grok models under one capital structure.', nodes: ['spacex', 'xai', 'spacex-starlink', 'xai-colossus'] },
   { year: 2026, title: 'Music City Loop construction begins', detail: 'The Boring Company breaks ground in February on the Nashville Music City Loop, with Prufrock-3 TBMs sized for a 12-mile spine.', nodes: ['boring', 'boring-music-city'] },
@@ -1049,6 +1050,9 @@ export const EVENTS: TimelineEvent[] = [
   { year: 2026, title: 'Vegas Airport Connector nears completion', detail: 'The Boring Company finishes mining on the Harry Reid Airport Connector, extending the Vegas Loop directly to the terminal ahead of the 2026 NFL season.', nodes: ['boring-vegas-loop', 'boring'] },
   { year: 2026, title: 'Starship IFT-12 demonstrates orbital refueling', detail: 'SpaceX completes Starship\'s twelfth integrated flight test, executing the first ship-to-ship propellant transfer in low Earth orbit for HLS.', nodes: ['spacex-starship', 'nasa'] },
   { year: 2026, title: 'Cybercab volume production begins', detail: 'Tesla starts volume Cybercab production at Giga Texas using the unboxed manufacturing process, targeting sub-$30k pricing for autonomous fleets.', nodes: ['tesla', 'tesla-autonomy'] },
+  { year: 2026, title: 'SpaceX tops 50 launches by mid-2026', detail: 'SpaceX flies its 50th mission of 2026 in the first half of the year, sustaining the record Falcon 9 cadence alongside crewed Dragon and national-security flights, with Starlink past ~10,400 active satellites.', nodes: ['spacex', 'spacex-falcon', 'spacex-starlink'] },
+  { year: 2026, title: 'SpaceX goes public on Nasdaq (SPCX)', detail: 'On June 12 SpaceX IPOs on Nasdaq under ticker SPCX at $135/share, raising ~$75B — the largest IPO in history — and closes day one near $161 for a ~$2.1T valuation, eclipsing Tesla.', nodes: ['spacex', 'spacex-starlink'] },
+  { year: 2026, title: 'SpaceX to acquire Cursor for $60B', detail: 'Four days after its IPO, SpaceX exercises an April option to buy Anysphere — maker of the Cursor AI code editor — in a $60B all-stock deal (announced June 16, closing Q3), folding AI coding into the merged SpaceX-xAI / Grok stack.', nodes: ['spacex', 'cursor', 'xai'] },
 ]
 
 /** Number of events declared for a given calendar year. Used by the
