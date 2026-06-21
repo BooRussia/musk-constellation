@@ -1,0 +1,66 @@
+name: Refresh company news
+
+# Auto-updates the per-company "Latest" feed (src/data/companyNews.json) that
+# the constellation detail panel shows. A scheduled job runs
+# scripts/refresh-companies.mjs, which uses the Claude API + web search to find
+# recent, verifiable developments across Elon's companies, then opens a PULL
+# REQUEST with the changes. The PR is reviewed before merge so AI-sourced facts
+# never ship unvetted — that's the deliberate human gate on auto-updated info.
+#
+# Setup required for this to do anything:
+#   1. Add repo secret  ANTHROPIC_API_KEY  (Settings → Secrets → Actions).
+#   2. Enable Settings → Actions → "Allow GitHub Actions to create and approve
+#      pull requests" so the workflow can open the PR.
+# Without the secret the script is a safe no-op (exits 0, no PR).
+
+on:
+  schedule:
+    # Weekly, Monday 13:00 UTC.
+    - cron: '0 13 * * 1'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: refresh-companies
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # The Anthropic SDK is only needed by this CI job, not the app bundle, so
+      # install it ad-hoc (kept out of package.json / the lockfile).
+      - name: Install Anthropic SDK
+        run: npm install --no-save @anthropic-ai/sdk
+
+      - name: Research + update company news
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: npm run refresh-companies
+
+      - name: Open pull request with refreshed news
+        uses: peter-evans/create-pull-request@v6
+        with:
+          add-paths: src/data/companyNews.json
+          branch: auto/company-news
+          delete-branch: true
+          commit-message: 'chore(data): refresh company news feed'
+          title: 'Auto-update: company news feed'
+          body: |
+            Automated refresh of `src/data/companyNews.json` via
+            `scripts/refresh-companies.mjs` (Claude + web search).
+
+            **Review before merging** — confirm each headline matches its cited
+            source. Merging deploys the changes to the live site.
+          labels: automated, data

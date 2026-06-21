@@ -1,0 +1,16 @@
+{
+  "generatedAt": "2026-06-20",
+  "source": "seed",
+  "note": "Auto-updated by scripts/refresh-companies.mjs (web-sourced, linked headlines). Seed entries mirror facts already curated in the constellation; the workflow replaces/augments them with cited items as news breaks. Keyed by constellation node id.",
+  "companies": {
+    "spacex": [
+      { "headline": "SpaceX goes public on Nasdaq (SPCX) — largest IPO ever, ~$2.1T market cap", "date": "2026-06-12" },
+      { "headline": "SpaceX to acquire Cursor (Anysphere) for ~$60B", "date": "2026-06-16" },
+      { "headline": "Starship Flight 12 flies its Florida-Straits corridor", "date": "2026-05-22" },
+      { "headline": "SpaceX flew a record 165 launches in 2025", "date": "2025-12-31" }
+    ],
+    "cursor": [
+      { "headline": "Cursor (Anysphere) to be acquired by SpaceX for ~$60B", "date": "2026-06-16" }
+    ]
+  }
+}

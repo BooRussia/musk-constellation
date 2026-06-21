@@ -13,7 +13,8 @@
     "preview": "vite preview",
     "build-borders": "node scripts/build-borders.mjs",
     "build-launches": "node scripts/build-launches.mjs",
-    "build-tle": "node scripts/build-tle-snapshot.mjs"
+    "build-tle": "node scripts/build-tle-snapshot.mjs",
+    "refresh-companies": "node scripts/refresh-companies.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",

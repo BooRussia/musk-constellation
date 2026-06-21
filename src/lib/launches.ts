@@ -192,16 +192,23 @@ function normalizeDetailed(r: LL2DetailedResult): DetailedLaunch {
   }
 }
 
-/** Fetch the next SpaceX launch with full detail, cache-first. */
-export async function fetchNextLaunchDetailed(): Promise<DetailedLaunch | null> {
-  try {
-    const raw = localStorage.getItem(DETAIL_CACHE_KEY)
-    if (raw) {
-      const c = JSON.parse(raw) as { fetchedAt: number; launch: DetailedLaunch }
-      if (Date.now() - c.fetchedAt < DETAIL_FRESH_MS) return c.launch
+/** Fetch the next SpaceX launch with full detail, cache-first.
+ *  Pass `force` to bypass the fresh-cache short-circuit — used by the live
+ *  poller so it always pulls the network copy (then re-writes the cache),
+ *  picking up NET slips, holds/scrubs, probability changes, and the roll-over
+ *  to the next launch once one lifts off. Still falls back to the stale cache
+ *  if the network call fails (e.g. LL2 throttling). */
+export async function fetchNextLaunchDetailed(force = false): Promise<DetailedLaunch | null> {
+  if (!force) {
+    try {
+      const raw = localStorage.getItem(DETAIL_CACHE_KEY)
+      if (raw) {
+        const c = JSON.parse(raw) as { fetchedAt: number; launch: DetailedLaunch }
+        if (Date.now() - c.fetchedAt < DETAIL_FRESH_MS) return c.launch
+      }
+    } catch {
+      // ignore
     }
-  } catch {
-    // ignore
   }
   try {
     const res = await fetch(LL2_DETAIL_URL)
@@ -232,9 +239,11 @@ export async function fetchNextLaunchDetailed(): Promise<DetailedLaunch | null> 
 
 /** Fetch the next few upcoming SpaceX launches, cache-first. Returns []
  *  on a cold start that's also rate-limited (rare). */
-export async function fetchUpcomingLaunches(): Promise<UpcomingLaunch[]> {
-  const fresh = readCache(FRESH_MS)
-  if (fresh) return fresh
+export async function fetchUpcomingLaunches(force = false): Promise<UpcomingLaunch[]> {
+  if (!force) {
+    const fresh = readCache(FRESH_MS)
+    if (fresh) return fresh
+  }
 
   try {
     const res = await fetch(LL2_URL)

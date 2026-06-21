@@ -230,16 +230,40 @@ export default function StarlinkView({ onBack }: Props) {
   // Bumped each time the user clicks the pill, to re-centre on the pad.
   const [launchFocusSignal, setLaunchFocusSignal] = useState(0)
   // Fetch the detailed next launch on mount so the countdown pill is live
-  // immediately (and the pad coords are ready for the spin-to-pad action).
+  // immediately (and the pad coords are ready for the spin-to-pad action),
+  // then keep it current with an adaptive real-time poller. Cadence tightens
+  // as the launch window approaches and stays slow when it's far off (LL2's
+  // free tier throttles, so we never poll faster than its ~15 req/hr ceiling).
+  // This is what makes launches "update in real time": NET slips, holds,
+  // scrubs, and the probability all refresh live, and once a launch lifts off
+  // the feed rolls over to the next one without a page reload.
+  const detailRef = useRef<DetailedLaunch | null>(null)
+  useEffect(() => {
+    detailRef.current = detailedLaunch
+  }, [detailedLaunch])
   useEffect(() => {
     let cancelled = false
-    fetchNextLaunchDetailed()
-      .then((l) => {
-        if (!cancelled && l) setDetailedLaunch(l)
-      })
-      .catch((err) => console.warn('[StarlinkView] launch detail fetch failed:', err))
+    let timer: number | undefined
+    const nextDelayMs = () => {
+      const net = detailRef.current ? new Date(detailRef.current.net).getTime() : NaN
+      const toGo = Number.isFinite(net) ? net - Date.now() : Number.POSITIVE_INFINITY
+      if (toGo <= 60 * 60 * 1000) return 4 * 60 * 1000 // within 1h → every 4 min
+      if (toGo <= 6 * 60 * 60 * 1000) return 10 * 60 * 1000 // within 6h → every 10 min
+      return 20 * 60 * 1000 // otherwise → every 20 min
+    }
+    const load = (force: boolean) =>
+      fetchNextLaunchDetailed(force)
+        .then((l) => {
+          if (!cancelled && l) setDetailedLaunch(l)
+        })
+        .catch((err) => console.warn('[StarlinkView] launch detail fetch failed:', err))
+        .finally(() => {
+          if (!cancelled) timer = window.setTimeout(() => load(true), nextDelayMs())
+        })
+    load(false)
     return () => {
       cancelled = true
+      if (timer) window.clearTimeout(timer)
     }
   }, [])
 

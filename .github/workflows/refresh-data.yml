@@ -1,0 +1,107 @@
+name: Refresh launch + satellite data
+
+# Auto-updates the baked datasets so the deployed site stays current without
+# anyone touching the repo:
+#   • src/data/pastLaunches.json  — the past-launch replay catalog (LL2)
+#   • public/data/tle/*.txt       — the cold-start TLE fallback (CelesTrak)
+# Runs on a cron, commits any changes back to main, and re-deploys GitHub
+# Pages so the refreshed data goes live. (Netlify rebuilds on its own from the
+# git push.) The live in-app feeds — next launch, countdown, live launch sim,
+# satellites — already refresh client-side; this keeps the *static fallbacks*
+# and the replay history fresh too.
+
+on:
+  schedule:
+    # Every 6 hours, at :17 past to avoid the top-of-hour CI rush.
+    - cron: '17 */6 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+# Share the Pages concurrency group with deploy-pages.yml so a scheduled
+# refresh and a push-triggered deploy never race each other.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.commit.outputs.changed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Refresh past launches (LL2)
+        run: npm run build-launches
+        continue-on-error: true
+
+      - name: Refresh TLE snapshot (CelesTrak)
+        run: npm run build-tle
+        continue-on-error: true
+
+      - name: Commit refreshed data if changed
+        id: commit
+        run: |
+          git config user.name "musk-constellation-bot"
+          git config user.email "actions@github.com"
+          if git diff --quiet -- src/data/pastLaunches.json public/data/tle; then
+            echo "No data changes."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            git add src/data/pastLaunches.json public/data/tle
+            git commit -m "chore(data): auto-refresh launches + TLE snapshot"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Rebuild + redeploy Pages with the fresh data. A push made with the default
+  # GITHUB_TOKEN does NOT re-trigger deploy-pages.yml, so we deploy here.
+  deploy:
+    needs: refresh
+    if: needs.refresh.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout (latest main with refreshed data)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build for GitHub Pages
+        run: npm run build
+        env:
+          VITE_BASE_PATH: /musk-constellation/
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

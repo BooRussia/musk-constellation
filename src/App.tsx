@@ -21,6 +21,7 @@ import {
 } from './data/constellation'
 import type { Node as ConstellationNode, TimelineEvent } from './data/constellation'
 import type { Link } from './data/constellation'
+import { getCompanyNews } from './lib/companyNews'
 
 const ConstellationCanvas = lazy(() => import('./components/ConstellationCanvas'))
 const StarlinkView = lazy(() => import('./components/StarlinkView'))
@@ -1581,6 +1582,44 @@ export default function MuskConstellation() {
                     </div>
                   )}
                 </div>
+
+                {/* LATEST — auto-updated headlines from the company-news feed
+                    (refreshed by the scheduled refresh-companies workflow). */}
+                {(() => {
+                  const news = getCompanyNews(selectedNode.id)
+                  if (news.length === 0) return null
+                  return (
+                    <div className="mb-8">
+                      <h2 className="section-title">LATEST</h2>
+                      <div className="space-y-2.5">
+                        {news.map((n, i) => (
+                          <div
+                            key={`${n.date}-${i}`}
+                            className="rounded-xl border border-white/10 bg-white/3 px-4 py-3"
+                          >
+                            <div className="text-sm leading-snug text-white/90">{n.headline}</div>
+                            <div className="mt-1.5 flex items-center gap-2 text-[11px] uppercase tracking-wider text-white/40">
+                              <span>{n.date}</span>
+                              {n.source &&
+                                (n.url ? (
+                                  <a
+                                    href={n.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="underline hover:text-white/70"
+                                  >
+                                    {n.source}
+                                  </a>
+                                ) : (
+                                  <span>• {n.source}</span>
+                                ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()}
 
                 {selectedNode.children && selectedNode.children.length > 0 && (
                   <div className="mb-8">
