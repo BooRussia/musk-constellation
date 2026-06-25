@@ -1,5 +1,28 @@
 [
   {
+    "id": "a4fb0d1a-2655-4552-b950-f2f6340ef85a",
+    "mission": "Starlink Group 17-45",
+    "rocket": "Falcon 9 Block 5",
+    "net": "2026-06-25T02:48:00Z",
+    "pad": {
+      "name": "Space Launch Complex 4E",
+      "lat": 34.632,
+      "lon": -120.611,
+      "location": "Vandenberg SFB, CA, USA"
+    },
+    "orbit": "LEO",
+    "missionType": "Communications",
+    "webcastUrl": "https://x.com/i/broadcasts/1nJOLLzylYExR",
+    "landing": {
+      "downrangeKm": 574,
+      "location": "Of Course I Still Love You",
+      "success": null,
+      "type": "ASDS"
+    },
+    "events": [],
+    "hasRealTimeline": false
+  },
+  {
     "id": "74bf8472-9ba1-42d6-9245-b014f8e91de9",
     "mission": "Project Starfall Demonstration Mission",
     "rocket": "Falcon 9 Block 5",
@@ -1103,11 +1126,11 @@
     },
     "events": [
       {
-        "label": "Excitement Guaranteed",
+        "label": "Liftoff",
         "t": 0
       },
       {
-        "label": "Liftoff",
+        "label": "Excitement Guaranteed",
         "t": 0
       },
       {
@@ -3109,86 +3132,6 @@
       {
         "label": "Starlink Deployment",
         "t": 3693
-      }
-    ],
-    "hasRealTimeline": true
-  },
-  {
-    "id": "1ca3ea18-b25b-4aad-9f6a-60a6434a8fa7",
-    "mission": "Starlink Group 17-15",
-    "rocket": "Falcon 9 Block 5",
-    "net": "2026-03-20T21:51:49Z",
-    "pad": {
-      "name": "Space Launch Complex 4E",
-      "lat": 34.632,
-      "lon": -120.611,
-      "location": "Vandenberg SFB, CA, USA"
-    },
-    "orbit": "LEO",
-    "missionType": "Communications",
-    "webcastUrl": "https://www.youtube.com/watch?v=AgFqtUF6kHs",
-    "landing": {
-      "downrangeKm": 574,
-      "location": "Of Course I Still Love You",
-      "success": true,
-      "type": "ASDS"
-    },
-    "events": [
-      {
-        "label": "Liftoff",
-        "t": 0
-      },
-      {
-        "label": "Max-Q",
-        "t": 72
-      },
-      {
-        "label": "MECO",
-        "t": 146
-      },
-      {
-        "label": "Stage 2 Separation",
-        "t": 150
-      },
-      {
-        "label": "SES-1",
-        "t": 157
-      },
-      {
-        "label": "Fairing Separation",
-        "t": 179
-      },
-      {
-        "label": "Entry Burn Startup",
-        "t": 359
-      },
-      {
-        "label": "Entry Burn Shutdown",
-        "t": 379
-      },
-      {
-        "label": "Stage 1 Landing Burn",
-        "t": 471
-      },
-      {
-        "label": "Stage 1 Landing",
-        "t": 493
-      },
-      {
-        "label": "SECO-1",
-        "t": 520
-      },
-      {
-        "label": "SES-2",
-        "t": 3182
-      },
-      {
-        "label": "SECO-2",
-        "t": 3183
-      },
-      {
-        "label": "Starlink Deployment",
-        "t": 3714
       }
     ],
     "hasRealTimeline": true
