@@ -3,7 +3,7 @@
     "id": "1ef27ca1-af91-48bb-b934-3da5abd9f711",
     "mission": "Starlink Group 10-50",
     "rocket": "Falcon 9 Block 5",
-    "net": "2026-07-03T11:20:00Z",
+    "net": "2026-07-05T10:50:00Z",
     "pad": {
       "name": "Space Launch Complex 40",
       "lat": 28.56194122,
@@ -12,11 +12,11 @@
     },
     "orbit": "LEO",
     "missionType": "Communications",
-    "webcastUrl": "https://x.com/i/broadcasts/1oKMvvkZZAOGQ",
+    "webcastUrl": "https://www.youtube.com/watch?v=ZMD1swgTLkU",
     "landing": {
       "downrangeKm": 600,
       "location": "A Shortfall of Gravitas",
-      "success": null,
+      "success": true,
       "type": "ASDS"
     },
     "events": [
@@ -83,7 +83,7 @@
     "id": "491122a3-3eff-42db-aff3-424b3431fc0b",
     "mission": "Starlink Group 17-46",
     "rocket": "Falcon 9 Block 5",
-    "net": "2026-07-02T02:00:00Z",
+    "net": "2026-07-02T02:58:19Z",
     "pad": {
       "name": "Space Launch Complex 4E",
       "lat": 34.632,
@@ -92,11 +92,11 @@
     },
     "orbit": "LEO",
     "missionType": "Communications",
-    "webcastUrl": "https://x.com/i/broadcasts/1qKVmmrbbEdxB",
+    "webcastUrl": "https://www.youtube.com/watch?v=nbzgvvmQYEc",
     "landing": {
       "downrangeKm": 574,
       "location": "Of Course I Still Love You",
-      "success": null,
+      "success": true,
       "type": "ASDS"
     },
     "events": [
@@ -172,11 +172,11 @@
     },
     "orbit": "GTO",
     "missionType": "Communications",
-    "webcastUrl": "https://www.youtube.com/watch?v=ZtYYSwPwMQ0",
+    "webcastUrl": "https://www.youtube.com/watch?v=rz4QAc0BkEA",
     "landing": {
       "downrangeKm": 655,
       "location": "A Shortfall of Gravitas",
-      "success": null,
+      "success": true,
       "type": "ASDS"
     },
     "events": [
@@ -2211,10 +2211,10 @@
     "missionType": "Communications",
     "webcastUrl": "https://www.youtube.com/watch?v=vdLb-RlctaY",
     "landing": {
-      "downrangeKm": null,
-      "location": "Atlantic Ocean",
-      "success": null,
-      "type": "EXP"
+      "downrangeKm": 5.8,
+      "location": "Landing Zone 40",
+      "success": true,
+      "type": "RTLS"
     },
     "events": [
       {
