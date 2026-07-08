@@ -1032,9 +1032,24 @@ export default function MuskConstellation() {
     return NODES.filter(n =>
       n.label.toLowerCase().includes(q) ||
       n.short.toLowerCase().includes(q) ||
-      (n.mission && n.mission.toLowerCase().includes(q)),
-    ).slice(0, 6)
+      (n.mission && n.mission.toLowerCase().includes(q)) ||
+      (n.revenueNote && n.revenueNote.toLowerCase().includes(q)),
+    ).slice(0, 8)
   }, [searchQuery])
+
+  // Core valuations only — sub-node valuationB values are fractions of parents
+  const coreValuationLabel = useMemo(() => {
+    const billions = NODES
+      .filter(n => n.type === 'core')
+      .reduce((sum, n) => sum + (n.valuationB ?? 0), 0)
+    if (billions >= 1000) return `~$${(billions / 1000).toFixed(1)}T+`
+    return `~$${Math.round(billions)}B+`
+  }, [])
+
+  const subNodeCount = useMemo(
+    () => NODES.filter(n => n.type === 'sub').length,
+    [],
+  )
 
   // ============================================
   // ACTIONS
@@ -1484,10 +1499,22 @@ export default function MuskConstellation() {
             </div>
 
             <div className="space-y-2.5 text-base">
-              <div className="flex justify-between"><span className="text-white/60">Combined valuation</span> <span className="font-mono text-white/90">~$3.5T+</span></div>
-              <div className="flex justify-between"><span className="text-white/60">Nodes (cores + subs + ext)</span> <span className="font-mono text-white/90">{NODES.length}</span></div>
-              <div className="flex justify-between"><span className="text-white/60">Documented links</span> <span className="font-mono text-white/90">{LINKS.length}</span></div>
+              <div className="flex justify-between gap-3">
+                <span className="text-white/60">Core valuations (est.)</span>
+                <span className="shrink-0 font-mono text-white/90">{coreValuationLabel}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-white/60">Major revenue drivers</span>
+                <span className="shrink-0 font-mono text-white/90">{subNodeCount}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-white/60">Documented links</span>
+                <span className="shrink-0 font-mono text-white/90">{LINKS.length}</span>
+              </div>
             </div>
+            <p className="mt-2 text-[11px] leading-snug text-white/40">
+              Core estimates from public markets and funding rounds — interpretive, not a precise sum.
+            </p>
 
             <div className="my-4 h-px bg-white/10" />
 
@@ -1508,7 +1535,7 @@ export default function MuskConstellation() {
         <button
           type="button"
           onClick={() => setShowLeftSidebar(v => !v)}
-          className={`ui-layer left-sidebar-toggle hidden lg:flex ${showLeftSidebar ? 'left-sidebar-toggle--open' : ''}`}
+          className={`ui-layer left-sidebar-toggle hidden md:flex ${showLeftSidebar ? 'left-sidebar-toggle--open' : ''}`}
           aria-expanded={showLeftSidebar}
           aria-label={showLeftSidebar ? 'Hide empire sidebar' : 'Show empire sidebar'}
         >
@@ -1803,7 +1830,7 @@ export default function MuskConstellation() {
         <button
           type="button"
           onClick={() => setShowDesktopPanel(v => !v)}
-          className={`ui-layer desktop-panel-toggle hidden lg:flex ${showDesktopPanel ? 'desktop-panel-toggle--open' : ''}`}
+          className={`ui-layer desktop-panel-toggle hidden md:flex ${showDesktopPanel ? 'desktop-panel-toggle--open' : ''}`}
           aria-controls="main-content"
           aria-expanded={showDesktopPanel}
           aria-label={showDesktopPanel ? 'Hide details panel' : 'Show details panel'}

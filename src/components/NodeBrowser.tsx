@@ -55,7 +55,16 @@ export default function NodeBrowser({
     selected?.scrollIntoView({ block: 'nearest' })
   }, [selectedId])
 
-  if (nodes.length === 0) return null
+  if (nodes.length === 0) {
+    return (
+      <div className={className}>
+        <div className="mb-2 text-xs uppercase tracking-[2px] text-white/50">{label}</div>
+        <p className="rounded-lg border border-white/10 bg-white/3 px-3 py-3 text-[13px] leading-snug text-white/50">
+          No nodes visible — expand a core company to reveal sub-webs.
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className={className}>

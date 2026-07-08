@@ -706,7 +706,7 @@ body {
    reframe smoothly during a finger drag instead of snapping when the
    sheet's React state flips. */
 
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .canvas-viewport {
     padding-left: var(--sidebar-width, 0px);
     padding-right: var(--panel-width, 0px);
@@ -1039,7 +1039,7 @@ body {
   bottom: calc(var(--legend-h) + 28px); /* legend height + 14px gap above + 14px below */
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .left-sidebar {
     display: block;
   }
@@ -1103,7 +1103,7 @@ body {
 }
 
 .desktop-panel-toggle--open {
-  right: calc(14px + 440px + 8px);
+  right: calc(14px + 380px + 8px);
 }
 
 /* Legend — bottom of the left rail. On desktop (lg+) it matches the

@@ -171,13 +171,26 @@ function mixHex(a: string, b: string, t: number): string {
 }
 
 function useIsMobile(): boolean {
-  return useMemo(() => {
+  const [isMobile, setIsMobile] = useState(() => {
     if (typeof window === 'undefined') return false
     return (
       window.matchMedia('(max-width:768px)').matches ||
       (navigator.hardwareConcurrency ?? 8) <= 4
     )
+  })
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mq = window.matchMedia('(max-width:768px)')
+    const update = () => {
+      setIsMobile(mq.matches || (navigator.hardwareConcurrency ?? 8) <= 4)
+    }
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
   }, [])
+
+  return isMobile
 }
 
 // ============================================
@@ -190,6 +203,7 @@ interface NodeMeshProps {
   hasSelection: boolean
   groupRefs: React.MutableRefObject<Map<string, THREE.Group>>
   onNodeClick: (id: string, e: ThreeEvent<MouseEvent>) => void
+  onNodeDoubleClick: (id: string, e: ThreeEvent<MouseEvent>) => void
   onPointerDown: (id: string, e: ThreeEvent<PointerEvent>) => void
   /** Live float year for Timeline mode. Read every frame so orbs
    *  scale + fade in continuously as the cursor scrubs past their
@@ -207,6 +221,7 @@ const NodeMesh = memo(function NodeMesh({
   hasSelection,
   groupRefs,
   onNodeClick,
+  onNodeDoubleClick,
   onPointerDown,
   timelineYearRef,
 }: NodeMeshProps) {
@@ -376,6 +391,7 @@ const NodeMesh = memo(function NodeMesh({
       <mesh
         ref={orbMeshRef}
         onClick={(e) => onNodeClick(node.id, e)}
+        onDoubleClick={(e) => onNodeDoubleClick(node.id, e)}
         onPointerDown={(e) => onPointerDown(node.id, e)}
         onPointerOver={(e) => {
           e.stopPropagation()
@@ -858,6 +874,7 @@ function Scene({
   selectedId,
   expandedIds,
   onSelect,
+  onExpand,
   highlightLinkIds = EMPTY_SET,
   bottomOverlayFraction = 0,
   showAllWeb = false,
@@ -866,7 +883,7 @@ function Scene({
   timelineYear = null,
   enabledGroups,
   cameraFocusId = null,
-}: Omit<Props, 'onExpand'>) {
+}: Props) {
   const { camera, raycaster, mouse, scene, size } = useThree()
   const controlsRef = useRef<OrbitControlsImpl>(null)
   const groupRef = useRef<THREE.Group>(null!)
@@ -1147,6 +1164,17 @@ function Scene({
       onSelect(id)
     },
     [onSelect],
+  )
+
+  const handleNodeDoubleClick = useCallback(
+    (id: string, e: ThreeEvent<MouseEvent>) => {
+      e.stopPropagation()
+      const node = visibleNodes.find((n) => n.id === id)
+      if (node?.children?.length) {
+        onExpand(id)
+      }
+    },
+    [onExpand, visibleNodes],
   )
 
   // Track the pointer-down origin AND whether we've committed to a drag
@@ -1652,6 +1680,7 @@ function Scene({
               hasSelection={selectedId != null}
               groupRefs={nodeGroupRefs}
               onNodeClick={handleNodeClick}
+              onNodeDoubleClick={handleNodeDoubleClick}
               onPointerDown={handlePointerDown}
               timelineYearRef={timelineYearRef}
             />

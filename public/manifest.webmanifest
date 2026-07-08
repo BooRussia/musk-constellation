@@ -2,9 +2,9 @@
   "name": "CONSTELLATION — Elon Musk's Interconnected Empire",
   "short_name": "CONSTELLATION",
   "description": "Interactive 3D visualization of Elon Musk's companies and their interconnections.",
-  "start_url": "/",
+  "start_url": "/musk-constellation/",
   "display": "standalone",
-  "background_color": "#020617",
+  "background_color": "#000000",
   "theme_color": "#000000",
   "orientation": "any",
   "icons": [
