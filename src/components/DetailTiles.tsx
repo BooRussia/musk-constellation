@@ -15,16 +15,12 @@ import {
 // ============================================
 // DetailTiles — streaming Web-Mercator tile mosaic
 // ============================================
-// Drapes slippy-map tiles on the globe around whatever point the camera is
-// looking at, picking the Mercator zoom level from the camera altitude.
-// Stays completely dormant (zero network) until you zoom in past the point
-// where the 8K base texture runs out of detail, then streams progressively
-// sharper tiles — a mini Google-Earth LOD layer. Tiles are managed
-// imperatively (three objects in a ref'd group) to avoid React churn.
-//
-// Tuned for chase-cam / launch tracking: a wide sticky footprint, zoom
-// hysteresis, and a coarser underlay so HD doesn't thrash in and out as
-// the vehicle sweeps around the planet.
+// Drapes slippy-map tiles over the *entire visible Earth disk* (frustum
+// projected onto the sphere), not a small patch around look-at. That way
+// launch-chase / zoomed views never show a hard mosaic edge mid-frame.
+// Zoom is capped so the footprint stays within a tile budget; coarser
+// underlays fill while sharp tiles stream. Imperative Three objects —
+// no React churn per tile.
 
 const EARTH_RADIUS = 5
 // Float just above the base sphere — over the globe texture, but below the
@@ -32,30 +28,40 @@ const EARTH_RADIUS = 5
 const TILE_RADIUS = EARTH_RADIUS * 1.0008
 const DEG2RAD = Math.PI / 180
 
-const SEG = 8 // patch subdivisions per tile edge (curves it onto the sphere)
-/** Load a (2R+1)² block around the focus — oversized so a launch chase
- *  can sweep a long arc without the mosaic edge ever entering frame. */
-const GRID_R = 8
-const MIN_ACTIVE_Z = 6 // below this the base 8K globe is already sharper
-const MAX_Z = 16
-const MAX_CACHE = 480 // hard cap on retained tiles (LRU-ish eviction)
-const RECOMPUTE_S = 0.22 // throttle the tile-set recompute (clock seconds)
-/** Keep tiles marked wanted this long after they leave the grid so they
- *  don't fade out the moment the chase-cam drifts. */
-const STICKY_S = 8
-/** Don't change Mercator zoom until the ideal level differs by this much
- *  (stops altitude jitter from swapping the whole mosaic). */
-const ZOOM_HYSTERESIS = 0.85
-/** Bias the mosaic one level coarser than the ideal — fewer, larger tiles
- *  cover more ground so the edge stays off-screen during chase. */
-const ZOOM_BIAS = -1
-const FADE_IN = 5
-const FADE_OUT = 1.4 // slower exit → less "phasing" as the footprint slides
+const SEG = 6 // patch subdivisions per tile edge (curves it onto the sphere)
+const MIN_ACTIVE_Z = 5 // below this the base 8K globe is already sharper
+const MAX_Z = 14
+/** Soft cap on tiles across the longer visible axis — keeps network + GPU sane. */
+const MAX_TILES_ACROSS = 18
+/** Extra tile ring past the frustum so the edge never peeks into frame. */
+const MARGIN_TILES = 2
+const MAX_CACHE = 640
+const RECOMPUTE_S = 0.25
+const STICKY_S = 10
+const ZOOM_HYSTERESIS = 0.9
+const FADE_IN = 6
+const FADE_OUT = 1.1
+
+/** NDC samples covering the viewport (corners + edges + center). */
+const NDC_SAMPLES: Array<[number, number]> = [
+  [0, 0],
+  [-1, -1],
+  [1, -1],
+  [-1, 1],
+  [1, 1],
+  [-1, 0],
+  [1, 0],
+  [0, -1],
+  [0, 1],
+  [-0.5, -0.5],
+  [0.5, -0.5],
+  [-0.5, 0.5],
+  [0.5, 0.5],
+]
 
 interface TileRec {
   key: string
   want: boolean
-  /** Clock time until which this tile stays sticky after leaving the grid. */
   stickyUntil: number
   fade: number
   loading: boolean
@@ -96,7 +102,7 @@ function buildTileGeometry(x: number, y: number, z: number): THREE.BufferGeometr
       pos[p++] = v.y
       pos[p++] = v.z
       uv[u++] = fx
-      uv[u++] = 1 - fy // image top row = north edge
+      uv[u++] = 1 - fy
     }
   }
   const idx: number[] = []
@@ -128,7 +134,6 @@ function rayHitEarth(
   dir: THREE.Vector3,
   out: THREE.Vector3,
 ): boolean {
-  // |o + t d|^2 = R^2, |d|=1
   const b = origin.dot(dir)
   const c = origin.lengthSq() - EARTH_RADIUS * EARTH_RADIUS
   const disc = b * b - c
@@ -140,6 +145,18 @@ function rayHitEarth(
   if (t < 0) return false
   out.copy(origin).addScaledVector(dir, t)
   return true
+}
+
+function vecToLatLon(v: THREE.Vector3): { lat: number; lon: number } {
+  const r = v.length() || 1
+  const lat = Math.asin(THREE.MathUtils.clamp(v.y / r, -1, 1)) / DEG2RAD
+  const lon = Math.atan2(-v.z, v.x) / DEG2RAD
+  return { lat: THREE.MathUtils.clamp(lat, -85, 85), lon }
+}
+
+/** Mercator tile width in km at a given zoom (equatorial). */
+function tileWidthKm(z: number): number {
+  return EARTH_CIRC_KM / 2 ** z
 }
 
 interface Props {
@@ -161,11 +178,12 @@ export default function DetailTiles({ provider }: Props) {
   const lastComputeRef = useRef(0)
   const providerRef = useRef(provider)
   const stickyZRef = useRef<number | null>(null)
-  const focusRef = useRef(new THREE.Vector3())
-  const lookRef = useRef(new THREE.Vector3())
-  const nadirRef = useRef(new THREE.Vector3())
+  const hitRef = useRef(new THREE.Vector3())
+  const ndcRef = useRef(new THREE.Vector3())
+  const worldRef = useRef(new THREE.Vector3())
+  const dirRef = useRef(new THREE.Vector3())
+  const hitsRef = useRef<Array<{ lat: number; lon: number }>>([])
 
-  // Dispose everything on unmount (toggle off / leave view).
   useEffect(() => {
     const tiles = tilesRef.current
     return () => {
@@ -180,7 +198,6 @@ export default function DetailTiles({ provider }: Props) {
     const tiles = tilesRef.current
     const now = state.clock.elapsedTime
 
-    // Provider switch → drop the whole cache and reload fresh.
     if (provider !== providerRef.current) {
       for (const t of tiles.values()) {
         if (t.mesh) group.remove(t.mesh)
@@ -191,57 +208,71 @@ export default function DetailTiles({ provider }: Props) {
       stickyZRef.current = null
     }
 
-    // Smoothly fade tiles in/out every frame (opacity follows `want`).
     for (const t of tiles.values()) {
       if (!t.mesh || !t.mat) continue
       const target = t.want ? 1 : 0
       const rate = t.want ? FADE_IN : FADE_OUT
       t.fade += (target - t.fade) * Math.min(1, delta * rate)
       t.mat.opacity = t.fade
+      // Only write depth once nearly opaque — otherwise fading tiles punch
+      // holes that hide satellites during stream-in.
+      t.mat.depthWrite = t.fade > 0.92
       t.mesh.visible = t.fade > 0.01
     }
 
-    // Throttle the (more expensive) recompute of which tiles we need.
     if (now - lastComputeRef.current < RECOMPUTE_S) return
     lastComputeRef.current = now
 
     const dist = camera.position.length()
     const altUnits = dist - EARTH_RADIUS
 
-    // Mark currently-wanted tiles sticky before clearing the want flags —
-    // anything that falls out of the new footprint keeps drawing for a bit.
     for (const t of tiles.values()) {
       if (t.want) t.stickyUntil = now + STICKY_S
       t.want = false
     }
 
-    if (altUnits > 0) {
-      // Focus = where the camera is looking on the globe (chase-cam looks at
-      // the vehicle / ground ahead). Fall back to camera nadir if the look
-      // ray misses (zoomed way out / looking at space).
-      camera.getWorldDirection(lookRef.current)
-      const hit = rayHitEarth(camera.position, lookRef.current, focusRef.current)
-      if (!hit) {
-        nadirRef.current.copy(camera.position).normalize().multiplyScalar(EARTH_RADIUS)
-        focusRef.current.copy(nadirRef.current)
+    if (altUnits <= 0) {
+      stickyZRef.current = null
+    } else {
+      // Project viewport samples onto Earth → the visible ground footprint.
+      const hits = hitsRef.current
+      hits.length = 0
+      const cam = camera as THREE.PerspectiveCamera
+      cam.updateMatrixWorld()
+      for (const [nx, ny] of NDC_SAMPLES) {
+        ndcRef.current.set(nx, ny, 0.5)
+        ndcRef.current.unproject(cam)
+        dirRef.current.copy(ndcRef.current).sub(cam.position).normalize()
+        if (rayHitEarth(cam.position, dirRef.current, hitRef.current)) {
+          hits.push(vecToLatLon(hitRef.current))
+        }
       }
-      const dir = focusRef.current
-      const lat = Math.asin(THREE.MathUtils.clamp(dir.y / EARTH_RADIUS, -1, 1)) / DEG2RAD
-      const lon = Math.atan2(-dir.z, dir.x) / DEG2RAD
-      const latC = THREE.MathUtils.clamp(lat, -85, 85)
+      // Always include camera nadir so we have at least one sample.
+      worldRef.current.copy(cam.position).normalize().multiplyScalar(EARTH_RADIUS)
+      hits.push(vecToLatLon(worldRef.current))
 
-      // Pick the Mercator zoom from how much ground the view spans.
-      const altKm = altUnits * KM_PER_UNIT
-      const fovHalf = (((camera as THREE.PerspectiveCamera).fov ?? 42) * DEG2RAD) / 2
-      const visibleKm = Math.max(2 * altKm * Math.tan(fovHalf), 1e-3)
+      // Angular span of hits from Earth center → pick zoom that covers it.
+      let maxAng = 0
+      const focus = hits[0]
+      const focusDir = latLonToVec(focus.lat, focus.lon, 1, worldRef.current).clone()
+      for (const h of hits) {
+        const d = latLonToVec(h.lat, h.lon, 1, hitRef.current)
+        maxAng = Math.max(maxAng, focusDir.angleTo(d))
+      }
+      // Ground arc length across the view (chord → arc), with padding.
+      const arcKm = Math.max(EARTH_RADIUS * KM_PER_UNIT * maxAng * 2.4, 80)
+
       const maxZoom = Math.min(MAX_Z, TILE_PROVIDERS[provider].maxZoom)
-      const idealZ = THREE.MathUtils.clamp(
-        Math.log2((EARTH_CIRC_KM * 3) / visibleKm) + ZOOM_BIAS,
-        0,
-        maxZoom,
-      )
+      // Ideal z from pixel density, then clamp so tile count fits the budget.
+      const altKm = altUnits * KM_PER_UNIT
+      const fovHalf = ((cam.fov ?? 42) * DEG2RAD) / 2
+      const visibleKm = Math.max(2 * altKm * Math.tan(fovHalf), 1e-3)
+      let idealZ = Math.log2((EARTH_CIRC_KM * 2.2) / visibleKm)
+      // Cap: arcKm / tileWidth <= MAX_TILES_ACROSS
+      const zForBudget = Math.log2(EARTH_CIRC_KM / (arcKm / MAX_TILES_ACROSS))
+      idealZ = Math.min(idealZ, zForBudget)
+      idealZ = THREE.MathUtils.clamp(idealZ, 0, maxZoom)
 
-      // Sticky zoom — only hop when the ideal level has clearly moved.
       let z = stickyZRef.current
       if (z == null || Math.abs(idealZ - z) >= ZOOM_HYSTERESIS) {
         z = Math.round(idealZ)
@@ -250,6 +281,20 @@ export default function DetailTiles({ provider }: Props) {
       z = THREE.MathUtils.clamp(z, 0, maxZoom)
 
       if (z >= MIN_ACTIVE_Z) {
+        // Lon/lat → tile AABB. Handle antimeridian by picking the smaller wrap.
+        let minLat = 90
+        let maxLat = -90
+        const lons: number[] = []
+        for (const h of hits) {
+          minLat = Math.min(minLat, h.lat)
+          maxLat = Math.max(maxLat, h.lat)
+          lons.push(h.lon)
+        }
+        // Expand bbox a bit so limb / FOV edges stay covered.
+        const padDeg = Math.max(2, (tileWidthKm(z) / 111) * MARGIN_TILES)
+        minLat = THREE.MathUtils.clamp(minLat - padDeg, -85, 85)
+        maxLat = THREE.MathUtils.clamp(maxLat + padDeg, -85, 85)
+
         const ensure = (tz: number, tx: number, ty: number) => {
           const n = 2 ** tz
           if (ty < 0 || ty >= n) return
@@ -281,7 +326,7 @@ export default function DetailTiles({ provider }: Props) {
               const cur = tiles.get(key)
               if (!cur) {
                 tex.dispose()
-                return // evicted before it finished loading
+                return
               }
               tex.colorSpace = THREE.SRGBColorSpace
               tex.anisotropy = maxAniso
@@ -292,13 +337,12 @@ export default function DetailTiles({ provider }: Props) {
                 map: tex,
                 transparent: true,
                 opacity: 0,
-                depthWrite: false,
+                depthWrite: true, // write depth so sats depth-test correctly above
+                depthTest: true,
               })
               const mesh = new THREE.Mesh(geo, mat)
-              // Keep tiles under orbit overlays (sats / trails / labels).
-              // Coarser underlay draws under the sharp mosaic.
               mesh.renderOrder = tz < z ? 1 : 2
-              mesh.raycast = () => {} // never intercept pointer picks
+              mesh.raycast = () => {}
               cur.tex = tex
               cur.geo = geo
               cur.mat = mat
@@ -308,47 +352,58 @@ export default function DetailTiles({ provider }: Props) {
             },
             undefined,
             () => {
-              tiles.delete(key) // network/CORS error → allow a later retry
+              tiles.delete(key)
             },
           )
         }
 
-        // Sharp mosaic around the look-at.
-        const fx = lon2tileX(lon, z)
-        const fy = lat2tileY(latC, z)
-        for (let dy = -GRID_R; dy <= GRID_R; dy++) {
-          for (let dx = -GRID_R; dx <= GRID_R; dx++) {
-            ensure(z, fx + dx, fy + dy)
+        const fillLevel = (tz: number, margin: number) => {
+          const n = 2 ** tz
+          const y0 = Math.max(0, lat2tileY(maxLat, tz) - margin)
+          const y1 = Math.min(n - 1, lat2tileY(minLat, tz) + margin)
+          // Build x ranges — unwrap longitudes around the focus lon.
+          const focusLon = focus.lon
+          let minX = Infinity
+          let maxX = -Infinity
+          for (const lon of lons) {
+            // Normalize lon relative to focus into (-180, 180]
+            let d = lon - focusLon
+            while (d > 180) d -= 360
+            while (d < -180) d += 360
+            const lx = focusLon + d
+            // Convert via a shifted lon that stays continuous for tileX
+            const tx = lon2tileX(lx, tz)
+            minX = Math.min(minX, tx)
+            maxX = Math.max(maxX, tx)
           }
-        }
+          minX -= margin
+          maxX += margin
+          // Also ensure we cover at least the focus tile.
+          const ftx = lon2tileX(focusLon, tz)
+          minX = Math.min(minX, ftx - margin)
+          maxX = Math.max(maxX, ftx + margin)
 
-        // Two coarser underlays over wider areas — fill gaps while sharp
-        // tiles stream in, and keep a soft backdrop past the mosaic edge.
-        for (const step of [1, 2]) {
-          const uz = z - step
-          if (uz < MIN_ACTIVE_Z) continue
-          const ufx = lon2tileX(lon, uz)
-          const ufy = lat2tileY(latC, uz)
-          const ur = Math.max(3, Math.ceil(GRID_R / (step + 1)) + 2)
-          for (let dy = -ur; dy <= ur; dy++) {
-            for (let dx = -ur; dx <= ur; dx++) {
-              ensure(uz, ufx + dx, ufy + dy)
+          for (let ty = y0; ty <= y1; ty++) {
+            for (let tx = Math.floor(minX); tx <= Math.ceil(maxX); tx++) {
+              ensure(tz, tx, ty)
             }
           }
         }
+
+        // Sharp mosaic covering the full visible footprint.
+        fillLevel(z, MARGIN_TILES)
+        // Coarser underlays — wider margin, hide any residual edge.
+        if (z - 1 >= MIN_ACTIVE_Z) fillLevel(z - 1, MARGIN_TILES + 1)
+        if (z - 2 >= MIN_ACTIVE_Z) fillLevel(z - 2, MARGIN_TILES + 2)
       } else {
         stickyZRef.current = null
       }
-    } else {
-      stickyZRef.current = null
     }
 
-    // Re-assert want for sticky tiles that just left the footprint.
     for (const t of tiles.values()) {
       if (!t.want && t.stickyUntil > now) t.want = true
     }
 
-    // Evict tiles we no longer want once they've faded out.
     for (const [key, t] of tiles) {
       if (!t.want && !t.loading && t.fade <= 0.02) {
         if (t.mesh) group.remove(t.mesh)
@@ -356,7 +411,6 @@ export default function DetailTiles({ provider }: Props) {
         tiles.delete(key)
       }
     }
-    // Hard cache cap — shed surplus non-wanted tiles oldest-first.
     if (tiles.size > MAX_CACHE) {
       for (const [key, t] of tiles) {
         if (tiles.size <= MAX_CACHE) break

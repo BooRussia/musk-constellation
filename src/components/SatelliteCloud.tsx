@@ -396,7 +396,8 @@ export default function SatelliteCloud({
         transparent
         depthTest
         depthWrite={false}
-        blending={THREE.AdditiveBlending}
+        blending={THREE.NormalBlending}
+        toneMapped={false}
       />
     </points>
   )
@@ -447,12 +448,9 @@ void main() {
   vColor = color;
   vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
   gl_Position = projectionMatrix * mvPos;
-  // Scale point size by inverse depth, clamped so far-away sats
-  // stay visible (min raised so the far limb of the constellation
-  // doesn't shrink to invisibility) and close ones don't take over.
-  // Floor stays readable even when the camera is parked in the
-  // detail-tile / launch-chase altitude band.
-  float scale = clamp(90.0 / max(-mvPos.z, 0.08), 2.2, 18.0);
+  // Scale by inverse depth. Floor stays readable over bright HQ imagery
+  // during launch chase / detail-tile zoom.
+  float scale = clamp(110.0 / max(-mvPos.z, 0.08), 2.8, 22.0);
   gl_PointSize = size * scale;
 }
 `
@@ -460,14 +458,17 @@ void main() {
 const SAT_FRAG = /* glsl */ `
 varying vec3 vColor;
 void main() {
-  // Tight radial falloff — bright center with a small subtle halo.
-  // The pow exponent is high so each dot reads as a hard pixel
-  // rather than a wide glowing blob; clusters still hint at density
-  // via additive blending without bleaching to white.
+  // Hard bright core + soft rim so dots stay visible on BOTH the dark
+  // night side and bright Esri satellite imagery (additive wash-out
+  // used to erase them over the HQ mosaic).
   vec2 uv = gl_PointCoord - vec2(0.5);
   float d = length(uv) * 2.0;
   if (d > 1.0) discard;
-  float alpha = pow(1.0 - d, 4.0) * 0.85;
-  gl_FragColor = vec4(vColor, alpha);
+  float core = smoothstep(0.55, 0.0, d);
+  float rim = smoothstep(1.0, 0.35, d);
+  // Slightly lift luminance so constellation colors punch through day tiles.
+  vec3 col = vColor * 1.35 + vec3(0.12);
+  float alpha = max(core * 0.95, rim * 0.55);
+  gl_FragColor = vec4(col, alpha);
 }
 `
