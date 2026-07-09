@@ -370,7 +370,11 @@ export default function SatelliteCloud({
   if (count === 0) return null
 
   return (
-    <points ref={pointsRef}>
+    // frustumCulled off: positions update every frame but the bounding
+    // sphere is not recomputed, so a camera parked near the surface
+    // (detail-tile zoom / launch chase) would otherwise cull the whole
+    // cloud when Earth's center leaves the frustum.
+    <points ref={pointsRef} frustumCulled={false} renderOrder={4}>
       <bufferGeometry ref={geometryRef}>
         <bufferAttribute
           attach="attributes-position"
@@ -390,6 +394,7 @@ export default function SatelliteCloud({
         vertexShader={SAT_VERT}
         fragmentShader={SAT_FRAG}
         transparent
+        depthTest
         depthWrite={false}
         blending={THREE.AdditiveBlending}
       />
@@ -445,7 +450,9 @@ void main() {
   // Scale point size by inverse depth, clamped so far-away sats
   // stay visible (min raised so the far limb of the constellation
   // doesn't shrink to invisibility) and close ones don't take over.
-  float scale = clamp(70.0 / -mvPos.z, 1.6, 14.0);
+  // Floor stays readable even when the camera is parked in the
+  // detail-tile / launch-chase altitude band.
+  float scale = clamp(90.0 / max(-mvPos.z, 0.08), 2.2, 18.0);
   gl_PointSize = size * scale;
 }
 `
