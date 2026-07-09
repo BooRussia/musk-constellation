@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Html, Line } from '@react-three/drei'
 import * as THREE from 'three'
@@ -9,12 +9,14 @@ import {
   stageMetaForLabel,
   type StageAction,
 } from '../lib/launchSequence'
+import RocketVehicle, { type RocketVehicleHandle } from './RocketVehicle'
+import type { CSSProperties } from 'react'
 
 // ============================================
 // LAUNCH REPLAY — animate a past launch's flight path on the globe
 // ============================================
-// Draws the modeled ascent-to-orbit track, flies a vehicle marker along it
-// on the real mission clock (driven by the shared control ref so the UI can
+// Draws the modeled ascent-to-orbit track, flies a small rocket marker along
+// it on the mission clock (driven by the shared control ref so the UI can
 // play / scrub / change speed without per-frame React re-renders), and marks
 // every real event (MECO, stage sep, SECO, deploy…) with a colored stage-action
 // dot that lights up as the vehicle passes — SpaceX webcast style. Also writes
@@ -121,11 +123,12 @@ export default function LaunchReplay({ launch, ctrlRef, sunTimeRef, posRef, live
   }, [flightEvents, profile])
 
   const groupRef = useRef<THREE.Group>(null)
-  const coreMatRef = useRef<THREE.MeshBasicMaterial>(null)
-  const glowMatRef = useRef<THREE.MeshBasicMaterial>(null)
-  const glowMeshRef = useRef<THREE.Mesh>(null)
+  const rocketRef = useRef<RocketVehicleHandle>(null)
   const tmp = useRef(new THREE.Vector3())
+  const tmpAhead = useRef(new THREE.Vector3())
   const tmpDir = useRef(new THREE.Vector3())
+  const upAxis = useRef(new THREE.Vector3(0, 1, 0))
+  const quat = useRef(new THREE.Quaternion())
   const markerRefs = useRef<(HTMLDivElement | null)[]>([])
   const clsCache = useRef<string[]>([])
   const dispCache = useRef<string[]>([])
@@ -142,6 +145,7 @@ export default function LaunchReplay({ launch, ctrlRef, sunTimeRef, posRef, live
     clsCache.current = []
     dispCache.current = []
     lastActionRef.current = null
+    rocketRef.current?.resetAccent()
   }, [profile, ctrlRef])
 
   // Restore live lighting on unmount.
@@ -166,7 +170,19 @@ export default function LaunchReplay({ launch, ctrlRef, sunTimeRef, posRef, live
 
     const p = profile.sample(c.t)
     toScene(p.lat, p.lon, p.altKm, tmp.current)
-    if (groupRef.current) groupRef.current.position.copy(tmp.current)
+    if (groupRef.current) {
+      groupRef.current.position.copy(tmp.current)
+
+      // Point the rocket nose along the flight path (sample a short look-ahead).
+      const ahead = profile.sample(Math.min(profile.totalDur, c.t + 2))
+      toScene(ahead.lat, ahead.lon, ahead.altKm, tmpAhead.current)
+      tmpDir.current.subVectors(tmpAhead.current, tmp.current)
+      if (tmpDir.current.lengthSq() > 1e-10) {
+        tmpDir.current.normalize()
+        quat.current.setFromUnitVectors(upAxis.current, tmpDir.current)
+        groupRef.current.quaternion.copy(quat.current)
+      }
+    }
     if (posRef) {
       if (!posRef.current) posRef.current = tmp.current.clone()
       else posRef.current.copy(tmp.current)
@@ -184,26 +200,13 @@ export default function LaunchReplay({ launch, ctrlRef, sunTimeRef, posRef, live
     c.currentEvent = activeMarker?.full ?? null
     c.currentAction = activeMarker?.action ?? null
 
-    // Vehicle glow / color follows the active stage action.
+    // Vehicle glow / plume follows the active stage action.
     if (activeMarker && lastActionRef.current !== activeMarker.action) {
       lastActionRef.current = activeMarker.action
-      const col = new THREE.Color(activeMarker.color)
-      if (coreMatRef.current) coreMatRef.current.color.set('#fff4d6')
-      if (glowMatRef.current) {
-        glowMatRef.current.color.copy(col)
-        glowMatRef.current.opacity = 0.18 + activeMarker.intensity * 0.35
-      }
-      if (glowMeshRef.current) {
-        const s = 0.85 + activeMarker.intensity * 0.55
-        glowMeshRef.current.scale.setScalar(s)
-      }
+      rocketRef.current?.setAccent(activeMarker.color, activeMarker.intensity)
     } else if (!activeMarker && lastActionRef.current != null) {
       lastActionRef.current = null
-      if (glowMatRef.current) {
-        glowMatRef.current.color.set('#ff9a4a')
-        glowMatRef.current.opacity = 0.25
-      }
-      if (glowMeshRef.current) glowMeshRef.current.scale.setScalar(1)
+      rocketRef.current?.resetAccent()
     }
 
     // Light up / occlude each event marker.
@@ -265,22 +268,9 @@ export default function LaunchReplay({ launch, ctrlRef, sunTimeRef, posRef, live
         </group>
       ))}
 
-      {/* The vehicle — core + stage-tinted glow. */}
+      {/* Compact rocket marker — nose points along the flight path. */}
       <group ref={groupRef}>
-        <mesh>
-          <sphereGeometry args={[0.05, 16, 16]} />
-          <meshBasicMaterial ref={coreMatRef} color="#fff4d6" toneMapped={false} />
-        </mesh>
-        <mesh ref={glowMeshRef}>
-          <sphereGeometry args={[0.1, 16, 16]} />
-          <meshBasicMaterial
-            ref={glowMatRef}
-            color="#ff9a4a"
-            transparent
-            opacity={0.25}
-            toneMapped={false}
-          />
-        </mesh>
+        <RocketVehicle ref={rocketRef} />
       </group>
     </>
   )
