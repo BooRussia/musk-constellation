@@ -23,7 +23,7 @@ import type { ReplayControl } from './LaunchReplay'
 import { fetchNextLaunchDetailed, type DetailedLaunch } from '../lib/launches'
 import { loadPastLaunches, type PastLaunch } from '../lib/pastLaunches'
 import { launchAzimuth as computeLaunchAzimuth, orbitInclination } from '../lib/trajectory'
-import { FALCON9_SEQUENCE } from '../lib/launchSequence'
+import { falcon9FlightEvents } from '../lib/launchSequence'
 
 /** Build a replay-shaped launch from the live next-launch detail so the same
  *  trajectory + event animation can run live. Flight events come from the
@@ -40,7 +40,7 @@ function buildLiveSim(d: DetailedLaunch | null): PastLaunch | null {
     missionType: 'Live',
     webcastUrl: d.webcastUrl,
     landing: null,
-    events: FALCON9_SEQUENCE.filter((e) => e.t >= 0).map((e) => ({ label: e.label, t: e.t })),
+    events: falcon9FlightEvents(),
     hasRealTimeline: false,
   }
 }
@@ -301,6 +301,7 @@ export default function StarlinkView({ onBack }: Props) {
     speed: 8,
     seekTo: null,
     currentEvent: null,
+    currentAction: null,
   })
 
   // LIVE launch simulation — once a tracked launch lifts off, run the same
@@ -313,6 +314,7 @@ export default function StarlinkView({ onBack }: Props) {
     speed: 1,
     seekTo: null,
     currentEvent: null,
+    currentAction: null,
   })
   const [nowMs, setNowMs] = useState(0)
   useEffect(() => {
@@ -378,6 +380,7 @@ export default function StarlinkView({ onBack }: Props) {
     c.playing = true
     c.seekTo = 0
     c.currentEvent = null
+    c.currentAction = null
     setLaunchFocusSignal((s) => s + 1)
   }, [])
   // Close the replay → clear it and ease the camera back to the home view.

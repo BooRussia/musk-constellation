@@ -1,9 +1,14 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, type CSSProperties } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Html, Line } from '@react-three/drei'
 import * as THREE from 'three'
 import type { PastLaunch } from '../lib/pastLaunches'
 import { buildProfile } from '../lib/trajectory'
+import {
+  eventsForReplay,
+  stageMetaForLabel,
+  type StageAction,
+} from '../lib/launchSequence'
 
 // ============================================
 // LAUNCH REPLAY — animate a past launch's flight path on the globe
@@ -11,10 +16,9 @@ import { buildProfile } from '../lib/trajectory'
 // Draws the modeled ascent-to-orbit track, flies a vehicle marker along it
 // on the real mission clock (driven by the shared control ref so the UI can
 // play / scrub / change speed without per-frame React re-renders), and marks
-// every real event (MECO, stage sep, SECO, deploy…) with a dot on the path
-// that lights up as the vehicle passes it — the way SpaceX timelines their
-// webcasts. Also writes the sun-time so lighting matches the launch's actual
-// time of day.
+// every real event (MECO, stage sep, SECO, deploy…) with a colored stage-action
+// dot that lights up as the vehicle passes — SpaceX webcast style. Also writes
+// the sun-time so lighting matches the launch's actual time of day.
 
 const EARTH_RADIUS_SCENE = 5
 const KM_TO_SCENE = EARTH_RADIUS_SCENE / 6371
@@ -32,6 +36,8 @@ export interface ReplayControl {
   seekTo: number | null
   /** Last event passed (replay writes, UI reads). */
   currentEvent: string | null
+  /** Stage action for the current event (replay writes, UI reads). */
+  currentAction: StageAction | null
 }
 
 function toScene(lat: number, lon: number, altKm: number, out: THREE.Vector3): THREE.Vector3 {
@@ -81,6 +87,8 @@ export default function LaunchReplay({ launch, ctrlRef, sunTimeRef, posRef, live
   const profile = useMemo(() => buildProfile(launch), [launch])
   const netMs = useMemo(() => new Date(launch.net).getTime(), [launch])
 
+  const flightEvents = useMemo(() => eventsForReplay(launch.events), [launch.events])
+
   // Full predicted track as scene points (for the path line).
   const points = useMemo(() => {
     const N = 256
@@ -92,27 +100,36 @@ export default function LaunchReplay({ launch, ctrlRef, sunTimeRef, posRef, live
     return pts
   }, [profile])
 
-  // Each real event, positioned on the path.
+  // Each event, positioned on the path with its stage-action accent.
   const markers = useMemo(() => {
-    return launch.events
+    return flightEvents
       .filter((e) => e.t >= 0 && e.t <= profile.totalDur)
       .map((e) => {
         const p = profile.sample(e.t)
+        const meta = stageMetaForLabel(e.label)
         return {
           label: shortLabel(e.label),
           full: e.label,
           t: e.t,
+          action: meta.action,
+          color: meta.color,
+          intensity: meta.intensity,
+          verb: meta.verb,
           pos: toScene(p.lat, p.lon, p.altKm, new THREE.Vector3()),
         }
       })
-  }, [launch, profile])
+  }, [flightEvents, profile])
 
   const groupRef = useRef<THREE.Group>(null)
+  const coreMatRef = useRef<THREE.MeshBasicMaterial>(null)
+  const glowMatRef = useRef<THREE.MeshBasicMaterial>(null)
+  const glowMeshRef = useRef<THREE.Mesh>(null)
   const tmp = useRef(new THREE.Vector3())
   const tmpDir = useRef(new THREE.Vector3())
   const markerRefs = useRef<(HTMLDivElement | null)[]>([])
   const clsCache = useRef<string[]>([])
   const dispCache = useRef<string[]>([])
+  const lastActionRef = useRef<StageAction | null>(null)
 
   // Reset the clock when the launch changes.
   useEffect(() => {
@@ -120,9 +137,11 @@ export default function LaunchReplay({ launch, ctrlRef, sunTimeRef, posRef, live
     c.t = 0
     c.duration = profile.totalDur
     c.currentEvent = null
+    c.currentAction = null
     c.seekTo = null
     clsCache.current = []
     dispCache.current = []
+    lastActionRef.current = null
   }, [profile, ctrlRef])
 
   // Restore live lighting on unmount.
@@ -161,7 +180,31 @@ export default function LaunchReplay({ launch, ctrlRef, sunTimeRef, posRef, live
       if (markers[i].t <= c.t) active = i
       else break
     }
-    c.currentEvent = active >= 0 ? markers[active].full : null
+    const activeMarker = active >= 0 ? markers[active] : null
+    c.currentEvent = activeMarker?.full ?? null
+    c.currentAction = activeMarker?.action ?? null
+
+    // Vehicle glow / color follows the active stage action.
+    if (activeMarker && lastActionRef.current !== activeMarker.action) {
+      lastActionRef.current = activeMarker.action
+      const col = new THREE.Color(activeMarker.color)
+      if (coreMatRef.current) coreMatRef.current.color.set('#fff4d6')
+      if (glowMatRef.current) {
+        glowMatRef.current.color.copy(col)
+        glowMatRef.current.opacity = 0.18 + activeMarker.intensity * 0.35
+      }
+      if (glowMeshRef.current) {
+        const s = 0.85 + activeMarker.intensity * 0.55
+        glowMeshRef.current.scale.setScalar(s)
+      }
+    } else if (!activeMarker && lastActionRef.current != null) {
+      lastActionRef.current = null
+      if (glowMatRef.current) {
+        glowMatRef.current.color.set('#ff9a4a')
+        glowMatRef.current.opacity = 0.25
+      }
+      if (glowMeshRef.current) glowMeshRef.current.scale.setScalar(1)
+    }
 
     // Light up / occlude each event marker.
     const cam = state.camera.position
@@ -173,9 +216,12 @@ export default function LaunchReplay({ launch, ctrlRef, sunTimeRef, posRef, live
         el.style.display = disp
         dispCache.current[i] = disp
       }
-      const cls = `replay-evt${i <= active ? ' is-passed' : ''}${i === active ? ' is-active' : ''}`
+      const cls =
+        `replay-evt replay-evt--${markers[i].action}` +
+        `${i <= active ? ' is-passed' : ''}${i === active ? ' is-active' : ''}`
       if (clsCache.current[i] !== cls) {
         el.className = cls
+        el.style.setProperty('--evt-accent', markers[i].color)
         clsCache.current[i] = cls
       }
     }
@@ -193,7 +239,7 @@ export default function LaunchReplay({ launch, ctrlRef, sunTimeRef, posRef, live
         renderOrder={5}
       />
 
-      {/* Event markers — a dot on the path per real event, lit as it passes. */}
+      {/* Event markers — colored by stage action, lit as the vehicle passes. */}
       {markers.map((m, i) => (
         <group key={`${m.t}-${i}`} position={m.pos}>
           <Html
@@ -202,23 +248,38 @@ export default function LaunchReplay({ launch, ctrlRef, sunTimeRef, posRef, live
             style={{ pointerEvents: 'none' }}
             wrapperClass="replay-evt-wrapper"
           >
-            <div className="replay-evt" ref={(el) => { markerRefs.current[i] = el }}>
+            <div
+              className={`replay-evt replay-evt--${m.action}`}
+              style={{ '--evt-accent': m.color } as CSSProperties}
+              ref={(el) => {
+                markerRefs.current[i] = el
+              }}
+            >
               <span className="replay-evt-dot" />
-              <span className="replay-evt-label">{m.label}</span>
+              <span className="replay-evt-label">
+                <span className="replay-evt-verb">{m.verb}</span>
+                {m.label}
+              </span>
             </div>
           </Html>
         </group>
       ))}
 
-      {/* The vehicle. */}
+      {/* The vehicle — core + stage-tinted glow. */}
       <group ref={groupRef}>
         <mesh>
           <sphereGeometry args={[0.05, 16, 16]} />
-          <meshBasicMaterial color="#fff4d6" toneMapped={false} />
+          <meshBasicMaterial ref={coreMatRef} color="#fff4d6" toneMapped={false} />
         </mesh>
-        <mesh>
+        <mesh ref={glowMeshRef}>
           <sphereGeometry args={[0.1, 16, 16]} />
-          <meshBasicMaterial color="#ff9a4a" transparent opacity={0.25} toneMapped={false} />
+          <meshBasicMaterial
+            ref={glowMatRef}
+            color="#ff9a4a"
+            transparent
+            opacity={0.25}
+            toneMapped={false}
+          />
         </mesh>
       </group>
     </>
