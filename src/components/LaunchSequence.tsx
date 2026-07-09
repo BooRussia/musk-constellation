@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { DetailedLaunch } from '../lib/launches'
-import { FALCON9_SEQUENCE, offsetLabel } from '../lib/launchSequence'
+import {
+  FALCON9_SEQUENCE,
+  offsetLabel,
+  stageMetaForEvent,
+  type SeqPhase,
+} from '../lib/launchSequence'
 
-// Left-side launch timeline — a big live T-minus over a vertical sequence of
-// countdown + flight milestones with their nominal T-/T+ times, the way the
-// Next Spaceflight app and SpaceX webcast clocks lay it out. Events fill in as
-// the clock passes them. Times are the standard Falcon 9 profile (LL2's
-// upcoming feed doesn't carry a per-launch timeline).
+// Left-side launch timeline — big live T-minus over a vertical sequence of
+// countdown + flight milestones. Stages are grouped into chapters and the
+// active event fires a pronounced callout with a defined stage action.
 
 function pad(n: number): string {
   return String(n).padStart(2, '0')
@@ -37,16 +40,19 @@ interface Props {
 
 export default function LaunchSequence({ launch }: Props) {
   const [nowMs, setNowMs] = useState(() => Date.now())
+  const [calloutKey, setCalloutKey] = useState(0)
+  const prevActiveRef = useRef(-1)
+
   useEffect(() => {
     const id = window.setInterval(() => setNowMs(Date.now()), 250)
     return () => window.clearInterval(id)
   }, [])
 
   const netMs = useMemo(() => new Date(launch.net).getTime(), [launch])
-  const elapsed = (nowMs - netMs) / 1000 // seconds since liftoff (neg = before)
+  const elapsed = (nowMs - netMs) / 1000
   const parts = clockParts(netMs - nowMs)
+  const phase: SeqPhase = elapsed >= 0 ? 'flight' : 'pre'
 
-  // The "current" event = the last one whose time has passed.
   const activeIndex = useMemo(() => {
     let idx = -1
     for (let i = 0; i < FALCON9_SEQUENCE.length; i++) {
@@ -56,20 +62,54 @@ export default function LaunchSequence({ launch }: Props) {
     return idx
   }, [elapsed])
 
-  // Keep the current event in view as the clock advances.
-  const activeRef = useRef<HTMLLIElement>(null)
+  const activeEvent = activeIndex >= 0 ? FALCON9_SEQUENCE[activeIndex] : null
+  const activeMeta = activeEvent ? stageMetaForEvent(activeEvent) : null
+
+  // Retrigger callout animation whenever the active milestone advances.
   useEffect(() => {
-    activeRef.current?.scrollIntoView({ block: 'nearest' })
+    if (activeIndex !== prevActiveRef.current && activeIndex >= 0) {
+      prevActiveRef.current = activeIndex
+      setCalloutKey((k) => k + 1)
+    }
   }, [activeIndex])
 
+  const activeRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [activeIndex])
+
+  // Chapter headers: first index of each chapter in the sequence.
+  const chapterStarts = useMemo(() => {
+    const starts = new Set<number>()
+    let prev: string | null = null
+    FALCON9_SEQUENCE.forEach((e, i) => {
+      const ch = stageMetaForEvent(e).chapter
+      if (ch !== prev) {
+        starts.add(i)
+        prev = ch
+      }
+    })
+    return starts
+  }, [])
+
   return (
-    <div className="launchseq">
+    <div
+      className={`launchseq launchseq--${phase}${activeMeta ? ` launchseq--action-${activeMeta.action}` : ''}`}
+      style={
+        activeMeta
+          ? ({ '--stage-accent': activeMeta.color } as CSSProperties)
+          : undefined
+      }
+    >
       <div className="launchseq-head">
         <div className="launchseq-mission">{launch.mission}</div>
         <div className="launchseq-rocket">{launch.rocket}</div>
+        <div className={`launchseq-phase-pill launchseq-phase-pill--${phase}`}>
+          {phase === 'pre' ? 'COUNTDOWN' : 'FLIGHT'}
+        </div>
       </div>
 
-      <div className="launchseq-clock">
+      <div className={`launchseq-clock${elapsed >= -60 && elapsed < 0 ? ' is-terminal' : ''}${elapsed >= 0 ? ' is-flight' : ''}`}>
         <span className="launchseq-clock-sign">{parts.sign}</span>
         <div className="launchseq-clock-grid">
           {parts.d > 0 && (
@@ -93,19 +133,39 @@ export default function LaunchSequence({ launch }: Props) {
         </div>
       </div>
 
+      {activeEvent && activeMeta && (
+        <div key={calloutKey} className="launchseq-callout" role="status" aria-live="polite">
+          <span className="launchseq-callout-verb">{activeMeta.verb}</span>
+          <span className="launchseq-callout-label">{activeEvent.label}</span>
+          <span className="launchseq-callout-time">{offsetLabel(activeEvent.t)}</span>
+        </div>
+      )}
+
       <ul className="launchseq-list">
         {FALCON9_SEQUENCE.map((e, i) => {
+          const meta = stageMetaForEvent(e)
+          const showChapter = chapterStarts.has(i)
           const passed = i <= activeIndex
           const active = i === activeIndex
           return (
-            <li
-              key={`${e.label}-${e.t}`}
-              ref={active ? activeRef : undefined}
-              className={`launchseq-item${passed ? ' is-passed' : ''}${active ? ' is-active' : ''}`}
-            >
-              <span className="launchseq-bullet" />
-              <span className="launchseq-evt">{e.label}</span>
-              <span className="launchseq-evt-time">{offsetLabel(e.t)}</span>
+            <li key={`${e.label}-${e.t}`} className="launchseq-block">
+              {showChapter && (
+                <div className={`launchseq-chapter launchseq-chapter--${meta.chapter.toLowerCase()}`}>
+                  {meta.chapter}
+                </div>
+              )}
+              <div
+                ref={active ? activeRef : undefined}
+                className={`launchseq-item launchseq-item--${meta.action}${passed ? ' is-passed' : ''}${active ? ' is-active' : ''}`}
+                style={{ '--item-accent': meta.color } as CSSProperties}
+              >
+                <span className="launchseq-bullet" />
+                <span className="launchseq-evt">
+                  <span className="launchseq-evt-verb">{meta.verb}</span>
+                  <span className="launchseq-evt-name">{e.label}</span>
+                </span>
+                <span className="launchseq-evt-time">{offsetLabel(e.t)}</span>
+              </div>
             </li>
           )
         })}
