@@ -117,10 +117,8 @@ export default function SatelliteCloud({
       colors[i * 3 + 0] = c.r
       colors[i * 3 + 1] = c.g
       colors[i * 3 + 2] = c.b
-      // Base dot size — bumped so individual sats are comfortably
-      // visible at default zoom without the cluster bleeding to a
-      // solid sheet (the tight fragment falloff keeps them crisp).
-      sizes[i] = 2.6
+      // Base dot size — small crisp points; the shader scales with depth.
+      sizes[i] = 1.7
     }
     return { positions, colors, sizes }
   }, [visibleSats, count])
@@ -203,7 +201,7 @@ export default function SatelliteCloud({
       colorArr[idx * 3 + 0] = c.r
       colorArr[idx * 3 + 1] = c.g
       colorArr[idx * 3 + 2] = c.b
-      sizeArr[idx] = 2.6
+      sizeArr[idx] = 1.7
     }
     // Paint highlight on the newly highlighted sats — bright warm
     // white + enlarged so they pop out of the cloud.
@@ -212,7 +210,7 @@ export default function SatelliteCloud({
       colorArr[idx * 3 + 0] = 1.0
       colorArr[idx * 3 + 1] = 0.92
       colorArr[idx * 3 + 2] = 0.55
-      sizeArr[idx] = 5.2
+      sizeArr[idx] = 3.4
     }
     highlightedIndicesRef.current = next
     colorAttr.needsUpdate = true
@@ -448,9 +446,9 @@ void main() {
   vColor = color;
   vec4 mvPos = modelViewMatrix * vec4(position, 1.0);
   gl_Position = projectionMatrix * mvPos;
-  // Scale by inverse depth. Floor stays readable over bright HQ imagery
-  // during launch chase / detail-tile zoom.
-  float scale = clamp(110.0 / max(-mvPos.z, 0.08), 2.8, 22.0);
+  // Modest inverse-depth scale — far sats stay readable, near ones
+  // stay pin-sized instead of blooming into orbs.
+  float scale = clamp(55.0 / max(-mvPos.z, 0.12), 1.4, 9.0);
   gl_PointSize = size * scale;
 }
 `
@@ -458,17 +456,14 @@ void main() {
 const SAT_FRAG = /* glsl */ `
 varying vec3 vColor;
 void main() {
-  // Hard bright core + soft rim so dots stay visible on BOTH the dark
-  // night side and bright Esri satellite imagery (additive wash-out
-  // used to erase them over the HQ mosaic).
+  // Tight hard core, almost no halo — reads as a pixel of light on
+  // both night Earth and bright HQ imagery without looking bloated.
   vec2 uv = gl_PointCoord - vec2(0.5);
   float d = length(uv) * 2.0;
   if (d > 1.0) discard;
-  float core = smoothstep(0.55, 0.0, d);
-  float rim = smoothstep(1.0, 0.35, d);
-  // Slightly lift luminance so constellation colors punch through day tiles.
-  vec3 col = vColor * 1.35 + vec3(0.12);
-  float alpha = max(core * 0.95, rim * 0.55);
+  float alpha = pow(1.0 - d, 3.2) * 0.9;
+  // Gentle lift so constellation colors hold up on day tiles.
+  vec3 col = vColor * 1.12 + vec3(0.04);
   gl_FragColor = vec4(col, alpha);
 }
 `
