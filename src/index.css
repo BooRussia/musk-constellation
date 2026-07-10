@@ -4133,6 +4133,14 @@ body {
 .launchbar-watch:hover {
   filter: brightness(1.12);
 }
+.launchbar-watch.is-on {
+  border-color: rgba(255, 150, 60, 0.55);
+  background: linear-gradient(180deg, rgba(255, 140, 60, 0.28), rgba(255, 120, 40, 0.18));
+  color: #ffc28a;
+}
+.launchbar-watch.is-on:hover {
+  filter: brightness(1.08);
+}
 .launchbar-exit {
   display: inline-flex;
   align-items: center;
@@ -4550,6 +4558,60 @@ body {
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.4px;
+}
+.miniplayer-sync {
+  flex: 0 0 auto;
+  color: #ffb066;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+.miniplayer-yt {
+  width: 100%;
+  height: 100%;
+}
+.miniplayer-yt iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+.miniplayer-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 100%;
+  padding: 16px;
+  text-align: center;
+  background: #0a0c14;
+}
+.miniplayer-fallback-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+}
+.miniplayer-fallback-sub {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  max-width: 28ch;
+  line-height: 1.4;
+}
+.miniplayer-fallback-cta {
+  margin-top: 4px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 150, 60, 0.45);
+  background: rgba(255, 150, 60, 0.16);
+  color: #ffc28a;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.miniplayer-fallback-cta:hover {
+  background: rgba(255, 150, 60, 0.28);
+  color: #fff;
 }
 .miniplayer-actions {
   flex: 0 0 auto;

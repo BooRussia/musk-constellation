@@ -1,9 +1,10 @@
-import { History, Rocket } from 'lucide-react'
+import { History, Play, Rocket } from 'lucide-react'
 import type { PastLaunch } from '../lib/pastLaunches'
+import { youtubeVideoId } from '../lib/youtubePlayer'
 
 // Top info bar for a past-launch replay: the ship (rocket) + its payload
-// (mission), plus orbit, date, and booster recovery. Mirrors the live
-// launch ticker's look; the transport controls live in the bottom bar.
+// (mission), plus orbit, date, and booster recovery. Optional Watch opens
+// a synced SpaceX webcast mini-player when an embeddable YouTube VOD exists.
 
 const ORBIT_FULL: Record<string, string> = {
   LEO: 'Low Earth Orbit',
@@ -24,9 +25,12 @@ function boosterText(l: PastLaunch): { label: string; title: string } | null {
 
 interface Props {
   launch: PastLaunch
+  /** Optional — opens the synced webcast mini-player when available. */
+  onWatch?: () => void
+  watchOpen?: boolean
 }
 
-export default function ReplayInfoBar({ launch }: Props) {
+export default function ReplayInfoBar({ launch, onWatch, watchOpen }: Props) {
   const date = new Date(launch.net).toLocaleString(undefined, {
     year: 'numeric',
     month: 'short',
@@ -35,6 +39,7 @@ export default function ReplayInfoBar({ launch }: Props) {
     minute: '2-digit',
   })
   const booster = boosterText(launch)
+  const canWatch = !!youtubeVideoId(launch.webcastEmbed ?? launch.webcastUrl)
 
   return (
     <div className="launchbar replay-infobar">
@@ -76,6 +81,22 @@ export default function ReplayInfoBar({ launch }: Props) {
       </div>
 
       <div className="launchbar-actions">
+        {canWatch && onWatch && (
+          <button
+            type="button"
+            className={`launchbar-watch${watchOpen ? ' is-on' : ''}`}
+            onClick={onWatch}
+            aria-pressed={watchOpen}
+            title={
+              watchOpen
+                ? 'Hide synced SpaceX webcast'
+                : 'Watch the SpaceX webcast synced to this replay'
+            }
+          >
+            <Play className="h-3.5 w-3.5" aria-hidden="true" />
+            {watchOpen ? 'Hide stream' : 'Watch'}
+          </button>
+        )}
         <span className="replay-infobar-tag">
           <History className="h-3 w-3" aria-hidden="true" /> Replay
         </span>

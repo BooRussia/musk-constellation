@@ -20,6 +20,13 @@ export interface PastLaunch {
   orbit: string
   missionType: string
   webcastUrl?: string
+  /** YouTube embed URL when an embeddable stream exists (preferred for in-app player). */
+  webcastEmbed?: string
+  /**
+   * Seconds into the YouTube VOD where T+0 (liftoff) occurs.
+   * When omitted, the mini-player estimates from video duration vs mission length.
+   */
+  webcastLiftoffOffsetSec?: number
   landing: {
     downrangeKm: number | null
     location: string

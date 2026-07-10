@@ -70,9 +70,20 @@ function normalize(r) {
       }
     : null
 
-  const webcast = [...(r.vidURLs ?? [])].sort(
-    (a, b) => (a.priority ?? 99) - (b.priority ?? 99),
-  )[0]?.url
+  const urls = [...(r.vidURLs ?? [])].sort((a, b) => (a.priority ?? 99) - (b.priority ?? 99))
+  const webcast = urls[0]?.url
+  // Prefer ANY embeddable YouTube link for the in-app player (top link is often X).
+  const webcastEmbed = urls
+    .map((v) => {
+      const u = v.url
+      if (!u) return undefined
+      const m =
+        u.match(/[?&]v=([\w-]{11})/) ||
+        u.match(/youtu\.be\/([\w-]{11})/) ||
+        u.match(/youtube\.com\/(?:embed|live)\/([\w-]{11})/)
+      return m ? `https://www.youtube.com/embed/${m[1]}` : undefined
+    })
+    .find(Boolean)
 
   return {
     id: r.id,
@@ -88,6 +99,7 @@ function normalize(r) {
     orbit: r.mission?.orbit?.abbrev ?? 'LEO',
     missionType: r.mission?.type ?? '',
     webcastUrl: webcast,
+    webcastEmbed,
     landing,
     events,
     hasRealTimeline: events.length > 0,

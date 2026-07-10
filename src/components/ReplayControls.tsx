@@ -9,6 +9,8 @@ import {
 } from '../lib/launchSequence'
 
 const SPEEDS = [1, 8, 60]
+/** Speeds YouTube can actually mirror while the webcast is synced. */
+const SYNC_SPEEDS = [1, 2]
 
 function pad(n: number): string {
   return String(n).padStart(2, '0')
@@ -25,13 +27,15 @@ interface Props {
   launch: PastLaunch
   ctrlRef: React.MutableRefObject<ReplayControl>
   onClose: () => void
+  /** When true, speed options are capped to what YouTube can mirror. */
+  syncActive?: boolean
 }
 
 /** Bottom transport bar for the launch replay. Reads the shared control ref
  *  ~5×/s for the clock/scrubber/event so the per-frame animation never
  *  re-renders React; writes back play/speed/seek. Stage callouts fire when
  *  the active milestone advances. */
-export default function ReplayControls({ launch, ctrlRef, onClose }: Props) {
+export default function ReplayControls({ launch, ctrlRef, onClose, syncActive }: Props) {
   const [snap, setSnap] = useState({
     t: 0,
     duration: 0,
@@ -42,6 +46,16 @@ export default function ReplayControls({ launch, ctrlRef, onClose }: Props) {
   const [speed, setSpeed] = useState(8)
   const [calloutKey, setCalloutKey] = useState(0)
   const prevEventRef = useRef<string | null>(null)
+  const speeds = syncActive ? SYNC_SPEEDS : SPEEDS
+
+  // Drop to 1× when the synced webcast opens — YouTube can't do 8×/60×.
+  useEffect(() => {
+    if (!syncActive) return
+    if (ctrlRef.current.speed > 2) {
+      ctrlRef.current.speed = 1
+      setSpeed(1)
+    }
+  }, [syncActive, ctrlRef])
 
   useEffect(() => {
     const sample = () => {
@@ -160,7 +174,7 @@ export default function ReplayControls({ launch, ctrlRef, onClose }: Props) {
         </div>
 
         <div className="replaybar-speeds">
-          {SPEEDS.map((s) => (
+          {speeds.map((s) => (
             <button
               key={s}
               type="button"

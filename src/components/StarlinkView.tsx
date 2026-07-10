@@ -222,6 +222,8 @@ export default function StarlinkView({ onBack }: Props) {
   const [trackLaunch, setTrackLaunch] = useState(false)
   const [detailedLaunch, setDetailedLaunch] = useState<DetailedLaunch | null>(null)
   const [watchOpen, setWatchOpen] = useState(false)
+  // Optional synced SpaceX webcast for a past-launch replay (off by default).
+  const [replayWatchOpen, setReplayWatchOpen] = useState(false)
   // Past-launch replay (declared here so the pad-focus memo can see it).
   const [replayLaunch, setReplayLaunch] = useState<PastLaunch | null>(null)
   // Chase-cam detach (user rotated away while following the replay vehicle).
@@ -362,6 +364,7 @@ export default function StarlinkView({ onBack }: Props) {
     setReplayLaunch(null)
     setReplayPickerOpen(false)
     setWatchOpen(false)
+    setReplayWatchOpen(false)
     setAutoRotate(true)
     setRotateSpeedIdx(0)
     setHomeSignal((s) => s + 1)
@@ -373,6 +376,8 @@ export default function StarlinkView({ onBack }: Props) {
     setTrackLaunch(false)
     setTrackISS(false)
     setReplayDetached(false)
+    setWatchOpen(false)
+    setReplayWatchOpen(false) // optional — user opts in via Watch
     setReplayLaunch(l)
     setAutoRotate(false)
     const c = replayCtrlRef.current
@@ -387,6 +392,7 @@ export default function StarlinkView({ onBack }: Props) {
   const stopReplay = useCallback(() => {
     setReplayLaunch(null)
     setReplayDetached(false)
+    setReplayWatchOpen(false)
     setHomeSignal((s) => s + 1)
   }, [])
   const recenterReplay = useCallback(() => {
@@ -705,10 +711,17 @@ export default function StarlinkView({ onBack }: Props) {
           )}
         </AnimatePresence>
 
-        {/* Floating, draggable + resizable webcast mini-player — watch the
-            YouTube livestream while the launch plays out on the globe. */}
+        {/* Floating webcast mini-player — live stream OR optional synced
+            past-launch VOD (bidirectional scrub with the simulation). */}
         {watchOpen && detailedLaunch && (
           <MiniPlayer launch={detailedLaunch} onClose={() => setWatchOpen(false)} />
+        )}
+        {replayWatchOpen && replayLaunch && (
+          <MiniPlayer
+            launch={replayLaunch}
+            onClose={() => setReplayWatchOpen(false)}
+            syncCtrlRef={replayCtrlRef}
+          />
         )}
 
         {/* Past-launch replay: picker + transport bar. */}
@@ -729,7 +742,11 @@ export default function StarlinkView({ onBack }: Props) {
               exit={{ opacity: 0, y: -16 }}
               transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
             >
-              <ReplayInfoBar launch={replayLaunch} />
+              <ReplayInfoBar
+                launch={replayLaunch}
+                watchOpen={replayWatchOpen}
+                onWatch={() => setReplayWatchOpen((o) => !o)}
+              />
             </motion.div>
           )}
         </AnimatePresence>
@@ -742,7 +759,12 @@ export default function StarlinkView({ onBack }: Props) {
               exit={{ opacity: 0, y: 16 }}
               transition={{ duration: 0.2 }}
             >
-              <ReplayControls launch={replayLaunch} ctrlRef={replayCtrlRef} onClose={stopReplay} />
+              <ReplayControls
+                launch={replayLaunch}
+                ctrlRef={replayCtrlRef}
+                onClose={stopReplay}
+                syncActive={replayWatchOpen}
+              />
             </motion.div>
           )}
         </AnimatePresence>
