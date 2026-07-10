@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ExternalLink, GripVertical, X } from 'lucide-react'
+import { Crosshair, ExternalLink, GripVertical, X } from 'lucide-react'
 import type { ReplayControl } from './LaunchReplay'
 import {
   loadYouTubeApi,
@@ -10,19 +10,44 @@ import {
 
 // Floating, draggable, resizable webcast mini-player.
 // Live mode: embeds the SpaceX livestream (or a per-mission YouTube link).
-// Replay mode: shows the VOD iframe immediately, then attaches the YouTube
-// IFrame API for bidirectional scrub sync with the simulation clock.
+// Replay mode: VOD iframe + YouTube IFrame API, bidirectionally scrub-synced
+// to the simulation. Liftoff in the VOD is almost never at 0:00 (countdown /
+// intro), so we resolve an offset and let the user Mark liftoff to calibrate.
 
 const SPACEX_CHANNEL = 'UCtI0Hodo5o5dUb67FeUjDeA'
 const HEADER_H = 38
-const MIN_W = 260
+const MIN_W = 280
 const MIN_H = 150
 const SYNC_MS = 250
 const LOCK_MS = 700
 const YT_MAX_RATE = 2
+const OFFSET_STORE_KEY = 'mc.webcast.liftoffOffset.v1'
 
 function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v))
+}
+
+function loadStoredOffset(videoId: string): number | null {
+  try {
+    const raw = localStorage.getItem(OFFSET_STORE_KEY)
+    if (!raw) return null
+    const map = JSON.parse(raw) as Record<string, number>
+    const v = map[videoId]
+    return typeof v === 'number' && v >= 0 ? v : null
+  } catch {
+    return null
+  }
+}
+
+function saveStoredOffset(videoId: string, offset: number): void {
+  try {
+    const raw = localStorage.getItem(OFFSET_STORE_KEY)
+    const map = raw ? (JSON.parse(raw) as Record<string, number>) : {}
+    map[videoId] = Math.round(offset)
+    localStorage.setItem(OFFSET_STORE_KEY, JSON.stringify(map))
+  } catch {
+    /* private mode / quota — ignore */
+  }
 }
 
 export interface MiniPlayerLaunch {
@@ -35,7 +60,6 @@ export interface MiniPlayerLaunch {
 interface Props {
   launch: MiniPlayerLaunch
   onClose: () => void
-  /** When set, player runs in synced replay mode against this control ref. */
   syncCtrlRef?: React.MutableRefObject<ReplayControl>
   missionDurationSec?: number
 }
@@ -47,7 +71,6 @@ function liveEmbedSrc(launch: MiniPlayerLaunch): string {
   return `${base}${sep}autoplay=1&rel=0&playsinline=1`
 }
 
-/** Build a VOD embed URL that is visible immediately and API-ready. */
 function vodEmbedSrc(videoId: string, startSec: number): string {
   const origin = typeof window !== 'undefined' ? encodeURIComponent(window.location.origin) : ''
   const start = Math.max(0, Math.floor(startSec))
@@ -59,12 +82,69 @@ function vodEmbedSrc(videoId: string, startSec: number): string {
   )
 }
 
-function estimateLiftoffOffset(videoDur: number, missionDur: number, explicit?: number): number {
-  if (explicit != null && Number.isFinite(explicit) && explicit >= 0) return explicit
-  if (!(videoDur > 0)) return 0
-  const estimated = videoDur - missionDur - 90
-  if (estimated < 30) return 0
-  return clamp(estimated, 0, 45 * 60)
+/**
+ * Resolve seconds into the VOD where T+0 (liftoff) occurs.
+ * Priority: explicit bake → localStorage calibration → duration heuristic.
+ *
+ * Short rehosts (Space Devs etc., often ~15–25 min) have a brief intro then
+ * liftoff — NOT videoDur−missionDur (that goes negative → 0 and desyncs).
+ * Full webcasts (1h+) have a long countdown pre-roll.
+ */
+function resolveLiftoffOffset(opts: {
+  videoId: string
+  videoDur: number
+  missionDur: number
+  explicit?: number
+}): { offset: number; source: 'baked' | 'saved' | 'estimated' | 'unknown' } {
+  const { videoId, videoDur, missionDur, explicit } = opts
+  if (explicit != null && Number.isFinite(explicit) && explicit >= 0) {
+    return { offset: explicit, source: 'baked' }
+  }
+  const saved = loadStoredOffset(videoId)
+  if (saved != null) return { offset: saved, source: 'saved' }
+
+  if (!(videoDur > 0)) return { offset: 0, source: 'unknown' }
+
+  // Full-length webcast: countdown + flight ≈ mission + outro.
+  if (videoDur >= Math.max(45 * 60, missionDur * 0.75)) {
+    const estimated = videoDur - missionDur - 120
+    if (estimated >= 60) {
+      return { offset: clamp(estimated, 60, 50 * 60), source: 'estimated' }
+    }
+  }
+
+  // Short highlight / rehost: intro is usually a couple minutes, not zero.
+  // Prefer aligning via Mark liftoff — use a modest default so we're closer.
+  if (videoDur < 40 * 60) {
+    // Assume ~2.5 min intro when we have no better signal.
+    const guess = clamp(Math.min(150, videoDur * 0.12), 45, 240)
+    return { offset: guess, source: 'estimated' }
+  }
+
+  return { offset: 0, source: 'unknown' }
+}
+
+function waitForDuration(player: YTPlayer, timeoutMs = 8000): Promise<number> {
+  return new Promise((resolve) => {
+    const start = performance.now()
+    const tick = () => {
+      try {
+        const d = player.getDuration() || 0
+        if (d > 1) {
+          resolve(d)
+          return
+        }
+      } catch {
+        /* not ready */
+      }
+      if (performance.now() - start > timeoutMs) {
+        resolve(0)
+        return
+      }
+      window.setTimeout(tick, 200)
+    }
+    tick()
+  })
 }
 
 export default function MiniPlayer({ launch, onClose, syncCtrlRef, missionDurationSec }: Props) {
@@ -72,8 +152,8 @@ export default function MiniPlayer({ launch, onClose, syncCtrlRef, missionDurati
   const videoId = synced ? youtubeVideoId(launch.webcastEmbed ?? launch.webcastUrl) : undefined
 
   const [rect, setRect] = useState(() => {
-    const w = 384
-    const h = 216
+    const w = 400
+    const h = 225
     const vw = typeof window !== 'undefined' ? window.innerWidth : 1280
     const vh = typeof window !== 'undefined' ? window.innerHeight : 800
     return {
@@ -85,9 +165,9 @@ export default function MiniPlayer({ launch, onClose, syncCtrlRef, missionDurati
   })
   const [busy, setBusy] = useState(false)
   const [ready, setReady] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  // Stable iframe src — set once so React doesn't reload the video on re-renders.
-  // Start at T+0 in the VOD; the API seek onReady jumps to the real mission time.
+  const [needsAlign, setNeedsAlign] = useState(false)
+  const [offsetLabel, setOffsetLabel] = useState<string | null>(null)
+
   const [vodSrc] = useState(() => (synced && videoId ? vodEmbedSrc(videoId, 0) : null))
 
   const iframeRef = useRef<HTMLIFrameElement>(null)
@@ -102,64 +182,67 @@ export default function MiniPlayer({ launch, onClose, syncCtrlRef, missionDurati
   const dragRef = useRef<{ px: number; py: number; ox: number; oy: number } | null>(null)
   const sizeRef = useRef<{ px: number; py: number; ow: number; oh: number } | null>(null)
 
+  const applyOffsetAndSeek = (offset: number, player: YTPlayer) => {
+    if (!syncCtrlRef) return
+    offsetRef.current = Math.max(0, offset)
+    const videoT = offsetRef.current + Math.max(0, syncCtrlRef.current.t)
+    lockUntilRef.current = performance.now() + LOCK_MS
+    try {
+      player.seekTo(videoT, true)
+      if (syncCtrlRef.current.playing) player.playVideo()
+      else player.pauseVideo()
+    } catch {
+      /* ignore */
+    }
+    const m = Math.floor(offsetRef.current / 60)
+    const s = Math.floor(offsetRef.current % 60)
+    setOffsetLabel(`T+0 @ ${m}:${String(s).padStart(2, '0')}`)
+  }
+
   // Attach YouTube IFrame API to the already-visible iframe for sync control.
   useEffect(() => {
     if (!synced || !videoId || !iframeRef.current) return
     let cancelled = false
     let player: YTPlayer | null = null
 
-    // Give the iframe a stable id the API can bind to.
     const el = iframeRef.current
     if (!el.id) el.id = `yt-sync-${videoId}`
 
     loadYouTubeApi()
-      .then(() => {
+      .then(async () => {
         if (cancelled || !window.YT?.Player) return
-        // Re-check — React may have remounted the iframe.
         const iframe = iframeRef.current
         if (!iframe) return
 
         player = new window.YT.Player(iframe, {
           events: {
-            onReady: (e) => {
+            onReady: async (e) => {
               if (cancelled) return
               playerRef.current = e.target
-              const dur = e.target.getDuration() || 0
+              const dur = await waitForDuration(e.target)
+              if (cancelled) return
               const mission =
                 missionDurationSec ??
                 (syncCtrlRef!.current.duration > 0 ? syncCtrlRef!.current.duration : 3900)
-              offsetRef.current = estimateLiftoffOffset(
-                dur,
-                mission,
-                launch.webcastLiftoffOffsetSec,
-              )
-              const videoT = offsetRef.current + Math.max(0, syncCtrlRef!.current.t)
-              lockUntilRef.current = performance.now() + LOCK_MS
-              try {
-                e.target.seekTo(videoT, true)
-                if (syncCtrlRef!.current.playing) e.target.playVideo()
-                else e.target.pauseVideo()
-              } catch {
-                /* player methods can throw before fully ready */
-              }
+              const resolved = resolveLiftoffOffset({
+                videoId,
+                videoDur: dur,
+                missionDur: mission,
+                explicit: launch.webcastLiftoffOffsetSec,
+              })
+              // Short VODs with only a guess still benefit from Mark liftoff.
+              setNeedsAlign(resolved.source === 'estimated' || resolved.source === 'unknown')
+              applyOffsetAndSeek(resolved.offset, e.target)
               if (syncCtrlRef!.current.speed > YT_MAX_RATE) {
                 syncCtrlRef!.current.speed = 1
               }
               setReady(true)
             },
-            onError: () => {
-              // Keep the visible iframe — just note sync may be limited.
-              if (!cancelled) setError(null)
-            },
           },
         })
       })
       .catch(() => {
-        // Video iframe still plays; sync just won't be available.
-        if (!cancelled) {
-          setError(null)
-          setReady(false)
-        }
+        if (!cancelled) setReady(false)
       })
 
     return () => {
@@ -171,9 +254,10 @@ export default function MiniPlayer({ launch, onClose, syncCtrlRef, missionDurati
         /* ignore */
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount once per video
   }, [synced, videoId, launch.webcastLiftoffOffsetSec, missionDurationSec, syncCtrlRef])
 
-  // Bidirectional sync loop: sim ↔ video (only once API is ready).
+  // Bidirectional sync loop.
   useEffect(() => {
     if (!synced || !ready || !syncCtrlRef) return
     const id = window.setInterval(() => {
@@ -200,7 +284,7 @@ export default function MiniPlayer({ launch, onClose, syncCtrlRef, missionDurati
           lastVideoTRef.current >= 0 && Math.abs(videoT - lastVideoTRef.current) > 1.25
         if (videoJumped && Number.isFinite(missionFromVideo)) {
           lockUntilRef.current = now + LOCK_MS
-          c.seekTo = clamp(missionFromVideo, 0, c.duration || missionFromVideo)
+          c.seekTo = clamp(missionFromVideo, 0, c.duration || Math.max(0, missionFromVideo))
           lastSimTRef.current = c.seekTo
         }
         if (lastPlayingRef.current != null && ytPlaying !== lastPlayingRef.current) {
@@ -212,7 +296,6 @@ export default function MiniPlayer({ launch, onClose, syncCtrlRef, missionDurati
 
       if (!locked) {
         if (c.speed > YT_MAX_RATE) c.speed = YT_MAX_RATE
-
         if (lastSpeedRef.current !== c.speed) {
           lastSpeedRef.current = c.speed
           try {
@@ -221,7 +304,6 @@ export default function MiniPlayer({ launch, onClose, syncCtrlRef, missionDurati
             /* ignore */
           }
         }
-
         if (c.playing !== ytPlaying) {
           lockUntilRef.current = now + LOCK_MS
           try {
@@ -231,7 +313,6 @@ export default function MiniPlayer({ launch, onClose, syncCtrlRef, missionDurati
             /* ignore */
           }
         }
-
         const simT = c.t
         const expectedVideo = offsetRef.current + simT
         const drift = Math.abs(videoT - expectedVideo)
@@ -250,6 +331,26 @@ export default function MiniPlayer({ launch, onClose, syncCtrlRef, missionDurati
     }, SYNC_MS)
     return () => window.clearInterval(id)
   }, [synced, ready, syncCtrlRef])
+
+  /** User saw liftoff in the stream — map that video time to T+0. */
+  const markLiftoff = () => {
+    const player = playerRef.current
+    if (!player || !videoId || !syncCtrlRef) return
+    let videoT: number
+    try {
+      videoT = player.getCurrentTime()
+    } catch {
+      return
+    }
+    // Current frame = liftoff → offset is video clock; snap sim to T+0.
+    const offset = Math.max(0, videoT)
+    saveStoredOffset(videoId, offset)
+    syncCtrlRef.current.seekTo = 0
+    syncCtrlRef.current.playing = true
+    applyOffsetAndSeek(offset, player)
+    setNeedsAlign(false)
+    setReady(true)
+  }
 
   const capture = (e: React.PointerEvent) => {
     try {
@@ -358,9 +459,7 @@ export default function MiniPlayer({ launch, onClose, syncCtrlRef, missionDurati
       <div className="miniplayer-body" style={{ height: rect.h }}>
         {noEmbed ? (
           <div className="miniplayer-fallback">
-            <div className="miniplayer-fallback-title">
-              {error ?? 'No embeddable SpaceX stream for this launch'}
-            </div>
+            <div className="miniplayer-fallback-title">No embeddable SpaceX stream for this launch</div>
             <div className="miniplayer-fallback-sub">
               {launch.webcastUrl
                 ? 'Open the original webcast in a new tab — X streams can’t play in-app.'
@@ -395,6 +494,27 @@ export default function MiniPlayer({ launch, onClose, syncCtrlRef, missionDurati
         )}
         {busy && <div className="miniplayer-shield" />}
       </div>
+
+      {synced && !noEmbed && (
+        <div className="miniplayer-syncbar">
+          <button
+            type="button"
+            className={`miniplayer-align${needsAlign ? ' is-needed' : ''}`}
+            onClick={markLiftoff}
+            title="Scrub the video to the moment of liftoff, then click — locks T+0 to that frame"
+          >
+            <Crosshair className="h-3.5 w-3.5" aria-hidden="true" />
+            Mark liftoff
+          </button>
+          <span className="miniplayer-syncbar-hint">
+            {needsAlign
+              ? 'Scrub to liftoff in the stream, then mark it'
+              : offsetLabel
+                ? `Aligned · ${offsetLabel}`
+                : 'Stream locked to mission clock'}
+          </span>
+        </div>
+      )}
 
       <div
         className="miniplayer-resize"
