@@ -10,18 +10,15 @@ import {
 
 // Floating, draggable, resizable webcast mini-player.
 // Live mode: embeds the SpaceX livestream (or a per-mission YouTube link).
-// Replay mode: YouTube IFrame API VOD synced bidirectionally with the
-// launch simulation clock (scrub either side → the other follows).
+// Replay mode: shows the VOD iframe immediately, then attaches the YouTube
+// IFrame API for bidirectional scrub sync with the simulation clock.
 
 const SPACEX_CHANNEL = 'UCtI0Hodo5o5dUb67FeUjDeA'
 const HEADER_H = 38
 const MIN_W = 260
 const MIN_H = 150
-/** How often we poll YT ↔ sim for drift (ms). */
 const SYNC_MS = 250
-/** Ignore echo seeks for this long after we drive the other side. */
 const LOCK_MS = 700
-/** Max YouTube playback rate we will request. */
 const YT_MAX_RATE = 2
 
 function clamp(v: number, lo: number, hi: number): number {
@@ -32,7 +29,6 @@ export interface MiniPlayerLaunch {
   mission: string
   webcastUrl?: string
   webcastEmbed?: string
-  /** Seconds into the VOD where T+0 occurs (optional; estimated if missing). */
   webcastLiftoffOffsetSec?: number
 }
 
@@ -41,7 +37,6 @@ interface Props {
   onClose: () => void
   /** When set, player runs in synced replay mode against this control ref. */
   syncCtrlRef?: React.MutableRefObject<ReplayControl>
-  /** Mission duration (seconds) — helps estimate liftoff offset in the VOD. */
   missionDurationSec?: number
 }
 
@@ -52,13 +47,23 @@ function liveEmbedSrc(launch: MiniPlayerLaunch): string {
   return `${base}${sep}autoplay=1&rel=0&playsinline=1`
 }
 
-/** Estimate where T+0 sits in a SpaceX VOD when we lack an explicit offset. */
+/** Build a VOD embed URL that is visible immediately and API-ready. */
+function vodEmbedSrc(videoId: string, startSec: number): string {
+  const origin = typeof window !== 'undefined' ? encodeURIComponent(window.location.origin) : ''
+  const start = Math.max(0, Math.floor(startSec))
+  return (
+    `https://www.youtube.com/embed/${videoId}` +
+    `?autoplay=1&rel=0&playsinline=1&modestbranding=1&enablejsapi=1` +
+    `&start=${start}` +
+    (origin ? `&origin=${origin}` : '')
+  )
+}
+
 function estimateLiftoffOffset(videoDur: number, missionDur: number, explicit?: number): number {
   if (explicit != null && Number.isFinite(explicit) && explicit >= 0) return explicit
   if (!(videoDur > 0)) return 0
-  // Typical SpaceX VODs: countdown pre-roll, then flight ≈ missionDur, then a bit of outro.
   const estimated = videoDur - missionDur - 90
-  if (estimated < 30) return 0 // already starts near liftoff
+  if (estimated < 30) return 0
   return clamp(estimated, 0, 45 * 60)
 }
 
@@ -81,8 +86,11 @@ export default function MiniPlayer({ launch, onClose, syncCtrlRef, missionDurati
   const [busy, setBusy] = useState(false)
   const [ready, setReady] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Stable iframe src — set once so React doesn't reload the video on re-renders.
+  // Start at T+0 in the VOD; the API seek onReady jumps to the real mission time.
+  const [vodSrc] = useState(() => (synced && videoId ? vodEmbedSrc(videoId, 0) : null))
 
-  const hostRef = useRef<HTMLDivElement>(null)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
   const playerRef = useRef<YTPlayer | null>(null)
   const offsetRef = useRef(0)
   const lockUntilRef = useRef(0)
@@ -94,30 +102,24 @@ export default function MiniPlayer({ launch, onClose, syncCtrlRef, missionDurati
   const dragRef = useRef<{ px: number; py: number; ox: number; oy: number } | null>(null)
   const sizeRef = useRef<{ px: number; py: number; ow: number; oh: number } | null>(null)
 
-  // Mount YouTube IFrame API player for synced replay VODs.
+  // Attach YouTube IFrame API to the already-visible iframe for sync control.
   useEffect(() => {
-    if (!synced || !videoId || !hostRef.current) return
+    if (!synced || !videoId || !iframeRef.current) return
     let cancelled = false
     let player: YTPlayer | null = null
 
+    // Give the iframe a stable id the API can bind to.
+    const el = iframeRef.current
+    if (!el.id) el.id = `yt-sync-${videoId}`
+
     loadYouTubeApi()
       .then(() => {
-        if (cancelled || !hostRef.current || !window.YT?.Player) return
-        const startAt = Math.max(0, Math.floor(syncCtrlRef!.current.t))
-        player = new window.YT.Player(hostRef.current, {
-          videoId,
-          width: '100%',
-          height: '100%',
-          playerVars: {
-            autoplay: 1,
-            controls: 1,
-            rel: 0,
-            playsinline: 1,
-            modestbranding: 1,
-            enablejsapi: 1,
-            origin: window.location.origin,
-            start: startAt, // refined once duration/offset known
-          },
+        if (cancelled || !window.YT?.Player) return
+        // Re-check — React may have remounted the iframe.
+        const iframe = iframeRef.current
+        if (!iframe) return
+
+        player = new window.YT.Player(iframe, {
           events: {
             onReady: (e) => {
               if (cancelled) return
@@ -131,26 +133,33 @@ export default function MiniPlayer({ launch, onClose, syncCtrlRef, missionDurati
                 mission,
                 launch.webcastLiftoffOffsetSec,
               )
-              // Prefer starting at current sim time (T+), mapped into the VOD.
               const videoT = offsetRef.current + Math.max(0, syncCtrlRef!.current.t)
               lockUntilRef.current = performance.now() + LOCK_MS
-              e.target.seekTo(videoT, true)
-              if (syncCtrlRef!.current.playing) e.target.playVideo()
-              else e.target.pauseVideo()
-              // Cap sim speed to what YouTube can mirror while synced.
+              try {
+                e.target.seekTo(videoT, true)
+                if (syncCtrlRef!.current.playing) e.target.playVideo()
+                else e.target.pauseVideo()
+              } catch {
+                /* player methods can throw before fully ready */
+              }
               if (syncCtrlRef!.current.speed > YT_MAX_RATE) {
                 syncCtrlRef!.current.speed = 1
               }
               setReady(true)
             },
             onError: () => {
-              if (!cancelled) setError('Webcast failed to load')
+              // Keep the visible iframe — just note sync may be limited.
+              if (!cancelled) setError(null)
             },
           },
         })
       })
       .catch(() => {
-        if (!cancelled) setError('Could not load YouTube player')
+        // Video iframe still plays; sync just won't be available.
+        if (!cancelled) {
+          setError(null)
+          setReady(false)
+        }
       })
 
     return () => {
@@ -164,7 +173,7 @@ export default function MiniPlayer({ launch, onClose, syncCtrlRef, missionDurati
     }
   }, [synced, videoId, launch.webcastLiftoffOffsetSec, missionDurationSec, syncCtrlRef])
 
-  // Bidirectional sync loop: sim ↔ video.
+  // Bidirectional sync loop: sim ↔ video (only once API is ready).
   useEffect(() => {
     if (!synced || !ready || !syncCtrlRef) return
     const id = window.setInterval(() => {
@@ -186,7 +195,6 @@ export default function MiniPlayer({ launch, onClose, syncCtrlRef, missionDurati
       const missionFromVideo = videoT - offsetRef.current
       const ytPlaying = state === YT_STATE.PLAYING || state === YT_STATE.BUFFERING
 
-      // --- Video → sim (user scrubbed / paused the YouTube UI) ---
       if (!locked) {
         const videoJumped =
           lastVideoTRef.current >= 0 && Math.abs(videoT - lastVideoTRef.current) > 1.25
@@ -195,20 +203,14 @@ export default function MiniPlayer({ launch, onClose, syncCtrlRef, missionDurati
           c.seekTo = clamp(missionFromVideo, 0, c.duration || missionFromVideo)
           lastSimTRef.current = c.seekTo
         }
-        // Play/pause from the video controls.
         if (lastPlayingRef.current != null && ytPlaying !== lastPlayingRef.current) {
-          // Only mirror when the change didn't come from us.
-          if (ytPlaying !== c.playing) {
-            c.playing = ytPlaying
-          }
+          if (ytPlaying !== c.playing) c.playing = ytPlaying
         }
       }
       lastVideoTRef.current = videoT
       lastPlayingRef.current = ytPlaying
 
-      // --- Sim → video (transport bar / scrubber / speed) ---
       if (!locked) {
-        // Cap speed while synced — YouTube tops out around 2×.
         if (c.speed > YT_MAX_RATE) c.speed = YT_MAX_RATE
 
         if (lastSpeedRef.current !== c.speed) {
@@ -216,14 +218,18 @@ export default function MiniPlayer({ launch, onClose, syncCtrlRef, missionDurati
           try {
             player.setPlaybackRate(clamp(c.speed, 0.25, YT_MAX_RATE))
           } catch {
-            /* rate not supported for this video — ignore */
+            /* ignore */
           }
         }
 
         if (c.playing !== ytPlaying) {
           lockUntilRef.current = now + LOCK_MS
-          if (c.playing) player.playVideo()
-          else player.pauseVideo()
+          try {
+            if (c.playing) player.playVideo()
+            else player.pauseVideo()
+          } catch {
+            /* ignore */
+          }
         }
 
         const simT = c.t
@@ -232,8 +238,12 @@ export default function MiniPlayer({ launch, onClose, syncCtrlRef, missionDurati
         const simJumped = lastSimTRef.current >= 0 && Math.abs(simT - lastSimTRef.current) > 0.9
         if ((simJumped || drift > 1.1) && Number.isFinite(expectedVideo)) {
           lockUntilRef.current = now + LOCK_MS
-          player.seekTo(Math.max(0, expectedVideo), true)
-          lastVideoTRef.current = expectedVideo
+          try {
+            player.seekTo(Math.max(0, expectedVideo), true)
+            lastVideoTRef.current = expectedVideo
+          } catch {
+            /* ignore */
+          }
         }
         lastSimTRef.current = simT
       }
@@ -313,7 +323,9 @@ export default function MiniPlayer({ launch, onClose, syncCtrlRef, missionDurati
         <GripVertical className="miniplayer-grip h-3.5 w-3.5" aria-hidden="true" />
         <span className="miniplayer-title">
           {synced ? (
-            <span className="miniplayer-sync">SYNCED</span>
+            <span className={`miniplayer-sync${ready ? ' is-ready' : ''}`}>
+              {ready ? 'SYNCED' : 'STREAM'}
+            </span>
           ) : (
             <span className="miniplayer-live">● LIVE</span>
           )}{' '}
@@ -344,7 +356,7 @@ export default function MiniPlayer({ launch, onClose, syncCtrlRef, missionDurati
       </div>
 
       <div className="miniplayer-body" style={{ height: rect.h }}>
-        {noEmbed || error ? (
+        {noEmbed ? (
           <div className="miniplayer-fallback">
             <div className="miniplayer-fallback-title">
               {error ?? 'No embeddable SpaceX stream for this launch'}
@@ -365,8 +377,14 @@ export default function MiniPlayer({ launch, onClose, syncCtrlRef, missionDurati
               </a>
             )}
           </div>
-        ) : synced ? (
-          <div ref={hostRef} className="miniplayer-yt" />
+        ) : synced && vodSrc ? (
+          <iframe
+            ref={iframeRef}
+            src={vodSrc}
+            title={`${launch.mission} webcast`}
+            allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+            allowFullScreen
+          />
         ) : (
           <iframe
             src={liveEmbedSrc(launch)}

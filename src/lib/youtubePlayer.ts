@@ -28,7 +28,7 @@ export interface YTPlayerVars {
 }
 
 export interface YTPlayerOptions {
-  videoId: string
+  videoId?: string
   width?: string | number
   height?: string | number
   playerVars?: YTPlayerVars
@@ -75,13 +75,44 @@ export function loadYouTubeApi(): Promise<void> {
   if (apiPromise) return apiPromise
 
   apiPromise = new Promise<void>((resolve, reject) => {
+    const done = () => {
+      if (window.YT?.Player) resolve()
+      else reject(new Error('YouTube API loaded without Player'))
+    }
+
     const prev = window.onYouTubeIframeAPIReady
     window.onYouTubeIframeAPIReady = () => {
-      prev?.()
-      resolve()
+      try {
+        prev?.()
+      } finally {
+        done()
+      }
     }
+
+    // Script already in the page (e.g. Strict Mode remount) — wait for it
+    // or resolve if YT appeared while we were setting up.
     const existing = document.querySelector<HTMLScriptElement>('script[data-yt-api]')
-    if (existing) return
+    if (existing) {
+      if (window.YT?.Player) {
+        done()
+        return
+      }
+      // Poll briefly in case the callback already fired before we hooked it.
+      let n = 0
+      const poll = window.setInterval(() => {
+        n++
+        if (window.YT?.Player) {
+          window.clearInterval(poll)
+          done()
+        } else if (n > 40) {
+          window.clearInterval(poll)
+          apiPromise = null
+          reject(new Error('YouTube IFrame API timed out'))
+        }
+      }, 100)
+      return
+    }
+
     const s = document.createElement('script')
     s.src = 'https://www.youtube.com/iframe_api'
     s.async = true
