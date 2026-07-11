@@ -1,7 +1,13 @@
+import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Gauge, LayoutGrid, RotateCw, Sparkles, Sun } from 'lucide-react'
+import { Download, Gauge, LayoutGrid, RotateCw, Sparkles, Sun, X } from 'lucide-react'
 import MenuDropdown from './MenuDropdown'
 import { TILE_PROVIDERS, TILE_PROVIDER_ORDER, type TileProvider } from '../lib/tiles'
+import {
+  defaultPreloadZooms,
+  tileImageCache,
+  type TilePreloadProgress,
+} from '../lib/tileImageCache'
 
 interface Props {
   detailTiles: boolean
@@ -38,6 +44,29 @@ export default function VisualsMenu({
   onToggleUnits,
 }: Props) {
   const activeCount = [detailTiles, fullSun, autoRotate].filter(Boolean).length
+  const [preload, setPreload] = useState<TilePreloadProgress>(() =>
+    tileImageCache.getProgress(),
+  )
+
+  useEffect(() => tileImageCache.subscribe(setPreload), [])
+
+  // Background warm when detail tiles are on — follows Satellite/Street.
+  useEffect(() => {
+    if (!detailTiles) {
+      tileImageCache.cancel()
+      return
+    }
+    void tileImageCache.preloadAll(tileProvider, defaultPreloadZooms())
+  }, [detailTiles, tileProvider])
+
+  const pct = Math.round(preload.fraction * 100)
+  const preloadLabel = preload.running
+    ? `Warming ${TILE_PROVIDERS[preload.provider].label}${
+        preload.zoom != null ? ` · z${preload.zoom}` : ''
+      } · ${pct}%`
+    : preload.complete && preload.provider === tileProvider
+      ? `${TILE_PROVIDERS[tileProvider].label} ready`
+      : 'Preload Earth'
 
   return (
     <MenuDropdown icon={Sparkles} label="Visuals" badge={activeCount} title="Visual & display options">
@@ -77,6 +106,51 @@ export default function VisualsMenu({
                 </button>
               ))}
             </div>
+
+            <div className="layers-preload">
+              {preload.running ? (
+                <button
+                  type="button"
+                  className="layers-preload-btn is-running"
+                  onClick={() => tileImageCache.cancel()}
+                  title="Cancel Earth imagery preload"
+                >
+                  <X className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span className="layers-preload-label">{preloadLabel}</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className={`layers-preload-btn ${preload.complete && preload.provider === tileProvider ? 'is-done' : ''}`}
+                  onClick={() => {
+                    void tileImageCache.preloadAll(tileProvider, defaultPreloadZooms())
+                  }}
+                  title="Warm global Satellite/Street imagery so zoom-in stays smooth"
+                >
+                  <Download className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span className="layers-preload-label">{preloadLabel}</span>
+                </button>
+              )}
+              {preload.running && (
+                <div
+                  className="layers-preload-bar"
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={pct}
+                  aria-label="Earth tile preload progress"
+                >
+                  <div
+                    className="layers-preload-bar-fill"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              )}
+              <p className="layers-preload-hint">
+                Warms global imagery so zoom-in stays smooth
+              </p>
+            </div>
+
             {/* Esri's terms require attribution for their basemap tiles. */}
             <div className="layers-credit">© Esri</div>
           </motion.div>

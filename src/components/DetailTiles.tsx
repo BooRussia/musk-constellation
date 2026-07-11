@@ -11,6 +11,7 @@ import {
   lon2tileX,
   lat2tileY,
 } from '../lib/tiles'
+import { tileImageCache } from '../lib/tileImageCache'
 
 // ============================================
 // DetailTiles — streaming Web-Mercator tile mosaic
@@ -21,6 +22,9 @@ import {
 // Zoom is capped so the footprint stays within a tile budget; coarser
 // underlays fill while sharp tiles stream. Imperative Three objects —
 // no React churn per tile.
+//
+// Smooth zoom-in: shared tileImageCache warms global underlays + look-ahead
+// footprints; mosaic reveal waits until enough coverage is ready.
 
 const EARTH_RADIUS = 5
 // Float just above the base sphere — over the globe texture, but below the
@@ -29,18 +33,26 @@ const TILE_RADIUS = EARTH_RADIUS * 1.0008
 const DEG2RAD = Math.PI / 180
 
 const SEG = 6 // patch subdivisions per tile edge (curves it onto the sphere)
-const MIN_ACTIVE_Z = 5 // below this the base 8K globe is already sharper
+/** Mosaic is visible at this zoom; we prefetch one level earlier. */
+const MIN_ACTIVE_Z = 5
+/** Start warming underlays / look-ahead from this ideal zoom. */
+const MIN_PREFETCH_Z = 4
 const MAX_Z = 14
 /** Soft cap on tiles across the longer visible axis — keeps network + GPU sane. */
 const MAX_TILES_ACROSS = 18
 /** Extra tile ring past the frustum so the edge never peeks into frame. */
 const MARGIN_TILES = 2
+/** Extra margin while zooming in so edges stay covered during look-ahead. */
+const ZOOM_IN_MARGIN = 1
 const MAX_CACHE = 640
 const RECOMPUTE_S = 0.25
 const STICKY_S = 10
 const ZOOM_HYSTERESIS = 0.9
 const FADE_IN = 6
 const FADE_OUT = 1.1
+/** Fraction of sharp tiles that must be ready before mosaic fully reveals. */
+const REVEAL_READY = 0.78
+const REVEAL_FADE = 3.5
 
 /** NDC samples covering the viewport (corners + edges + center). */
 const NDC_SAMPLES: Array<[number, number]> = [
@@ -69,6 +81,8 @@ interface TileRec {
   geo: THREE.BufferGeometry | null
   mat: THREE.MeshBasicMaterial | null
   tex: THREE.Texture | null
+  /** Zoom this tile belongs to (for reveal bookkeeping). */
+  z: number
 }
 
 function latLonToVec(lat: number, lon: number, r: number, out: THREE.Vector3) {
@@ -128,6 +142,17 @@ function disposeTile(t: TileRec) {
   t.tex?.dispose()
 }
 
+function textureFromImage(img: HTMLImageElement, maxAniso: number): THREE.Texture {
+  const tex = new THREE.Texture(img)
+  tex.colorSpace = THREE.SRGBColorSpace
+  tex.anisotropy = maxAniso
+  tex.minFilter = THREE.LinearMipmapLinearFilter
+  tex.magFilter = THREE.LinearFilter
+  tex.needsUpdate = true
+  tex.generateMipmaps = true
+  return tex
+}
+
 /** Ray ∩ Earth sphere; returns true and writes the hit into `out`. */
 function rayHitEarth(
   origin: THREE.Vector3,
@@ -178,6 +203,9 @@ export default function DetailTiles({ provider }: Props) {
   const lastComputeRef = useRef(0)
   const providerRef = useRef(provider)
   const stickyZRef = useRef<number | null>(null)
+  const prevIdealZRef = useRef<number | null>(null)
+  const revealRef = useRef(0)
+  const sharpZRef = useRef(0)
   const hitRef = useRef(new THREE.Vector3())
   const ndcRef = useRef(new THREE.Vector3())
   const worldRef = useRef(new THREE.Vector3())
@@ -206,18 +234,43 @@ export default function DetailTiles({ provider }: Props) {
       tiles.clear()
       providerRef.current = provider
       stickyZRef.current = null
+      prevIdealZRef.current = null
+      revealRef.current = 0
     }
+
+    // Coverage-gated layer opacity — underlays can show; sharp waits for ready %.
+    let sharpWant = 0
+    let sharpReady = 0
+    const sharpZ = sharpZRef.current
+    for (const t of tiles.values()) {
+      if (!t.want || t.z !== sharpZ) continue
+      sharpWant++
+      if (!t.loading && t.mesh) sharpReady++
+    }
+    const coverage = sharpWant > 0 ? sharpReady / sharpWant : 0
+    // Underlay-only / prefetch phase: allow a softer reveal once any tiles exist.
+    const targetReveal =
+      sharpZ < MIN_ACTIVE_Z || sharpWant === 0
+        ? 0
+        : coverage >= REVEAL_READY
+          ? 1
+          : coverage >= 0.35
+            ? 0.35 + (coverage - 0.35) * 0.5
+            : 0
+    revealRef.current += (targetReveal - revealRef.current) * Math.min(1, delta * REVEAL_FADE)
+    const layerReveal = revealRef.current
 
     for (const t of tiles.values()) {
       if (!t.mesh || !t.mat) continue
       const target = t.want ? 1 : 0
       const rate = t.want ? FADE_IN : FADE_OUT
       t.fade += (target - t.fade) * Math.min(1, delta * rate)
-      t.mat.opacity = t.fade
-      // Only write depth once nearly opaque — otherwise fading tiles punch
-      // holes that hide satellites during stream-in.
-      t.mat.depthWrite = t.fade > 0.92
-      t.mesh.visible = t.fade > 0.01
+      // Sharp tiles gated by layer reveal; underlays always use their own fade
+      // so the surface never goes blank mid-transition.
+      const gated = t.z >= sharpZ && sharpZ >= MIN_ACTIVE_Z ? layerReveal : 1
+      t.mat.opacity = t.fade * gated
+      t.mat.depthWrite = t.mat.opacity > 0.92
+      t.mesh.visible = t.mat.opacity > 0.01
     }
 
     if (now - lastComputeRef.current < RECOMPUTE_S) return
@@ -233,6 +286,7 @@ export default function DetailTiles({ provider }: Props) {
 
     if (altUnits <= 0) {
       stickyZRef.current = null
+      sharpZRef.current = 0
     } else {
       // Project viewport samples onto Earth → the visible ground footprint.
       const hits = hitsRef.current
@@ -273,128 +327,168 @@ export default function DetailTiles({ provider }: Props) {
       idealZ = Math.min(idealZ, zForBudget)
       idealZ = THREE.MathUtils.clamp(idealZ, 0, maxZoom)
 
+      const prevIdeal = prevIdealZRef.current
+      const zoomingIn = prevIdeal != null && idealZ > prevIdeal + 0.15
+      prevIdealZRef.current = idealZ
+
       let z = stickyZRef.current
       if (z == null || Math.abs(idealZ - z) >= ZOOM_HYSTERESIS) {
         z = Math.round(idealZ)
         stickyZRef.current = z
       }
       z = THREE.MathUtils.clamp(z, 0, maxZoom)
+      sharpZRef.current = z
 
-      if (z >= MIN_ACTIVE_Z) {
-        // Lon/lat → tile AABB. Handle antimeridian by picking the smaller wrap.
-        let minLat = 90
-        let maxLat = -90
-        const lons: number[] = []
-        for (const h of hits) {
-          minLat = Math.min(minLat, h.lat)
-          maxLat = Math.max(maxLat, h.lat)
-          lons.push(h.lon)
+      // Lon/lat bbox shared by fill + soft prefetch.
+      let minLat = 90
+      let maxLat = -90
+      const lons: number[] = []
+      for (const h of hits) {
+        minLat = Math.min(minLat, h.lat)
+        maxLat = Math.max(maxLat, h.lat)
+        lons.push(h.lon)
+      }
+
+      const ensure = (tz: number, tx: number, ty: number, asMesh: boolean) => {
+        const n = 2 ** tz
+        if (ty < 0 || ty >= n) return
+        let x = tx % n
+        if (x < 0) x += n
+
+        if (!asMesh) {
+          // Look-ahead / early warm — decode into shared cache only.
+          tileImageCache.softPreload(provider, tz, x, ty, 2)
+          return
         }
-        // Expand bbox a bit so limb / FOV edges stay covered.
-        const padDeg = Math.max(2, (tileWidthKm(z) / 111) * MARGIN_TILES)
-        minLat = THREE.MathUtils.clamp(minLat - padDeg, -85, 85)
-        maxLat = THREE.MathUtils.clamp(maxLat + padDeg, -85, 85)
 
-        const ensure = (tz: number, tx: number, ty: number) => {
-          const n = 2 ** tz
-          if (ty < 0 || ty >= n) return
-          let x = tx % n
-          if (x < 0) x += n
-          const key = `${tz}/${x}/${ty}`
-          const existing = tiles.get(key)
-          if (existing) {
-            existing.want = true
-            existing.stickyUntil = now + STICKY_S
+        const key = `${tz}/${x}/${ty}`
+        const existing = tiles.get(key)
+        if (existing) {
+          existing.want = true
+          existing.stickyUntil = now + STICKY_S
+          return
+        }
+        const rec: TileRec = {
+          key,
+          want: true,
+          stickyUntil: now + STICKY_S,
+          fade: 0,
+          loading: true,
+          mesh: null,
+          geo: null,
+          mat: null,
+          tex: null,
+          z: tz,
+        }
+        tiles.set(key, rec)
+
+        const finish = (tex: THREE.Texture) => {
+          const cur = tiles.get(key)
+          if (!cur || cur.mesh) {
+            tex.dispose()
             return
           }
-          const rec: TileRec = {
-            key,
-            want: true,
-            stickyUntil: now + STICKY_S,
-            fade: 0,
-            loading: true,
-            mesh: null,
-            geo: null,
-            mat: null,
-            tex: null,
-          }
-          tiles.set(key, rec)
-          const url = TILE_PROVIDERS[provider].url(tz, x, ty)
-          loader.load(
-            url,
-            (tex) => {
-              const cur = tiles.get(key)
-              if (!cur) {
-                tex.dispose()
-                return
-              }
-              tex.colorSpace = THREE.SRGBColorSpace
-              tex.anisotropy = maxAniso
-              tex.minFilter = THREE.LinearMipmapLinearFilter
-              tex.magFilter = THREE.LinearFilter
-              const geo = buildTileGeometry(x, ty, tz)
-              const mat = new THREE.MeshBasicMaterial({
-                map: tex,
-                transparent: true,
-                opacity: 0,
-                depthWrite: true, // write depth so sats depth-test correctly above
-                depthTest: true,
-              })
-              const mesh = new THREE.Mesh(geo, mat)
-              mesh.renderOrder = tz < z ? 1 : 2
-              mesh.raycast = () => {}
-              cur.tex = tex
-              cur.geo = geo
-              cur.mat = mat
-              cur.mesh = mesh
-              cur.loading = false
-              groupRef.current?.add(mesh)
-            },
-            undefined,
-            () => {
-              tiles.delete(key)
-            },
-          )
+          const geo = buildTileGeometry(x, ty, tz)
+          const mat = new THREE.MeshBasicMaterial({
+            map: tex,
+            transparent: true,
+            opacity: 0,
+            depthWrite: true,
+            depthTest: true,
+          })
+          const mesh = new THREE.Mesh(geo, mat)
+          mesh.renderOrder = tz < sharpZRef.current ? 1 : 2
+          mesh.raycast = () => {}
+          cur.tex = tex
+          cur.geo = geo
+          cur.mat = mat
+          cur.mesh = mesh
+          cur.loading = false
+          groupRef.current?.add(mesh)
         }
 
-        const fillLevel = (tz: number, margin: number) => {
-          const n = 2 ** tz
-          const y0 = Math.max(0, lat2tileY(maxLat, tz) - margin)
-          const y1 = Math.min(n - 1, lat2tileY(minLat, tz) + margin)
-          // Build x ranges — unwrap longitudes around the focus lon.
-          const focusLon = focus.lon
-          let minX = Infinity
-          let maxX = -Infinity
-          for (const lon of lons) {
-            // Normalize lon relative to focus into (-180, 180]
-            let d = lon - focusLon
-            while (d > 180) d -= 360
-            while (d < -180) d += 360
-            const lx = focusLon + d
-            // Convert via a shifted lon that stays continuous for tileX
-            const tx = lon2tileX(lx, tz)
-            minX = Math.min(minX, tx)
-            maxX = Math.max(maxX, tx)
-          }
-          minX -= margin
-          maxX += margin
-          // Also ensure we cover at least the focus tile.
-          const ftx = lon2tileX(focusLon, tz)
-          minX = Math.min(minX, ftx - margin)
-          maxX = Math.max(maxX, ftx + margin)
-
-          for (let ty = y0; ty <= y1; ty++) {
-            for (let tx = Math.floor(minX); tx <= Math.ceil(maxX); tx++) {
-              ensure(tz, tx, ty)
-            }
-          }
+        const cached = tileImageCache.get(provider, tz, x, ty)
+        if (cached) {
+          finish(textureFromImage(cached, maxAniso))
+          return
         }
 
+        // Kick shared cache + TextureLoader in parallel; first win attaches.
+        void tileImageCache.preload(provider, tz, x, ty, 5).then((img) => {
+          if (!img) return
+          finish(textureFromImage(img, maxAniso))
+        })
+
+        const url = TILE_PROVIDERS[provider].url(tz, x, ty)
+        loader.load(
+          url,
+          (tex) => {
+            tex.colorSpace = THREE.SRGBColorSpace
+            tex.anisotropy = maxAniso
+            tex.minFilter = THREE.LinearMipmapLinearFilter
+            tex.magFilter = THREE.LinearFilter
+            finish(tex)
+          },
+          undefined,
+          () => {
+            const cur = tiles.get(key)
+            if (cur && !cur.mesh) tiles.delete(key)
+          },
+        )
+      }
+
+      const fillLevel = (
+        tz: number,
+        margin: number,
+        asMesh: boolean,
+      ) => {
+        const n = 2 ** tz
+        const padDeg = Math.max(2, (tileWidthKm(tz) / 111) * margin)
+        const loLat = THREE.MathUtils.clamp(minLat - padDeg, -85, 85)
+        const hiLat = THREE.MathUtils.clamp(maxLat + padDeg, -85, 85)
+        const y0 = Math.max(0, lat2tileY(hiLat, tz) - margin)
+        const y1 = Math.min(n - 1, lat2tileY(loLat, tz) + margin)
+        const focusLon = focus.lon
+        let minX = Infinity
+        let maxX = -Infinity
+        for (const lon of lons) {
+          let d = lon - focusLon
+          while (d > 180) d -= 360
+          while (d < -180) d += 360
+          const lx = focusLon + d
+          const tx = lon2tileX(lx, tz)
+          minX = Math.min(minX, tx)
+          maxX = Math.max(maxX, tx)
+        }
+        minX -= margin
+        maxX += margin
+        const ftx = lon2tileX(focusLon, tz)
+        minX = Math.min(minX, ftx - margin)
+        maxX = Math.max(maxX, ftx + margin)
+
+        for (let ty = y0; ty <= y1; ty++) {
+          for (let tx = Math.floor(minX); tx <= Math.ceil(maxX); tx++) {
+            ensure(tz, tx, ty, asMesh)
+          }
+        }
+      }
+
+      const marginBoost = zoomingIn ? ZOOM_IN_MARGIN : 0
+
+      if (z >= MIN_ACTIVE_Z) {
         // Sharp mosaic covering the full visible footprint.
-        fillLevel(z, MARGIN_TILES)
+        fillLevel(z, MARGIN_TILES + marginBoost, true)
         // Coarser underlays — wider margin, hide any residual edge.
-        if (z - 1 >= MIN_ACTIVE_Z) fillLevel(z - 1, MARGIN_TILES + 1)
-        if (z - 2 >= MIN_ACTIVE_Z) fillLevel(z - 2, MARGIN_TILES + 2)
+        if (z - 1 >= MIN_ACTIVE_Z) fillLevel(z - 1, MARGIN_TILES + 1 + marginBoost, true)
+        if (z - 2 >= MIN_ACTIVE_Z) fillLevel(z - 2, MARGIN_TILES + 2 + marginBoost, true)
+        // Look-ahead: next sharper level into shared cache (not GPU meshes yet).
+        if (z + 1 <= maxZoom) fillLevel(z + 1, MARGIN_TILES + marginBoost, false)
+      } else if (z >= MIN_PREFETCH_Z || idealZ >= MIN_PREFETCH_Z - 0.4) {
+        // Approaching detail range — warm underlays + entry zoom into the
+        // shared image cache so the first visible frame is already decoded.
+        const warmZ = Math.max(MIN_PREFETCH_Z, Math.min(z + 1, MIN_ACTIVE_Z))
+        fillLevel(warmZ, MARGIN_TILES + 1, false)
+        if (warmZ + 1 <= maxZoom) fillLevel(warmZ + 1, MARGIN_TILES, false)
       } else {
         stickyZRef.current = null
       }
