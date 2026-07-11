@@ -83,9 +83,21 @@ interface Props {
   /** When set, the clock is driven by real time since this liftoff (ms epoch)
    *  instead of the play/scrub controls — a LIVE launch simulation. */
   liveNetMs?: number
+  /**
+   * Seconds to hold the live sim behind wall-clock NET so it matches a
+   * delayed livestream (YouTube typically ~15–35s). Ignored when not live.
+   */
+  liveStreamDelaySec?: number
 }
 
-export default function LaunchReplay({ launch, ctrlRef, sunTimeRef, posRef, liveNetMs }: Props) {
+export default function LaunchReplay({
+  launch,
+  ctrlRef,
+  sunTimeRef,
+  posRef,
+  liveNetMs,
+  liveStreamDelaySec = 0,
+}: Props) {
   const profile = useMemo(() => buildProfile(launch), [launch])
   const netMs = useMemo(() => new Date(launch.net).getTime(), [launch])
 
@@ -159,8 +171,13 @@ export default function LaunchReplay({ launch, ctrlRef, sunTimeRef, posRef, live
     const c = ctrlRef.current
     const dt = Math.min(deltaRaw, 0.05)
     if (liveNetMs != null) {
-      // LIVE: clock = real time since liftoff (no play/scrub).
-      c.t = THREE.MathUtils.clamp((Date.now() - liveNetMs) / 1000, 0, profile.totalDur)
+      // LIVE: wall-clock since NET, optionally held back to match livestream delay.
+      const delayMs = Math.max(0, liveStreamDelaySec) * 1000
+      c.t = THREE.MathUtils.clamp(
+        (Date.now() - liveNetMs - delayMs) / 1000,
+        0,
+        profile.totalDur,
+      )
     } else if (c.seekTo != null) {
       c.t = THREE.MathUtils.clamp(c.seekTo, 0, profile.totalDur)
       c.seekTo = null

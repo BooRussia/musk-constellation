@@ -22,6 +22,35 @@ const SYNC_MS = 250
 const LOCK_MS = 700
 const YT_MAX_RATE = 2
 const OFFSET_STORE_KEY = 'mc.webcast.liftoffOffset.v1'
+const LIVE_DELAY_STORE_KEY = 'mc.webcast.liveDelay.v1'
+/** Typical YouTube live broadcast delay — used when Watch opens. */
+export const DEFAULT_LIVE_STREAM_DELAY_SEC = 30
+const LIVE_DELAY_MIN = 0
+const LIVE_DELAY_MAX = 90
+
+function loadStoredLiveDelay(): number | null {
+  try {
+    const raw = localStorage.getItem(LIVE_DELAY_STORE_KEY)
+    if (raw == null) return null
+    const v = Number(raw)
+    return Number.isFinite(v) ? clamp(v, LIVE_DELAY_MIN, LIVE_DELAY_MAX) : null
+  } catch {
+    return null
+  }
+}
+
+function saveStoredLiveDelay(sec: number): void {
+  try {
+    localStorage.setItem(LIVE_DELAY_STORE_KEY, String(Math.round(sec)))
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Preferred initial live-stream delay (saved preference or default 30s). */
+export function initialLiveStreamDelaySec(): number {
+  return loadStoredLiveDelay() ?? DEFAULT_LIVE_STREAM_DELAY_SEC
+}
 
 function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v))
@@ -62,6 +91,14 @@ interface Props {
   onClose: () => void
   syncCtrlRef?: React.MutableRefObject<ReplayControl>
   missionDurationSec?: number
+  /**
+   * LIVE mode only — seconds to hold the globe sim behind real NET so it
+   * matches YouTube livestream delay.
+   */
+  liveStreamDelaySec?: number
+  onLiveStreamDelayChange?: (sec: number) => void
+  /** Liftoff NET (ms epoch) — used by "I just saw liftoff" calibration. */
+  liveNetMs?: number
 }
 
 function liveEmbedSrc(launch: MiniPlayerLaunch): string {
@@ -147,8 +184,18 @@ function waitForDuration(player: YTPlayer, timeoutMs = 8000): Promise<number> {
   })
 }
 
-export default function MiniPlayer({ launch, onClose, syncCtrlRef, missionDurationSec }: Props) {
+export default function MiniPlayer({
+  launch,
+  onClose,
+  syncCtrlRef,
+  missionDurationSec,
+  liveStreamDelaySec,
+  onLiveStreamDelayChange,
+  liveNetMs,
+}: Props) {
   const synced = !!syncCtrlRef
+  const liveDelayMode =
+    !synced && liveStreamDelaySec != null && typeof onLiveStreamDelayChange === 'function'
   const videoId = synced ? youtubeVideoId(launch.webcastEmbed ?? launch.webcastUrl) : undefined
 
   const [rect, setRect] = useState(() => {
@@ -512,6 +559,52 @@ export default function MiniPlayer({ launch, onClose, syncCtrlRef, missionDurati
               : offsetLabel
                 ? `Aligned · ${offsetLabel}`
                 : 'Stream locked to mission clock'}
+          </span>
+        </div>
+      )}
+
+      {liveDelayMode && (
+        <div className="miniplayer-syncbar miniplayer-syncbar--live">
+          <button
+            type="button"
+            className="miniplayer-align is-needed"
+            onClick={() => {
+              if (liveNetMs == null || !onLiveStreamDelayChange) return
+              // Wall-clock seconds since NET when the user sees liftoff on stream
+              // ≈ how far behind the livestream is.
+              const delay = clamp(
+                Math.round((Date.now() - liveNetMs) / 1000),
+                LIVE_DELAY_MIN,
+                LIVE_DELAY_MAX,
+              )
+              saveStoredLiveDelay(delay)
+              onLiveStreamDelayChange(delay)
+            }}
+            title="Click the moment you see liftoff on the stream — holds the sim to match"
+            disabled={liveNetMs == null || Date.now() < (liveNetMs ?? 0)}
+          >
+            <Crosshair className="h-3.5 w-3.5" aria-hidden="true" />
+            Saw liftoff
+          </button>
+          <label className="miniplayer-delay">
+            <span className="miniplayer-delay-lab">Delay</span>
+            <input
+              type="range"
+              min={LIVE_DELAY_MIN}
+              max={LIVE_DELAY_MAX}
+              step={1}
+              value={liveStreamDelaySec ?? DEFAULT_LIVE_STREAM_DELAY_SEC}
+              onChange={(e) => {
+                const v = Number(e.target.value)
+                saveStoredLiveDelay(v)
+                onLiveStreamDelayChange?.(v)
+              }}
+              aria-label="Livestream delay in seconds"
+            />
+            <span className="miniplayer-delay-val">{liveStreamDelaySec ?? 0}s</span>
+          </label>
+          <span className="miniplayer-syncbar-hint">
+            Holds the globe behind real time to match YouTube’s broadcast delay
           </span>
         </div>
       )}

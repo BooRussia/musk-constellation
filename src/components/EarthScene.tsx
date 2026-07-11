@@ -961,6 +961,8 @@ interface EarthSceneProps {
   liveSimLaunch?: PastLaunch | null
   /** Liftoff time (ms epoch) for the live simulation clock. */
   liveSimNetMs?: number
+  /** Hold the live sim behind NET by this many seconds (stream delay). */
+  liveStreamDelaySec?: number
   /** Shared control ref for the live-sim clock. */
   liveCtrlRef?: React.MutableRefObject<ReplayControl>
   /** Stream high-res map tiles as you zoom in (Google-Maps-style mosaic). */
@@ -998,6 +1000,7 @@ export default function EarthScene({
   replayRecenterSignal = 0,
   liveSimLaunch = null,
   liveSimNetMs,
+  liveStreamDelaySec = 0,
   liveCtrlRef,
   detailTiles = false,
   tileProvider = 'satellite',
@@ -1266,6 +1269,7 @@ export default function EarthScene({
             sunTimeRef={replaySunTimeRef}
             posRef={replayPosRef}
             liveNetMs={liveSimNetMs}
+            liveStreamDelaySec={liveStreamDelaySec}
           />
         )}
 

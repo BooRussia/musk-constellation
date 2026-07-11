@@ -36,9 +36,12 @@ function clockParts(ms: number): ClockParts {
 
 interface Props {
   launch: DetailedLaunch
+  /** Optional stream delay (seconds) — holds post-liftoff milestones behind
+   *  wall-clock NET so the timeline matches a delayed livestream. */
+  streamDelaySec?: number
 }
 
-export default function LaunchSequence({ launch }: Props) {
+export default function LaunchSequence({ launch, streamDelaySec = 0 }: Props) {
   const [nowMs, setNowMs] = useState(() => Date.now())
   const [calloutKey, setCalloutKey] = useState(0)
   const prevActiveRef = useRef(-1)
@@ -49,8 +52,13 @@ export default function LaunchSequence({ launch }: Props) {
   }, [])
 
   const netMs = useMemo(() => new Date(launch.net).getTime(), [launch])
-  const elapsed = (nowMs - netMs) / 1000
-  const parts = clockParts(netMs - nowMs)
+  // Pre-liftoff stays on true NET; once in flight, hold back by stream delay
+  // so callouts match what the webcast is showing.
+  const wallElapsed = (nowMs - netMs) / 1000
+  const delay = Math.max(0, streamDelaySec)
+  const elapsed = wallElapsed < 0 ? wallElapsed : wallElapsed - delay
+  // T-minus uses true NET; T+ uses the delayed flight clock.
+  const parts = wallElapsed < 0 ? clockParts(netMs - nowMs) : clockParts(-(wallElapsed - delay))
   const phase: SeqPhase = elapsed >= 0 ? 'flight' : 'pre'
 
   const activeIndex = useMemo(() => {

@@ -15,7 +15,7 @@ import type { ISSTelemetry } from './ISSTracker'
 import LaunchPill from './LaunchPill'
 import LaunchBar from './LaunchBar'
 import LaunchSequence from './LaunchSequence'
-import MiniPlayer from './MiniPlayer'
+import MiniPlayer, { initialLiveStreamDelaySec } from './MiniPlayer'
 import ReplayPicker from './ReplayPicker'
 import ReplayControls from './ReplayControls'
 import ReplayInfoBar from './ReplayInfoBar'
@@ -222,6 +222,9 @@ export default function StarlinkView({ onBack }: Props) {
   const [trackLaunch, setTrackLaunch] = useState(false)
   const [detailedLaunch, setDetailedLaunch] = useState<DetailedLaunch | null>(null)
   const [watchOpen, setWatchOpen] = useState(false)
+  // Hold the live globe sim behind wall-clock NET to match livestream delay.
+  // Applied only while Watch is open; countdown UI stays on true NET.
+  const [liveStreamDelaySec, setLiveStreamDelaySec] = useState(0)
   // Optional synced SpaceX webcast for a past-launch replay (off by default).
   const [replayWatchOpen, setReplayWatchOpen] = useState(false)
   // Past-launch replay (declared here so the pad-focus memo can see it).
@@ -664,6 +667,7 @@ export default function StarlinkView({ onBack }: Props) {
               replayRecenterSignal={replayRecenterSignal}
               liveSimLaunch={liveSimLaunch}
               liveSimNetMs={launchNetMs}
+              liveStreamDelaySec={watchOpen ? liveStreamDelaySec : 0}
               liveCtrlRef={liveCtrlRef}
               detailTiles={detailTiles}
               tileProvider={tileProvider}
@@ -687,7 +691,10 @@ export default function StarlinkView({ onBack }: Props) {
             >
               <LaunchBar
                 launch={detailedLaunch}
-                onWatch={() => setWatchOpen(true)}
+                onWatch={() => {
+                  setLiveStreamDelaySec(initialLiveStreamDelaySec())
+                  setWatchOpen(true)
+                }}
                 onExit={() => setTrackLaunch(false)}
                 imperial={imperial}
               />
@@ -706,7 +713,10 @@ export default function StarlinkView({ onBack }: Props) {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
             >
-              <LaunchSequence launch={detailedLaunch} />
+              <LaunchSequence
+                launch={detailedLaunch}
+                streamDelaySec={watchOpen ? liveStreamDelaySec : 0}
+              />
             </motion.div>
           )}
         </AnimatePresence>
@@ -714,7 +724,16 @@ export default function StarlinkView({ onBack }: Props) {
         {/* Floating webcast mini-player — live stream OR optional synced
             past-launch VOD (bidirectional scrub with the simulation). */}
         {watchOpen && detailedLaunch && (
-          <MiniPlayer launch={detailedLaunch} onClose={() => setWatchOpen(false)} />
+          <MiniPlayer
+            launch={detailedLaunch}
+            onClose={() => {
+              setWatchOpen(false)
+              setLiveStreamDelaySec(0)
+            }}
+            liveStreamDelaySec={liveStreamDelaySec}
+            onLiveStreamDelayChange={setLiveStreamDelaySec}
+            liveNetMs={launchNetMs || undefined}
+          />
         )}
         {replayWatchOpen && replayLaunch && (
           <MiniPlayer

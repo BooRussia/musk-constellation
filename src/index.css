@@ -4612,13 +4612,49 @@ body {
     box-shadow: 0 0 0 3px rgba(134, 239, 172, 0.22);
   }
 }
-.miniplayer-syncbar-hint {
+.miniplayer-delay {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   min-width: 0;
-  font-size: 10.5px;
-  color: rgba(255, 255, 255, 0.5);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+.miniplayer-delay-lab {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
+}
+.miniplayer-delay input[type='range'] {
+  flex: 1 1 auto;
+  min-width: 64px;
+  accent-color: #ff8a3a;
+  cursor: pointer;
+}
+.miniplayer-delay-val {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffc28a;
+  font-variant-numeric: tabular-nums;
+  min-width: 2.4em;
+  text-align: right;
+}
+.miniplayer-syncbar--live .miniplayer-syncbar-hint {
+  display: none;
+}
+@media (min-width: 640px) {
+  .miniplayer-syncbar--live {
+    flex-wrap: wrap;
+  }
+  .miniplayer-syncbar--live .miniplayer-syncbar-hint {
+    display: block;
+    flex: 1 1 100%;
+    margin-top: 2px;
+  }
 }
 .miniplayer-yt {
   width: 100%;
