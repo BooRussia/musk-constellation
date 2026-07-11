@@ -25,6 +25,7 @@ import { tileImageCache } from '../lib/tileImageCache'
 //
 // Smooth zoom-in: shared tileImageCache warms global underlays + look-ahead
 // footprints; mosaic reveal waits until enough coverage is ready.
+// Zoom-out clears the mosaic promptly so the base globe returns.
 
 const EARTH_RADIUS = 5
 // Float just above the base sphere — over the globe texture, but below the
@@ -46,13 +47,17 @@ const MARGIN_TILES = 2
 const ZOOM_IN_MARGIN = 1
 const MAX_CACHE = 640
 const RECOMPUTE_S = 0.25
-const STICKY_S = 10
+/** Brief pan-edge retention only while mosaic is active — not a zoom-out hold. */
+const STICKY_S = 1.25
 const ZOOM_HYSTERESIS = 0.9
 const FADE_IN = 6
-const FADE_OUT = 1.1
+const FADE_OUT = 2.4
+/** Faster dissolve when leaving detail range so the base map returns cleanly. */
+const FADE_OUT_EXIT = 7
 /** Fraction of sharp tiles that must be ready before mosaic fully reveals. */
 const REVEAL_READY = 0.78
 const REVEAL_FADE = 3.5
+const REVEAL_FADE_EXIT = 8
 
 /** NDC samples covering the viewport (corners + edges + center). */
 const NDC_SAMPLES: Array<[number, number]> = [
@@ -206,6 +211,7 @@ export default function DetailTiles({ provider }: Props) {
   const prevIdealZRef = useRef<number | null>(null)
   const revealRef = useRef(0)
   const sharpZRef = useRef(0)
+  const mosaicActiveRef = useRef(false)
   const hitRef = useRef(new THREE.Vector3())
   const ndcRef = useRef(new THREE.Vector3())
   const worldRef = useRef(new THREE.Vector3())
@@ -236,39 +242,69 @@ export default function DetailTiles({ provider }: Props) {
       stickyZRef.current = null
       prevIdealZRef.current = null
       revealRef.current = 0
+      mosaicActiveRef.current = false
+      sharpZRef.current = 0
     }
 
-    // Coverage-gated layer opacity — underlays can show; sharp waits for ready %.
+    const mosaicActive = mosaicActiveRef.current
+    const sharpZ = sharpZRef.current
+
+    // Coverage of the *current* sharp level — drives reveal + underlay fade-out.
     let sharpWant = 0
     let sharpReady = 0
-    const sharpZ = sharpZRef.current
     for (const t of tiles.values()) {
       if (!t.want || t.z !== sharpZ) continue
       sharpWant++
       if (!t.loading && t.mesh) sharpReady++
     }
     const coverage = sharpWant > 0 ? sharpReady / sharpWant : 0
-    // Underlay-only / prefetch phase: allow a softer reveal once any tiles exist.
+
     const targetReveal =
-      sharpZ < MIN_ACTIVE_Z || sharpWant === 0
+      !mosaicActive || sharpZ < MIN_ACTIVE_Z || sharpWant === 0
         ? 0
         : coverage >= REVEAL_READY
           ? 1
           : coverage >= 0.35
             ? 0.35 + (coverage - 0.35) * 0.5
             : 0
-    revealRef.current += (targetReveal - revealRef.current) * Math.min(1, delta * REVEAL_FADE)
+    const revealRate = mosaicActive ? REVEAL_FADE : REVEAL_FADE_EXIT
+    revealRef.current += (targetReveal - revealRef.current) * Math.min(1, delta * revealRate)
     const layerReveal = revealRef.current
+
+    // Once sharp tiles are mostly ready, dissolve coarser underlays so stacked
+    // zoom levels don't z-fight / flicker on top of each other.
+    const underlayMul =
+      !mosaicActive
+        ? 0
+        : coverage >= REVEAL_READY
+          ? Math.max(0, 1 - (coverage - REVEAL_READY) / 0.22)
+          : 1
 
     for (const t of tiles.values()) {
       if (!t.mesh || !t.mat) continue
-      const target = t.want ? 1 : 0
-      const rate = t.want ? FADE_IN : FADE_OUT
+
+      // Sharper leftovers from a previous zoom must never stick on top.
+      const obsoleteSharp = mosaicActive && t.z > sharpZ
+      const target = t.want && !obsoleteSharp ? 1 : 0
+      const exiting = !mosaicActive || obsoleteSharp || !t.want
+      const rate = target ? FADE_IN : exiting ? FADE_OUT_EXIT : FADE_OUT
       t.fade += (target - t.fade) * Math.min(1, delta * rate)
-      // Sharp tiles gated by layer reveal; underlays always use their own fade
-      // so the surface never goes blank mid-transition.
-      const gated = t.z >= sharpZ && sharpZ >= MIN_ACTIVE_Z ? layerReveal : 1
-      t.mat.opacity = t.fade * gated
+
+      let gate = layerReveal
+      if (!mosaicActive) {
+        gate = layerReveal // → 0 on exit
+      } else if (t.z > sharpZ) {
+        gate = 0
+      } else if (t.z < sharpZ) {
+        gate = layerReveal * underlayMul
+      }
+
+      t.mat.opacity = t.fade * gate
+      // Coarser tiles depth-push so sharp tiles win without flicker.
+      t.mat.polygonOffset = true
+      t.mat.polygonOffsetFactor = MAX_Z - t.z
+      t.mat.polygonOffsetUnits = 1
+      t.mesh.renderOrder = t.z
       t.mat.depthWrite = t.mat.opacity > 0.92
       t.mesh.visible = t.mat.opacity > 0.01
     }
@@ -280,13 +316,14 @@ export default function DetailTiles({ provider }: Props) {
     const altUnits = dist - EARTH_RADIUS
 
     for (const t of tiles.values()) {
-      if (t.want) t.stickyUntil = now + STICKY_S
       t.want = false
     }
 
     if (altUnits <= 0) {
       stickyZRef.current = null
       sharpZRef.current = 0
+      mosaicActiveRef.current = false
+      for (const t of tiles.values()) t.stickyUntil = 0
     } else {
       // Project viewport samples onto Earth → the visible ground footprint.
       const hits = hitsRef.current
@@ -329,6 +366,7 @@ export default function DetailTiles({ provider }: Props) {
 
       const prevIdeal = prevIdealZRef.current
       const zoomingIn = prevIdeal != null && idealZ > prevIdeal + 0.15
+      const zoomingOut = prevIdeal != null && idealZ < prevIdeal - 0.15
       prevIdealZRef.current = idealZ
 
       let z = stickyZRef.current
@@ -338,6 +376,9 @@ export default function DetailTiles({ provider }: Props) {
       }
       z = THREE.MathUtils.clamp(z, 0, maxZoom)
       sharpZRef.current = z
+
+      const active = z >= MIN_ACTIVE_Z
+      mosaicActiveRef.current = active
 
       // Lon/lat bbox shared by fill + soft prefetch.
       let minLat = 90
@@ -365,6 +406,7 @@ export default function DetailTiles({ provider }: Props) {
         const existing = tiles.get(key)
         if (existing) {
           existing.want = true
+          // Only refresh sticky while mosaic is active (pan edge buffer).
           existing.stickyUntil = now + STICKY_S
           return
         }
@@ -388,6 +430,12 @@ export default function DetailTiles({ provider }: Props) {
             tex.dispose()
             return
           }
+          // Drop late arrivals for zoom levels we already left.
+          if (!mosaicActiveRef.current || cur.z > sharpZRef.current + 1) {
+            tex.dispose()
+            tiles.delete(key)
+            return
+          }
           const geo = buildTileGeometry(x, ty, tz)
           const mat = new THREE.MeshBasicMaterial({
             map: tex,
@@ -395,9 +443,12 @@ export default function DetailTiles({ provider }: Props) {
             opacity: 0,
             depthWrite: true,
             depthTest: true,
+            polygonOffset: true,
+            polygonOffsetFactor: MAX_Z - tz,
+            polygonOffsetUnits: 1,
           })
           const mesh = new THREE.Mesh(geo, mat)
-          mesh.renderOrder = tz < sharpZRef.current ? 1 : 2
+          mesh.renderOrder = tz
           mesh.raycast = () => {}
           cur.tex = tex
           cur.geo = geo
@@ -437,11 +488,7 @@ export default function DetailTiles({ provider }: Props) {
         )
       }
 
-      const fillLevel = (
-        tz: number,
-        margin: number,
-        asMesh: boolean,
-      ) => {
+      const fillLevel = (tz: number, margin: number, asMesh: boolean) => {
         const n = 2 ** tz
         const padDeg = Math.max(2, (tileWidthKm(tz) / 111) * margin)
         const loLat = THREE.MathUtils.clamp(minLat - padDeg, -85, 85)
@@ -475,27 +522,40 @@ export default function DetailTiles({ provider }: Props) {
 
       const marginBoost = zoomingIn ? ZOOM_IN_MARGIN : 0
 
-      if (z >= MIN_ACTIVE_Z) {
+      if (active) {
         // Sharp mosaic covering the full visible footprint.
         fillLevel(z, MARGIN_TILES + marginBoost, true)
-        // Coarser underlays — wider margin, hide any residual edge.
+        // One coarser underlay while sharp streams in (two caused flicker).
         if (z - 1 >= MIN_ACTIVE_Z) fillLevel(z - 1, MARGIN_TILES + 1 + marginBoost, true)
-        if (z - 2 >= MIN_ACTIVE_Z) fillLevel(z - 2, MARGIN_TILES + 2 + marginBoost, true)
         // Look-ahead: next sharper level into shared cache (not GPU meshes yet).
         if (z + 1 <= maxZoom) fillLevel(z + 1, MARGIN_TILES + marginBoost, false)
       } else if (z >= MIN_PREFETCH_Z || idealZ >= MIN_PREFETCH_Z - 0.4) {
-        // Approaching detail range — warm underlays + entry zoom into the
-        // shared image cache so the first visible frame is already decoded.
+        // Approaching detail range — warm underlays into the image cache only.
         const warmZ = Math.max(MIN_PREFETCH_Z, Math.min(z + 1, MIN_ACTIVE_Z))
         fillLevel(warmZ, MARGIN_TILES + 1, false)
         if (warmZ + 1 <= maxZoom) fillLevel(warmZ + 1, MARGIN_TILES, false)
+        for (const t of tiles.values()) t.stickyUntil = 0
       } else {
         stickyZRef.current = null
+        for (const t of tiles.values()) t.stickyUntil = 0
+      }
+
+      // Zooming out: drop sticky immediately so old regions don't linger.
+      if (zoomingOut || !active) {
+        for (const t of tiles.values()) {
+          if (!t.want) t.stickyUntil = 0
+        }
       }
     }
 
-    for (const t of tiles.values()) {
-      if (!t.want && t.stickyUntil > now) t.want = true
+    // Sticky only while mosaic is active, and only for current / one-underlay
+    // levels — never keep sharper leftovers or hold the mosaic after zoom-out.
+    if (mosaicActiveRef.current) {
+      const sz = sharpZRef.current
+      for (const t of tiles.values()) {
+        if (t.want || t.stickyUntil <= now) continue
+        if (t.z <= sz && t.z >= sz - 1) t.want = true
+      }
     }
 
     for (const [key, t] of tiles) {
