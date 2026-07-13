@@ -3,7 +3,7 @@
     "id": "135fb199-a39e-48cc-ba27-0aecd96ba9f8",
     "mission": "Starlink Group 17-48",
     "rocket": "Falcon 9 Block 5",
-    "net": "2026-07-11T02:00:00Z",
+    "net": "2026-07-11T03:01:57Z",
     "pad": {
       "name": "Space Launch Complex 4E",
       "lat": 34.632,
@@ -12,11 +12,12 @@
     },
     "orbit": "LEO",
     "missionType": "Communications",
-    "webcastUrl": "https://x.com/i/broadcasts/1PKqrrkYpNwGb",
+    "webcastUrl": "https://www.youtube.com/watch?v=LRES4HfNbi4",
+    "webcastEmbed": "https://www.youtube.com/embed/LRES4HfNbi4",
     "landing": {
       "downrangeKm": 574,
       "location": "Of Course I Still Love You",
-      "success": null,
+      "success": true,
       "type": "ASDS"
     },
     "events": [
@@ -83,7 +84,7 @@
     "id": "62d4cd48-ed28-418b-b58c-526781a50a39",
     "mission": "Starlink Group 10-42",
     "rocket": "Falcon 9 Block 5",
-    "net": "2026-07-09T09:05:00Z",
+    "net": "2026-07-09T09:25:43Z",
     "pad": {
       "name": "Space Launch Complex 40",
       "lat": 28.56194122,
@@ -92,11 +93,12 @@
     },
     "orbit": "LEO",
     "missionType": "Communications",
-    "webcastUrl": "https://x.com/i/broadcasts/1kKzDDNnkOLJv",
+    "webcastUrl": "https://www.youtube.com/watch?v=q-zHDeW4ZJs",
+    "webcastEmbed": "https://www.youtube.com/embed/q-zHDeW4ZJs",
     "landing": {
       "downrangeKm": 600,
       "location": "A Shortfall of Gravitas",
-      "success": null,
+      "success": true,
       "type": "ASDS"
     },
     "events": [
@@ -163,7 +165,7 @@
     "id": "a6db1e67-5860-47c9-a674-adc0f35b62e0",
     "mission": "Transporter 17 (Dedicated SSO Rideshare)",
     "rocket": "Falcon 9 Block 5",
-    "net": "2026-07-07T07:10:00Z",
+    "net": "2026-07-07T07:12:00Z",
     "pad": {
       "name": "Space Launch Complex 4E",
       "lat": 34.632,
@@ -172,15 +174,93 @@
     },
     "orbit": "SSO",
     "missionType": "Dedicated Rideshare",
-    "webcastUrl": "https://x.com/i/broadcasts/1YxNrryLloQxw",
+    "webcastUrl": "https://www.youtube.com/watch?v=kf6ZM4lFO5Q",
+    "webcastEmbed": "https://www.youtube.com/embed/kf6ZM4lFO5Q",
     "landing": {
       "downrangeKm": 600,
       "location": "Of Course I Still Love You",
-      "success": null,
+      "success": true,
       "type": "ASDS"
     },
-    "events": [],
-    "hasRealTimeline": false
+    "events": [
+      {
+        "label": "Liftoff",
+        "t": 0
+      },
+      {
+        "label": "Max-Q",
+        "t": 69
+      },
+      {
+        "label": "MECO",
+        "t": 146
+      },
+      {
+        "label": "Stage 2 Separation",
+        "t": 150
+      },
+      {
+        "label": "SES-1",
+        "t": 158
+      },
+      {
+        "label": "Fairing Separation",
+        "t": 192
+      },
+      {
+        "label": "Entry Burn Startup",
+        "t": 365
+      },
+      {
+        "label": "Entry Burn Shutdown",
+        "t": 390
+      },
+      {
+        "label": "Stage 1 Landing Burn",
+        "t": 484
+      },
+      {
+        "label": "Stage 1 Landing",
+        "t": 506
+      },
+      {
+        "label": "SES-2",
+        "t": 3062
+      },
+      {
+        "label": "SECO-2",
+        "t": 3066
+      },
+      {
+        "label": "Payload Deployment Sequence Start",
+        "t": 3271
+      },
+      {
+        "label": "Payload Deployment Sequence End",
+        "t": 4344
+      },
+      {
+        "label": "SES-3",
+        "t": 6301
+      },
+      {
+        "label": "SECO-3",
+        "t": 6306
+      },
+      {
+        "label": "SES-4",
+        "t": 8764
+      },
+      {
+        "label": "SECO-4",
+        "t": 8766
+      },
+      {
+        "label": "Payload Separation",
+        "t": 9012
+      }
+    ],
+    "hasRealTimeline": true
   },
   {
     "id": "1ef27ca1-af91-48bb-b934-3da5abd9f711",
@@ -527,8 +607,65 @@
       "success": true,
       "type": "ASDS"
     },
-    "events": [],
-    "hasRealTimeline": false
+    "events": [
+      {
+        "label": "Liftoff",
+        "t": 0
+      },
+      {
+        "label": "Max-Q",
+        "t": 68
+      },
+      {
+        "label": "MECO",
+        "t": 145
+      },
+      {
+        "label": "Stage 2 Separation",
+        "t": 149
+      },
+      {
+        "label": "SES-1",
+        "t": 156
+      },
+      {
+        "label": "Fairing Separation",
+        "t": 177
+      },
+      {
+        "label": "Entry Burn Startup",
+        "t": 359
+      },
+      {
+        "label": "Entry Burn Shutdown",
+        "t": 383
+      },
+      {
+        "label": "Stage 1 Landing Burn",
+        "t": 476
+      },
+      {
+        "label": "Stage 1 Landing",
+        "t": 499
+      },
+      {
+        "label": "SECO-1",
+        "t": 520
+      },
+      {
+        "label": "SES-2",
+        "t": 3174
+      },
+      {
+        "label": "SECO-2",
+        "t": 3176
+      },
+      {
+        "label": "Starlink Deployment",
+        "t": 3706
+      }
+    ],
+    "hasRealTimeline": true
   },
   {
     "id": "74bf8472-9ba1-42d6-9245-b014f8e91de9",
@@ -551,8 +688,49 @@
       "success": true,
       "type": "ASDS"
     },
-    "events": [],
-    "hasRealTimeline": false
+    "events": [
+      {
+        "label": "Liftoff",
+        "t": 0
+      },
+      {
+        "label": "Max-Q",
+        "t": 68
+      },
+      {
+        "label": "MECO",
+        "t": 145
+      },
+      {
+        "label": "Stage 2 Separation",
+        "t": 148
+      },
+      {
+        "label": "SES-1",
+        "t": 156
+      },
+      {
+        "label": "Fairing Separation",
+        "t": 188
+      },
+      {
+        "label": "Entry Burn Startup",
+        "t": 391
+      },
+      {
+        "label": "Entry Burn Shutdown",
+        "t": 422
+      },
+      {
+        "label": "Stage 1 Landing Burn",
+        "t": 505
+      },
+      {
+        "label": "Stage 1 Landing",
+        "t": 529
+      }
+    ],
+    "hasRealTimeline": true
   },
   {
     "id": "de5fbae3-66b9-4bbf-8938-4d55f3318c07",
@@ -575,8 +753,65 @@
       "success": true,
       "type": "ASDS"
     },
-    "events": [],
-    "hasRealTimeline": false
+    "events": [
+      {
+        "label": "Liftoff",
+        "t": 0
+      },
+      {
+        "label": "Max-Q",
+        "t": 69
+      },
+      {
+        "label": "MECO",
+        "t": 146
+      },
+      {
+        "label": "Stage 2 Separation",
+        "t": 150
+      },
+      {
+        "label": "SES-1",
+        "t": 157
+      },
+      {
+        "label": "Fairing Separation",
+        "t": 178
+      },
+      {
+        "label": "Entry Burn Startup",
+        "t": 360
+      },
+      {
+        "label": "Entry Burn Shutdown",
+        "t": 383
+      },
+      {
+        "label": "Stage 1 Landing Burn",
+        "t": 477
+      },
+      {
+        "label": "Stage 1 Landing",
+        "t": 500
+      },
+      {
+        "label": "SECO-1",
+        "t": 520
+      },
+      {
+        "label": "SES-2",
+        "t": 3298
+      },
+      {
+        "label": "SECO-2",
+        "t": 3299
+      },
+      {
+        "label": "Starlink Deployment",
+        "t": 3830
+      }
+    ],
+    "hasRealTimeline": true
   },
   {
     "id": "5d4099bf-a0be-4f54-b236-b6ab3aed4146",
@@ -1650,11 +1885,11 @@
     },
     "events": [
       {
-        "label": "Excitement Guaranteed",
+        "label": "Liftoff",
         "t": 0
       },
       {
-        "label": "Liftoff",
+        "label": "Excitement Guaranteed",
         "t": 0
       },
       {
