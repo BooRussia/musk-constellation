@@ -230,7 +230,6 @@ export default function StarlinkView({ onBack }: Props) {
   // Past-launch replay (declared here so the pad-focus memo can see it).
   const [replayLaunch, setReplayLaunch] = useState<PastLaunch | null>(null)
   // Chase-cam detach (user rotated away while following the replay vehicle).
-  const [replayDetached, setReplayDetached] = useState(false)
   const [replayRecenterSignal, setReplayRecenterSignal] = useState(0)
   const [replaySideViewSignal, setReplaySideViewSignal] = useState(0)
   // Bumped each time the user clicks the pill, to re-centre on the pad.
@@ -385,7 +384,6 @@ export default function StarlinkView({ onBack }: Props) {
     setReplayPickerOpen(false)
     setTrackLaunch(false)
     setTrackISS(false)
-    setReplayDetached(false)
     setWatchOpen(false)
     setReplayWatchOpen(false) // optional — user opts in via Watch
     setReplayLaunch(l)
@@ -401,16 +399,13 @@ export default function StarlinkView({ onBack }: Props) {
   // Close the replay → clear it and ease the camera back to the home view.
   const stopReplay = useCallback(() => {
     setReplayLaunch(null)
-    setReplayDetached(false)
     setReplayWatchOpen(false)
     setHomeSignal((s) => s + 1)
   }, [])
   const recenterReplay = useCallback(() => {
-    setReplayDetached(false)
     setReplayRecenterSignal((s) => s + 1)
   }, [])
   const sideViewReplay = useCallback(() => {
-    setReplayDetached(true)
     setReplaySideViewSignal((s) => s + 1)
   }, [])
 
@@ -674,10 +669,8 @@ export default function StarlinkView({ onBack }: Props) {
               homeSignal={homeSignal}
               replayLaunch={replayLaunch}
               replayCtrlRef={replayCtrlRef}
-              onReplayDetached={() => setReplayDetached(true)}
               replayRecenterSignal={replayRecenterSignal}
               replaySideViewSignal={replaySideViewSignal}
-              onReplaySideViewApplied={() => setReplayDetached(true)}
               liveSimLaunch={liveSimLaunch}
               liveSimNetMs={launchNetMs}
               liveStreamDelaySec={watchOpen ? liveStreamDelaySec : 0}
@@ -796,16 +789,18 @@ export default function StarlinkView({ onBack }: Props) {
                 ctrlRef={replayCtrlRef}
                 onClose={stopReplay}
                 syncActive={replayWatchOpen}
+                onSideView={sideViewReplay}
+                onRecenter={recenterReplay}
               />
             </motion.div>
           )}
         </AnimatePresence>
-        {/* Chase helpers — side view to read loft; recenter after user orbit. */}
+        {/* Live-sim chase helpers (past replay keeps these on the transport bar). */}
         <AnimatePresence>
-          {(replayLaunch || liveSimActive) && (
+          {liveSimActive && !replayLaunch && (
             <motion.div
-              key="replay-follow-chip"
-              className={`follow-chip ${replayLaunch ? 'follow-chip--replay' : ''}`}
+              key="live-follow-chip"
+              className="follow-chip follow-chip--live-sim"
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 12 }}
@@ -819,11 +814,14 @@ export default function StarlinkView({ onBack }: Props) {
               >
                 <Move3d className="h-3.5 w-3.5" aria-hidden="true" /> Side view
               </button>
-              {replayDetached && (
-                <button type="button" className="follow-chip-recenter" onClick={recenterReplay}>
-                  <Crosshair className="h-3.5 w-3.5" aria-hidden="true" /> Recenter on rocket
-                </button>
-              )}
+              <button
+                type="button"
+                className="follow-chip-recenter"
+                onClick={recenterReplay}
+                title="Reset chase camera onto the rocket"
+              >
+                <Crosshair className="h-3.5 w-3.5" aria-hidden="true" /> Recenter
+              </button>
             </motion.div>
           )}
         </AnimatePresence>

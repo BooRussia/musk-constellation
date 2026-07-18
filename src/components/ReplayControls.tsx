@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import { Pause, Play, X } from 'lucide-react'
+import { Crosshair, Move3d, Pause, Play, X } from 'lucide-react'
 import type { ReplayControl } from './LaunchReplay'
 import type { PastLaunch } from '../lib/pastLaunches'
 import {
@@ -29,13 +29,24 @@ interface Props {
   onClose: () => void
   /** When true, speed options are capped to what YouTube can mirror. */
   syncActive?: boolean
+  /** Snap camera to a side view of the lofted trajectory. */
+  onSideView?: () => void
+  /** Re-fly the chase-cam onto the rocket. */
+  onRecenter?: () => void
 }
 
 /** Bottom transport bar for the launch replay. Reads the shared control ref
  *  ~5×/s for the clock/scrubber/event so the per-frame animation never
  *  re-renders React; writes back play/speed/seek. Stage callouts fire when
  *  the active milestone advances. */
-export default function ReplayControls({ launch, ctrlRef, onClose, syncActive }: Props) {
+export default function ReplayControls({
+  launch,
+  ctrlRef,
+  onClose,
+  syncActive,
+  onSideView,
+  onRecenter,
+}: Props) {
   const [snap, setSnap] = useState({
     t: 0,
     duration: 0,
@@ -204,6 +215,33 @@ export default function ReplayControls({ launch, ctrlRef, onClose, syncActive }:
             </button>
           ))}
         </div>
+
+        {(onSideView || onRecenter) && (
+          <div className="replaybar-cam">
+            {onSideView && (
+              <button
+                type="button"
+                className="replaybar-cam-btn"
+                onClick={onSideView}
+                title="View the lofted trajectory from the side"
+              >
+                <Move3d className="h-3.5 w-3.5" aria-hidden="true" />
+                Side view
+              </button>
+            )}
+            {onRecenter && (
+              <button
+                type="button"
+                className="replaybar-cam-btn"
+                onClick={onRecenter}
+                title="Reset chase camera onto the rocket"
+              >
+                <Crosshair className="h-3.5 w-3.5" aria-hidden="true" />
+                Recenter
+              </button>
+            )}
+          </div>
+        )}
 
         <button type="button" className="replaybar-close" onClick={onClose} aria-label="Close replay">
           <X className="h-4 w-4" />
