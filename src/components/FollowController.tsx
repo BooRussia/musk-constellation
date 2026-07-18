@@ -41,6 +41,8 @@ interface Props {
   onDetached?: () => void
   /** Bump to re-fly to the target from wherever the camera is. */
   recenterSignal?: number
+  /** Bump to release follow (e.g. after a scripted side-view pose). */
+  detachSignal?: number
 }
 
 /** Push the camera outside Earth's clearance sphere if it drifted in. */
@@ -57,6 +59,7 @@ export default function FollowController({
   targetRef,
   onDetached,
   recenterSignal = 0,
+  detachSignal = 0,
 }: Props) {
   const camera = useThree((s) => s.camera)
   const phase = useRef<Phase>('idle')
@@ -72,6 +75,7 @@ export default function FollowController({
   const lastAz = useRef(0)
   const lastPol = useRef(0)
   const lastRecenter = useRef(0)
+  const lastDetach = useRef(0)
 
   useFrame((_, deltaRaw) => {
     const controls = controlsRef.current
@@ -84,6 +88,7 @@ export default function FollowController({
       savedMinDistance.current = controls.minDistance
       controls.minDistance = FOLLOW_MIN_DISTANCE
       lastRecenter.current = recenterSignal
+      lastDetach.current = detachSignal
     } else if (!active && phase.current !== 'idle') {
       // Caller handles the camera (eases home); just reset our state.
       if (savedMinDistance.current != null) controls.minDistance = savedMinDistance.current
@@ -96,6 +101,17 @@ export default function FollowController({
     if (active && recenterSignal !== lastRecenter.current) {
       lastRecenter.current = recenterSignal
       phase.current = 'orient'
+    }
+
+    // Scripted side view (etc.) — stop steering so the pose sticks.
+    if (active && detachSignal !== lastDetach.current) {
+      lastDetach.current = detachSignal
+      if (phase.current !== 'idle' && phase.current !== 'detached') {
+        phase.current = 'detached'
+        onDetached?.()
+        lastAz.current = controls.getAzimuthalAngle()
+        lastPol.current = controls.getPolarAngle()
+      }
     }
 
     if (phase.current === 'orient') {

@@ -5050,6 +5050,15 @@ body {
   background: var(--evt-accent);
   box-shadow: 0 0 10px color-mix(in srgb, var(--evt-accent) 50%, transparent);
 }
+.replay-evt-alt {
+  margin-top: 1px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: rgba(255, 220, 180, 0.92);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
+}
 
 /* Transport stack: stage callout above the scrubber bar. */
 .replaybar-stack {
@@ -5191,6 +5200,31 @@ body {
   font-weight: 800;
   color: #fff;
   font-variant-numeric: tabular-nums;
+}
+.replaybar-tele {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 2px;
+}
+.replaybar-tele-item {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.replaybar-tele-k {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.38);
+}
+.replaybar-tele-v {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 210, 160, 0.95);
 }
 .replaybar-event {
   display: flex;

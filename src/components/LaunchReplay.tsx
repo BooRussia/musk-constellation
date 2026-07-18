@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import { Html, Line } from '@react-three/drei'
 import * as THREE from 'three'
+import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import type { PastLaunch } from '../lib/pastLaunches'
 import { buildProfile } from '../lib/trajectory'
 import {
@@ -21,10 +22,17 @@ import type { CSSProperties } from 'react'
 // every real event (MECO, stage sep, SECO, deploy…) with a colored stage-action
 // dot that lights up as the vehicle passes — SpaceX webcast style. Also writes
 // the sun-time so lighting matches the launch's actual time of day.
+//
+// Altitude uses a typical Falcon 9 sample curve (Max-Q / MECO / SECO…). Scene
+// placement applies a display scale so the loft reads from the side; HUD shows
+// true modeled km.
 
 const EARTH_RADIUS_SCENE = 5
 const KM_TO_SCENE = EARTH_RADIUS_SCENE / 6371
+/** Visual loft only — HUD / sample() stay in real modeled km. */
+const ALT_DISPLAY_SCALE = 2.75
 const RAD = Math.PI / 180
+const PATH_SAMPLES = 384
 
 export interface ReplayControl {
   /** Current mission time, seconds from liftoff (replay writes, UI reads). */
@@ -40,10 +48,22 @@ export interface ReplayControl {
   currentEvent: string | null
   /** Stage action for the current event (replay writes, UI reads). */
   currentAction: StageAction | null
+  /** Modeled altitude km (replay writes, UI reads). */
+  altKm: number
+  /** Modeled downrange km from pad (replay writes, UI reads). */
+  downrangeKm: number
+  /** 0–1 thrust proxy for flame (replay writes). */
+  thrust: number
+}
+
+/** Suggested side-view camera pose written by LaunchReplay. */
+export interface SideViewPose {
+  lookAt: THREE.Vector3
+  camera: THREE.Vector3
 }
 
 function toScene(lat: number, lon: number, altKm: number, out: THREE.Vector3): THREE.Vector3 {
-  const r = EARTH_RADIUS_SCENE + altKm * KM_TO_SCENE
+  const r = EARTH_RADIUS_SCENE + altKm * ALT_DISPLAY_SCALE * KM_TO_SCENE
   const phi = lat * RAD
   const lam = lon * RAD
   const cp = Math.cos(phi)
@@ -74,14 +94,25 @@ function shortLabel(s: string): string {
   return s.length > 20 ? `${s.slice(0, 19)}…` : s
 }
 
+function fmtAltKm(km: number): string {
+  if (km < 10) return `${km.toFixed(1)} km`
+  return `${Math.round(km)} km`
+}
+
+/** Highlight altitude callouts on Max-Q / MECO / SECO markers. */
+function isAltCallout(label: string): boolean {
+  return /max[\s-]?q|\bmeco\b|seco-?1|second engine cutoff/i.test(label)
+}
+
 interface Props {
   launch: PastLaunch
   ctrlRef: React.MutableRefObject<ReplayControl>
   sunTimeRef: React.MutableRefObject<number | null>
   /** Receives the vehicle's live world position (for the chase-cam). */
   posRef?: React.MutableRefObject<THREE.Vector3 | null>
-  /** When set, the clock is driven by real time since this liftoff (ms epoch)
-   *  instead of the play/scrub controls — a LIVE launch simulation. */
+  /** Receives a side-view camera suggestion (lookAt + camera). */
+  sidePoseRef?: React.MutableRefObject<SideViewPose | null>
+  /** When set, the clock is driven by real time since this liftoff (ms epoch). */
   liveNetMs?: number
   /**
    * Seconds to hold the live sim behind wall-clock NET so it matches a
@@ -95,6 +126,7 @@ export default function LaunchReplay({
   ctrlRef,
   sunTimeRef,
   posRef,
+  sidePoseRef,
   liveNetMs,
   liveStreamDelaySec = 0,
 }: Props) {
@@ -105,7 +137,7 @@ export default function LaunchReplay({
 
   // Full predicted track as scene points (for the path line).
   const points = useMemo(() => {
-    const N = 256
+    const N = PATH_SAMPLES
     const pts: THREE.Vector3[] = []
     for (let i = 0; i <= N; i++) {
       const p = profile.sample((i / N) * profile.totalDur)
@@ -129,6 +161,8 @@ export default function LaunchReplay({
           color: meta.color,
           intensity: meta.intensity,
           verb: meta.verb,
+          altKm: p.altKm,
+          showAlt: isAltCallout(e.label),
           pos: toScene(p.lat, p.lon, p.altKm, new THREE.Vector3()),
         }
       })
@@ -139,6 +173,8 @@ export default function LaunchReplay({
   const tmp = useRef(new THREE.Vector3())
   const tmpAhead = useRef(new THREE.Vector3())
   const tmpDir = useRef(new THREE.Vector3())
+  const tmpSide = useRef(new THREE.Vector3())
+  const tmpRadial = useRef(new THREE.Vector3())
   const upAxis = useRef(new THREE.Vector3(0, 1, 0))
   const quat = useRef(new THREE.Quaternion())
   const markerRefs = useRef<(HTMLDivElement | null)[]>([])
@@ -154,10 +190,14 @@ export default function LaunchReplay({
     c.currentEvent = null
     c.currentAction = null
     c.seekTo = null
+    c.altKm = 0
+    c.downrangeKm = 0
+    c.thrust = 0
     clsCache.current = []
     dispCache.current = []
     lastActionRef.current = null
     rocketRef.current?.resetAccent()
+    rocketRef.current?.setThrust(0)
   }, [profile, ctrlRef])
 
   // Restore live lighting on unmount.
@@ -171,7 +211,6 @@ export default function LaunchReplay({
     const c = ctrlRef.current
     const dt = Math.min(deltaRaw, 0.05)
     if (liveNetMs != null) {
-      // LIVE: wall-clock since NET, optionally held back to match livestream delay.
       const delayMs = Math.max(0, liveStreamDelaySec) * 1000
       c.t = THREE.MathUtils.clamp(
         (Date.now() - liveNetMs - delayMs) / 1000,
@@ -186,11 +225,13 @@ export default function LaunchReplay({
     }
 
     const p = profile.sample(c.t)
+    c.altKm = p.altKm
+    c.downrangeKm = p.downrangeKm
+    c.thrust = p.thrust
     toScene(p.lat, p.lon, p.altKm, tmp.current)
     if (groupRef.current) {
       groupRef.current.position.copy(tmp.current)
 
-      // Point the rocket nose along the flight path (sample a short look-ahead).
       const ahead = profile.sample(Math.min(profile.totalDur, c.t + 2))
       toScene(ahead.lat, ahead.lon, ahead.altKm, tmpAhead.current)
       tmpDir.current.subVectors(tmpAhead.current, tmp.current)
@@ -205,9 +246,42 @@ export default function LaunchReplay({
       else posRef.current.copy(tmp.current)
     }
 
+    // Side-view suggestion: perpendicular to ground-track, framed on vehicle.
+    if (sidePoseRef) {
+      const lookT = Math.min(
+        Math.max(c.t, profile.ascentDur * 0.45),
+        profile.ascentDur * 0.85,
+      )
+      const focus = profile.sample(lookT)
+      toScene(focus.lat, focus.lon, focus.altKm, tmp.current)
+      const aheadS = profile.sample(Math.min(profile.totalDur, lookT + 8))
+      toScene(aheadS.lat, aheadS.lon, aheadS.altKm, tmpAhead.current)
+      tmpDir.current.subVectors(tmpAhead.current, tmp.current)
+      if (tmpDir.current.lengthSq() > 1e-10) tmpDir.current.normalize()
+      else tmpDir.current.set(0, 1, 0)
+      tmpRadial.current.copy(tmp.current).normalize()
+      tmpSide.current.crossVectors(tmpRadial.current, tmpDir.current)
+      if (tmpSide.current.lengthSq() < 1e-8) {
+        tmpSide.current.crossVectors(tmpRadial.current, upAxis.current)
+      }
+      tmpSide.current.normalize()
+      const cam = tmpAhead.current
+        .copy(tmp.current)
+        .addScaledVector(tmpSide.current, 2.2)
+        .addScaledVector(tmpRadial.current, 0.55)
+      if (!sidePoseRef.current) {
+        sidePoseRef.current = {
+          lookAt: tmp.current.clone(),
+          camera: cam.clone(),
+        }
+      } else {
+        sidePoseRef.current.lookAt.copy(tmp.current)
+        sidePoseRef.current.camera.copy(cam)
+      }
+    }
+
     sunTimeRef.current = netMs + c.t * 1000
 
-    // Which events have happened; the last one is "active".
     let active = -1
     for (let i = 0; i < markers.length; i++) {
       if (markers[i].t <= c.t) active = i
@@ -217,7 +291,6 @@ export default function LaunchReplay({
     c.currentEvent = activeMarker?.full ?? null
     c.currentAction = activeMarker?.action ?? null
 
-    // Vehicle glow / plume follows the active stage action.
     if (activeMarker && lastActionRef.current !== activeMarker.action) {
       lastActionRef.current = activeMarker.action
       rocketRef.current?.setAccent(activeMarker.color, activeMarker.intensity)
@@ -225,8 +298,8 @@ export default function LaunchReplay({
       lastActionRef.current = null
       rocketRef.current?.resetAccent()
     }
+    rocketRef.current?.setThrust(p.thrust)
 
-    // Light up / occlude each event marker.
     const cam = state.camera.position
     for (let i = 0; i < markers.length; i++) {
       const el = markerRefs.current[i]
@@ -254,12 +327,11 @@ export default function LaunchReplay({
         color="#ff9a4a"
         lineWidth={2}
         transparent
-        opacity={0.5}
+        opacity={0.55}
         depthWrite={false}
         renderOrder={5}
       />
 
-      {/* Event markers — colored by stage action, lit as the vehicle passes. */}
       {markers.map((m, i) => (
         <group key={`${m.t}-${i}`} position={m.pos}>
           <Html
@@ -279,16 +351,48 @@ export default function LaunchReplay({
               <span className="replay-evt-label">
                 <span className="replay-evt-verb">{m.verb}</span>
                 {m.label}
+                {m.showAlt && (
+                  <span className="replay-evt-alt">{fmtAltKm(m.altKm)}</span>
+                )}
               </span>
             </div>
           </Html>
         </group>
       ))}
 
-      {/* Compact rocket marker — nose points along the flight path. */}
       <group ref={groupRef}>
         <RocketVehicle ref={rocketRef} />
       </group>
     </>
   )
+}
+
+/** Apply a one-shot side-view camera pose when `signal` bumps. */
+export function LaunchSideViewApplier({
+  signal,
+  poseRef,
+  controlsRef,
+  onApplied,
+}: {
+  signal: number
+  poseRef: React.MutableRefObject<SideViewPose | null>
+  controlsRef: React.RefObject<OrbitControlsImpl | null>
+  onApplied?: () => void
+}) {
+  const { camera } = useThree()
+  const last = useRef(0)
+
+  useFrame(() => {
+    if (signal === last.current) return
+    const pose = poseRef.current
+    const controls = controlsRef.current
+    if (!pose || !controls) return
+    last.current = signal
+    camera.position.copy(pose.camera)
+    controls.target.copy(pose.lookAt)
+    controls.update()
+    onApplied?.()
+  })
+
+  return null
 }

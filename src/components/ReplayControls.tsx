@@ -41,6 +41,8 @@ export default function ReplayControls({ launch, ctrlRef, onClose, syncActive }:
     duration: 0,
     currentEvent: null as string | null,
     currentAction: null as StageAction | null,
+    altKm: 0,
+    downrangeKm: 0,
   })
   const [playing, setPlaying] = useState(true)
   const [speed, setSpeed] = useState(8)
@@ -65,6 +67,8 @@ export default function ReplayControls({ launch, ctrlRef, onClose, syncActive }:
         duration: c.duration,
         currentEvent: c.currentEvent,
         currentAction: c.currentAction,
+        altKm: c.altKm,
+        downrangeKm: c.downrangeKm,
       })
       setPlaying(c.playing)
       setSpeed(c.speed)
@@ -134,6 +138,18 @@ export default function ReplayControls({ launch, ctrlRef, onClose, syncActive }:
 
         <div className="replaybar-clock">
           <span className="replaybar-time">{fmtT(t)}</span>
+          <span className="replaybar-tele" title="Modeled typical Falcon 9 profile — not raw telemetry">
+            <span className="replaybar-tele-item">
+              <span className="replaybar-tele-k">Alt</span>
+              <span className="replaybar-tele-v">
+                {snap.altKm < 10 ? snap.altKm.toFixed(1) : Math.round(snap.altKm)} km
+              </span>
+            </span>
+            <span className="replaybar-tele-item">
+              <span className="replaybar-tele-k">Range</span>
+              <span className="replaybar-tele-v">{Math.round(snap.downrangeKm).toLocaleString()} km</span>
+            </span>
+          </span>
           {meta && (
             <span className="replaybar-event">
               <span className="replaybar-event-verb">{meta.verb}</span>

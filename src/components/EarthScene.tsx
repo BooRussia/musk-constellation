@@ -19,7 +19,11 @@ import HomeController from './HomeController'
 import LaunchFocusController from './LaunchFocusController'
 import ActiveLaunchPad from './ActiveLaunchPad'
 import LaunchCone from './LaunchCone'
-import LaunchReplay, { type ReplayControl } from './LaunchReplay'
+import LaunchReplay, {
+  LaunchSideViewApplier,
+  type ReplayControl,
+  type SideViewPose,
+} from './LaunchReplay'
 import type { PastLaunch } from '../lib/pastLaunches'
 import type { SatelliteEntry, ConstellationKey, TrackedObject } from '../lib/tle'
 import { getMapStyle } from '../data/mapStyles'
@@ -956,6 +960,10 @@ interface EarthSceneProps {
   onReplayDetached?: () => void
   /** Bump to re-fly the chase-cam back onto the replay vehicle. */
   replayRecenterSignal?: number
+  /** Bump to snap the camera to a side view of the lofted trajectory. */
+  replaySideViewSignal?: number
+  /** Fires after a side-view pose is applied (UI marks chase as detached). */
+  onReplaySideViewApplied?: () => void
   /** LIVE launch simulation — same animation as a replay but the clock is
    *  driven by real time. Set while a tracked launch is in flight. */
   liveSimLaunch?: PastLaunch | null
@@ -998,6 +1006,8 @@ export default function EarthScene({
   replayCtrlRef,
   onReplayDetached,
   replayRecenterSignal = 0,
+  replaySideViewSignal = 0,
+  onReplaySideViewApplied,
   liveSimLaunch = null,
   liveSimNetMs,
   liveStreamDelaySec = 0,
@@ -1012,6 +1022,7 @@ export default function EarthScene({
   // Replay vehicle world position, written by LaunchReplay, read by the
   // replay chase-cam FollowController.
   const replayPosRef = useRef<THREE.Vector3 | null>(null)
+  const replaySidePoseRef = useRef<SideViewPose | null>(null)
 
   // Real-Earth data maps (relief/night/water) load ONCE — they're only
   // used by the photoreal pipeline. The day/albedo map is separate and
@@ -1257,6 +1268,7 @@ export default function EarthScene({
             ctrlRef={replayCtrlRef}
             sunTimeRef={replaySunTimeRef}
             posRef={replayPosRef}
+            sidePoseRef={replaySidePoseRef}
           />
         )}
 
@@ -1268,6 +1280,7 @@ export default function EarthScene({
             ctrlRef={liveCtrlRef}
             sunTimeRef={replaySunTimeRef}
             posRef={replayPosRef}
+            sidePoseRef={replaySidePoseRef}
             liveNetMs={liveSimNetMs}
             liveStreamDelaySec={liveStreamDelaySec}
           />
@@ -1281,6 +1294,14 @@ export default function EarthScene({
           targetRef={replayPosRef}
           onDetached={onReplayDetached}
           recenterSignal={replayRecenterSignal}
+          detachSignal={replaySideViewSignal}
+        />
+
+        <LaunchSideViewApplier
+          signal={replaySideViewSignal}
+          poseRef={replaySidePoseRef}
+          controlsRef={controlsRef}
+          onApplied={onReplaySideViewApplied}
         />
 
         {/* WASD/QE keyboard camera controls — orbits + zooms + pans the

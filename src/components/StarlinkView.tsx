@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, ChevronDown, Crosshair, RotateCcw, Satellite, X } from 'lucide-react'
+import { ArrowLeft, ChevronDown, Crosshair, Move3d, RotateCcw, Satellite, X } from 'lucide-react'
 import {
   fetchAllConstellations,
   fetchISS,
@@ -232,6 +232,7 @@ export default function StarlinkView({ onBack }: Props) {
   // Chase-cam detach (user rotated away while following the replay vehicle).
   const [replayDetached, setReplayDetached] = useState(false)
   const [replayRecenterSignal, setReplayRecenterSignal] = useState(0)
+  const [replaySideViewSignal, setReplaySideViewSignal] = useState(0)
   // Bumped each time the user clicks the pill, to re-centre on the pad.
   const [launchFocusSignal, setLaunchFocusSignal] = useState(0)
   // Fetch the detailed next launch on mount so the countdown pill is live
@@ -307,6 +308,9 @@ export default function StarlinkView({ onBack }: Props) {
     seekTo: null,
     currentEvent: null,
     currentAction: null,
+    altKm: 0,
+    downrangeKm: 0,
+    thrust: 0,
   })
 
   // LIVE launch simulation — once a tracked launch lifts off, run the same
@@ -320,6 +324,9 @@ export default function StarlinkView({ onBack }: Props) {
     seekTo: null,
     currentEvent: null,
     currentAction: null,
+    altKm: 0,
+    downrangeKm: 0,
+    thrust: 0,
   })
   const [nowMs, setNowMs] = useState(0)
   useEffect(() => {
@@ -401,6 +408,10 @@ export default function StarlinkView({ onBack }: Props) {
   const recenterReplay = useCallback(() => {
     setReplayDetached(false)
     setReplayRecenterSignal((s) => s + 1)
+  }, [])
+  const sideViewReplay = useCallback(() => {
+    setReplayDetached(true)
+    setReplaySideViewSignal((s) => s + 1)
   }, [])
 
   // Fetch TLEs on mount. Stays alive in sessionStorage for 2 hours
@@ -665,6 +676,8 @@ export default function StarlinkView({ onBack }: Props) {
               replayCtrlRef={replayCtrlRef}
               onReplayDetached={() => setReplayDetached(true)}
               replayRecenterSignal={replayRecenterSignal}
+              replaySideViewSignal={replaySideViewSignal}
+              onReplaySideViewApplied={() => setReplayDetached(true)}
               liveSimLaunch={liveSimLaunch}
               liveSimNetMs={launchNetMs}
               liveStreamDelaySec={watchOpen ? liveStreamDelaySec : 0}
@@ -787,21 +800,30 @@ export default function StarlinkView({ onBack }: Props) {
             </motion.div>
           )}
         </AnimatePresence>
-        {/* Recenter prompt when the user rotates away from the chased rocket
-            (during a replay or a live launch simulation). */}
+        {/* Chase helpers — side view to read loft; recenter after user orbit. */}
         <AnimatePresence>
-          {(replayLaunch || liveSimActive) && replayDetached && (
+          {(replayLaunch || liveSimActive) && (
             <motion.div
-              key="replay-recenter"
+              key="replay-follow-chip"
               className={`follow-chip ${replayLaunch ? 'follow-chip--replay' : ''}`}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 12 }}
               transition={{ duration: 0.2 }}
             >
-              <button type="button" className="follow-chip-recenter" onClick={recenterReplay}>
-                <Crosshair className="h-3.5 w-3.5" aria-hidden="true" /> Recenter on rocket
+              <button
+                type="button"
+                className="follow-chip-recenter"
+                onClick={sideViewReplay}
+                title="View the lofted trajectory from the side"
+              >
+                <Move3d className="h-3.5 w-3.5" aria-hidden="true" /> Side view
               </button>
+              {replayDetached && (
+                <button type="button" className="follow-chip-recenter" onClick={recenterReplay}>
+                  <Crosshair className="h-3.5 w-3.5" aria-hidden="true" /> Recenter on rocket
+                </button>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

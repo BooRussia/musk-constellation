@@ -97,8 +97,8 @@ export default function ReplayInfoBar({ launch, onWatch, watchOpen }: Props) {
             {watchOpen ? 'Hide stream' : 'Watch'}
           </button>
         )}
-        <span className="replay-infobar-tag">
-          <History className="h-3 w-3" aria-hidden="true" /> Replay
+        <span className="replay-infobar-tag" title="Altitude & path use a typical Falcon 9 profile">
+          <History className="h-3 w-3" aria-hidden="true" /> Modeled replay
         </span>
       </div>
     </div>
