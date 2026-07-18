@@ -2917,8 +2917,15 @@ body {
 }
 /* Live sim has LaunchBar + sequence UI — keep chase helpers clear of them. */
 .follow-chip--live-sim {
-  bottom: 120px;
+  bottom: 140px;
   z-index: 28;
+  gap: 6px;
+  padding: 6px 8px;
+}
+.follow-chip--live-sim .follow-chip-recenter {
+  min-height: 36px;
+  padding: 6px 14px;
+  font-size: 12px;
 }
 .follow-chip-status {
   display: inline-flex;
@@ -5297,43 +5304,39 @@ body {
   display: flex;
   gap: 3px;
 }
-.replaybar-cam {
+/* Dedicated camera row above the transport bar — always visible. */
+.replaybar-cam-row {
   display: flex;
-  flex: 0 0 auto;
   align-items: center;
-  gap: 4px;
-  padding-left: 6px;
-  margin-left: 2px;
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  z-index: 27;
 }
 .replaybar-cam-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 9px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 180, 120, 0.35);
-  background: rgba(255, 154, 74, 0.12);
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 180, 120, 0.55);
+  background: rgba(20, 12, 6, 0.92);
   color: #ffd2a8;
   font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
   white-space: nowrap;
   cursor: pointer;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
   transition: background 0.13s ease, border-color 0.13s ease, color 0.13s ease;
 }
 .replaybar-cam-btn:hover {
   color: #fff;
-  background: rgba(255, 154, 74, 0.22);
-  border-color: rgba(255, 180, 120, 0.55);
-}
-@media (max-width: 900px) {
-  .replaybar-cam-btn {
-    padding: 6px 8px;
-    font-size: 0;
-    gap: 0;
-  }
+  background: rgba(255, 154, 74, 0.28);
+  border-color: rgba(255, 200, 140, 0.75);
 }
 .replaybar-speed {
   padding: 4px 7px;
