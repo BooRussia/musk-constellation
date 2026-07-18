@@ -50,14 +50,17 @@ const RECOMPUTE_S = 0.25
 /** Brief pan-edge retention only while mosaic is active — not a zoom-out hold. */
 const STICKY_S = 1.25
 const ZOOM_HYSTERESIS = 0.9
-const FADE_IN = 6
-const FADE_OUT = 2.4
+/** Appear instantly once ready — slow per-tile fades cause the diamond blend. */
+const FADE_IN = 14
+const FADE_OUT = 3
 /** Faster dissolve when leaving detail range so the base map returns cleanly. */
-const FADE_OUT_EXIT = 7
-/** Fraction of sharp tiles that must be ready before mosaic fully reveals. */
-const REVEAL_READY = 0.78
-const REVEAL_FADE = 3.5
-const REVEAL_FADE_EXIT = 8
+const FADE_OUT_EXIT = 8
+/** Hold the mosaic invisible until nearly all sharp tiles are decoded. */
+const REVEAL_READY = 0.9
+const REVEAL_FADE = 5
+const REVEAL_FADE_EXIT = 9
+/** Underlay must also be mostly ready before we show anything. */
+const UNDERLAY_READY = 0.88
 
 /** NDC samples covering the viewport (corners + edges + center). */
 const NDC_SAMPLES: Array<[number, number]> = [
@@ -249,39 +252,55 @@ export default function DetailTiles({ provider }: Props) {
     const mosaicActive = mosaicActiveRef.current
     const sharpZ = sharpZRef.current
 
-    // Coverage of the *current* sharp level — drives reveal + underlay fade-out.
+    // Coverage of sharp + underlay — never show a sparse diamond patchwork.
     let sharpWant = 0
     let sharpReady = 0
+    let underWant = 0
+    let underReady = 0
+    const underZ = sharpZ - 1
     for (const t of tiles.values()) {
-      if (!t.want || t.z !== sharpZ) continue
-      sharpWant++
-      if (!t.loading && t.mesh) sharpReady++
+      if (!t.want) continue
+      if (t.z === sharpZ) {
+        sharpWant++
+        if (!t.loading && t.mesh) sharpReady++
+      } else if (t.z === underZ && underZ >= MIN_ACTIVE_Z) {
+        underWant++
+        if (!t.loading && t.mesh) underReady++
+      }
     }
     const coverage = sharpWant > 0 ? sharpReady / sharpWant : 0
+    const underCoverage = underWant > 0 ? underReady / underWant : 1
 
-    const targetReveal =
-      !mosaicActive || sharpZ < MIN_ACTIVE_Z || sharpWant === 0
-        ? 0
-        : coverage >= REVEAL_READY
-          ? 1
-          : coverage >= 0.35
-            ? 0.35 + (coverage - 0.35) * 0.5
-            : 0
+    // Binary reveal: stay on the base globe until the mosaic is nearly solid.
+    const mosaicReady =
+      mosaicActive &&
+      sharpZ >= MIN_ACTIVE_Z &&
+      sharpWant > 0 &&
+      coverage >= REVEAL_READY &&
+      underCoverage >= UNDERLAY_READY
+    const targetReveal = mosaicReady ? 1 : 0
     const revealRate = mosaicActive ? REVEAL_FADE : REVEAL_FADE_EXIT
     revealRef.current += (targetReveal - revealRef.current) * Math.min(1, delta * revealRate)
+    // Snap off quickly when not ready so half-faded tiles never linger.
+    if (!mosaicReady && revealRef.current < 0.15) revealRef.current = 0
     const layerReveal = revealRef.current
 
-    // Once sharp tiles are mostly ready, dissolve coarser underlays so stacked
-    // zoom levels don't z-fight / flicker on top of each other.
+    // Once sharp is solid, dissolve underlays to avoid stacked shimmer.
     const underlayMul =
-      !mosaicActive
+      !mosaicActive || layerReveal < 0.05
         ? 0
         : coverage >= REVEAL_READY
-          ? Math.max(0, 1 - (coverage - REVEAL_READY) / 0.22)
+          ? Math.max(0, 1 - (coverage - REVEAL_READY) / 0.12)
           : 1
 
     for (const t of tiles.values()) {
       if (!t.mesh || !t.mat) continue
+
+      // Never draw a tile until its texture is ready — empty slots = diamonds.
+      if (t.loading) {
+        t.mesh.visible = false
+        continue
+      }
 
       // Sharper leftovers from a previous zoom must never stick on top.
       const obsoleteSharp = mosaicActive && t.z > sharpZ
@@ -289,24 +308,28 @@ export default function DetailTiles({ provider }: Props) {
       const exiting = !mosaicActive || obsoleteSharp || !t.want
       const rate = target ? FADE_IN : exiting ? FADE_OUT_EXIT : FADE_OUT
       t.fade += (target - t.fade) * Math.min(1, delta * rate)
+      if (target && t.fade > 0.85) t.fade = 1
 
-      let gate = layerReveal
+      let gate = 0
       if (!mosaicActive) {
-        gate = layerReveal // → 0 on exit
+        gate = layerReveal
       } else if (t.z > sharpZ) {
         gate = 0
       } else if (t.z < sharpZ) {
         gate = layerReveal * underlayMul
+      } else {
+        gate = layerReveal
       }
 
-      t.mat.opacity = t.fade * gate
-      // Coarser tiles depth-push so sharp tiles win without flicker.
+      const opacity = t.fade * gate
+      t.mat.opacity = opacity
+      t.mat.transparent = opacity < 0.98
+      t.mat.depthWrite = opacity > 0.95
       t.mat.polygonOffset = true
       t.mat.polygonOffsetFactor = MAX_Z - t.z
       t.mat.polygonOffsetUnits = 1
       t.mesh.renderOrder = t.z
-      t.mat.depthWrite = t.mat.opacity > 0.92
-      t.mesh.visible = t.mat.opacity > 0.01
+      t.mesh.visible = opacity > 0.02
     }
 
     if (now - lastComputeRef.current < RECOMPUTE_S) return

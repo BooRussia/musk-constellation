@@ -122,34 +122,6 @@ export default function ReplayControls({
         </div>
       )}
 
-      {/* Own row — never squeezed off the crowded transport bar. */}
-      {(onSideView || onRecenter) && (
-        <div className="replaybar-cam-row" role="group" aria-label="Camera">
-          {onSideView && (
-            <button
-              type="button"
-              className="replaybar-cam-btn"
-              onClick={onSideView}
-              title="View the lofted trajectory from the side"
-            >
-              <Move3d className="h-4 w-4" aria-hidden="true" />
-              Side view
-            </button>
-          )}
-          {onRecenter && (
-            <button
-              type="button"
-              className="replaybar-cam-btn"
-              onClick={onRecenter}
-              title="Reset chase camera onto the rocket"
-            >
-              <Crosshair className="h-4 w-4" aria-hidden="true" />
-              Recenter
-            </button>
-          )}
-        </div>
-      )}
-
       <div
         className={`replaybar${meta ? ` replaybar--${meta.action}` : ''}`}
         style={meta ? ({ '--stage-accent': accent } as CSSProperties) : undefined}
@@ -243,6 +215,33 @@ export default function ReplayControls({
             </button>
           ))}
         </div>
+
+        {(onSideView || onRecenter) && (
+          <div className="replaybar-cam" role="group" aria-label="Camera">
+            {onSideView && (
+              <button
+                type="button"
+                className="replaybar-cam-btn"
+                onClick={onSideView}
+                title="View the lofted trajectory from the side"
+              >
+                <Move3d className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Side</span>
+              </button>
+            )}
+            {onRecenter && (
+              <button
+                type="button"
+                className="replaybar-cam-btn"
+                onClick={onRecenter}
+                title="Reset chase camera onto the rocket"
+              >
+                <Crosshair className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Recenter</span>
+              </button>
+            )}
+          </div>
+        )}
 
         <button type="button" className="replaybar-close" onClick={onClose} aria-label="Close replay">
           <X className="h-4 w-4" />
