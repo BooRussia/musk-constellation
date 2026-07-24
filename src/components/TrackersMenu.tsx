@@ -1,4 +1,4 @@
-import { ChevronRight, Crosshair, History, Orbit, Rocket } from 'lucide-react'
+import { CalendarDays, ChevronRight, Crosshair, History, Orbit, Rocket } from 'lucide-react'
 import MenuDropdown from './MenuDropdown'
 
 interface Props {
@@ -7,11 +7,11 @@ interface Props {
   launchActive: boolean
   onTrackLaunch: () => void
   onOpenReplays: () => void
+  onOpenUpcoming: () => void
 }
 
 /**
- * Trackers menu — "fly the camera to and follow a live object" actions.
- * ISS is live; SpaceX Launches is the next tracker to land here.
+ * Trackers menu — fly the camera to live objects, upcoming board, past replays.
  */
 export default function TrackersMenu({
   issActive,
@@ -19,6 +19,7 @@ export default function TrackersMenu({
   launchActive,
   onTrackLaunch,
   onOpenReplays,
+  onOpenUpcoming,
 }: Props) {
   const count = (issActive ? 1 : 0) + (launchActive ? 1 : 0)
   return (
@@ -50,6 +51,17 @@ export default function TrackersMenu({
         <Rocket className="layers-row-icon h-4 w-4" aria-hidden="true" />
         <span className="layers-row-label">SpaceX Launches</span>
         <span className={`layers-switch ${launchActive ? 'is-on' : ''}`} />
+      </button>
+
+      <button
+        type="button"
+        className="layers-row"
+        onClick={onOpenUpcoming}
+        title="Browse the next few SpaceX flights and focus a pad"
+      >
+        <CalendarDays className="layers-row-icon h-4 w-4" aria-hidden="true" />
+        <span className="layers-row-label">Upcoming flights</span>
+        <ChevronRight className="h-4 w-4" aria-hidden="true" style={{ opacity: 0.5 }} />
       </button>
 
       <button

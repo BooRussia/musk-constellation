@@ -7,23 +7,13 @@ import { GEO_LABELS, type GeoLabel } from '../data/geoLabels'
 // ============================================
 // GLOBE LABELS — Apple-Maps-style place names
 // ============================================
-// Continents, oceans, and major cities positioned by lat/lon on the
-// globe. Two behaviors managed per-frame via direct DOM mutation (no
-// React state churn):
-//   1. Level-of-detail: which tiers are visible depends on how far
-//      the camera is from the globe — few labels zoomed out, more as
-//      you zoom in (like Apple Maps).
-//   2. Back-side occlusion: labels on the hemisphere facing away from
-//      the camera are hidden, with a soft opacity fade near the limb.
+// Continents, oceans, countries, and cities positioned by lat/lon.
+// LOD + back-face occlusion via direct DOM mutation each frame.
 
 const EARTH_RADIUS = 5
-// Place labels a hair above the surface so they're not z-fighting.
 const LABEL_RADIUS = EARTH_RADIUS * 1.003
-
 const DEG2RAD = Math.PI / 180
 
-/** Convert lat/lon to the scene-space position, matching the Earth
- *  texture + satellite frame: ECEF (x,y,z) → scene (x, z, -y). */
 function latLonToScene(latDeg: number, lonDeg: number, radius: number): THREE.Vector3 {
   const phi = latDeg * DEG2RAD
   const lam = lonDeg * DEG2RAD
@@ -33,28 +23,46 @@ function latLonToScene(latDeg: number, lonDeg: number, radius: number): THREE.Ve
   return new THREE.Vector3(ex, ez, -ey).multiplyScalar(radius)
 }
 
-/** Camera-distance → highest tier of city labels to show. Tuned for
- *  the Earth view's minDistance 6 / maxDistance 48. Continents +
- *  oceans (tier 0) are always on; this gates the city/sea tiers. */
-function maxTierForDistance(dist: number): number {
-  if (dist > 26) return 0 // far out: continents + major oceans only
-  if (dist > 18) return 1 // + megacities + major seas
-  if (dist > 11) return 2 // + large cities
-  return 3 // close: + notable cities
+/** City / sea tier cap from camera distance. */
+function maxCityTier(dist: number): number {
+  if (dist > 26) return 0
+  if (dist > 18) return 1
+  if (dist > 11) return 2
+  return 3
+}
+
+/** Country tier cap — sits between continents and cities. */
+function maxCountryTier(dist: number): number {
+  if (dist > 24) return 0 // far: continents only
+  if (dist > 16) return 1 // major countries
+  if (dist > 11) return 2 // regional
+  return 3 // denser when close
+}
+
+function labelVisible(data: GeoLabel, dist: number, showCountries: boolean): boolean {
+  if (data.kind === 'continent') return true
+  if (data.kind === 'ocean') return data.tier <= maxCityTier(dist)
+  if (data.kind === 'country') {
+    if (!showCountries) return false
+    return data.tier <= maxCountryTier(dist)
+  }
+  // cities
+  return data.tier <= maxCityTier(dist) && data.tier > 0
 }
 
 interface LabelEntry {
   data: GeoLabel
-  /** Unit surface normal (for occlusion dot product). */
   normal: THREE.Vector3
-  /** Scene position of the label. */
   pos: THREE.Vector3
-  /** The label's outer DOM node (set by the Html ref callback). */
   el: HTMLDivElement | null
 }
 
-export default function GlobeLabels() {
-  // Build the static per-label geometry once.
+interface Props {
+  /** When false, country labels are hidden (continents/cities still follow Place names). */
+  showCountries?: boolean
+}
+
+export default function GlobeLabels({ showCountries = true }: Props) {
   const entries = useMemo<LabelEntry[]>(
     () =>
       GEO_LABELS.map((data) => {
@@ -64,29 +72,24 @@ export default function GlobeLabels() {
     [],
   )
   const entriesRef = useRef(entries)
-
+  const showCountriesRef = useRef(showCountries)
+  showCountriesRef.current = showCountries
   const camDir = useRef(new THREE.Vector3())
 
   useFrame(({ camera }) => {
     const dist = camera.position.length()
-    const maxTier = maxTierForDistance(dist)
-    // Direction from globe centre to camera (globe is at origin).
     camDir.current.copy(camera.position).normalize()
+    const countriesOn = showCountriesRef.current
 
     for (const entry of entriesRef.current) {
       const el = entry.el
       if (!el) continue
 
-      // Tier gate (LOD). Continents/oceans are tier 0 (always within
-      // any maxTier >= 0); cities/seas appear as you zoom in.
-      const tierVisible = entry.data.tier <= maxTier
-      if (!tierVisible) {
+      if (!labelVisible(entry.data, dist, countriesOn)) {
         if (el.style.display !== 'none') el.style.display = 'none'
         continue
       }
 
-      // Occlusion: front-facing when the surface normal points toward
-      // the camera. Small margin so labels fade out before the limb.
       const facing = entry.normal.dot(camDir.current)
       if (facing <= 0.12) {
         if (el.style.display !== 'none') el.style.display = 'none'
@@ -94,7 +97,6 @@ export default function GlobeLabels() {
       }
 
       if (el.style.display === 'none') el.style.display = ''
-      // Soft fade as a label approaches the limb (0.12 → 0.30).
       const fade = THREE.MathUtils.clamp((facing - 0.12) / 0.18, 0, 1)
       el.style.opacity = fade.toFixed(2)
     }
@@ -104,12 +106,10 @@ export default function GlobeLabels() {
     <group>
       {entries.map((entry, i) => (
         <Html
-          key={`${entry.data.name}-${i}`}
+          key={`${entry.data.kind}-${entry.data.name}-${i}`}
           position={entry.pos}
           center
           zIndexRange={[10, 0]}
-          // Don't let drei occlude/transform-scale; we manage
-          // visibility ourselves and want constant screen-size text.
           style={{ pointerEvents: 'none' }}
           wrapperClass="globe-label-wrapper"
         >

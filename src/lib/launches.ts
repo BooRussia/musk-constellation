@@ -18,15 +18,18 @@ export interface UpcomingLaunch {
   net: string
   /** How firm the time is (GO / TBD / TBC …). */
   status: string
+  /** Target orbit abbrev when LL2 has it. */
+  orbit?: string
+  /** Pad coordinates for globe focus (detailed mode). */
+  padLat?: number
+  padLon?: number
 }
 
 const LL2_URL =
   'https://ll.thespacedevs.com/2.2.0/launch/upcoming/' +
-  // SpaceX only; hide_recent_previous drops just-passed launches the
-  // "upcoming" feed otherwise keeps for a week; list mode is the light
-  // payload (its `name` is "Rocket | Mission", which we split below).
-  '?limit=6&mode=list&hide_recent_previous=true&lsp__name=SpaceX'
-const CACHE_KEY = 'mc.launches.v1'
+  // SpaceX only; detailed mode so we get pad lat/lon + orbit for the board.
+  '?limit=6&mode=detailed&hide_recent_previous=true&lsp__name=SpaceX'
+const CACHE_KEY = 'mc.launches.v2'
 // LL2 free tier throttles hard — 30 min cache keeps us well under it while
 // staying fresh enough for a countdown (net times rarely move minute-to-
 // minute).
@@ -50,22 +53,28 @@ function readCache(maxAgeMs: number): UpcomingLaunch[] | null {
   }
 }
 
-// LL2 "list" mode returns a lighter shape than the detailed endpoint.
-interface LL2ListResult {
+interface LL2BoardResult {
   id: string
-  name: string
+  name?: string
   net: string
   status?: { abbrev?: string }
   rocket?: { configuration?: { name?: string; full_name?: string } }
-  pad?: { name?: string; location?: { name?: string } }
+  pad?: {
+    name?: string
+    latitude?: string | number
+    longitude?: string | number
+    location?: { name?: string }
+  }
+  mission?: { orbit?: { abbrev?: string } | null }
 }
 
-function normalize(results: LL2ListResult[]): UpcomingLaunch[] {
+function normalize(results: LL2BoardResult[]): UpcomingLaunch[] {
   return results.map((r) => {
-    // list mode packs the name as "Falcon 9 Block 5 | Starlink Group 10-43".
     const parts = (r.name ?? '').split(' | ')
     const rocketFromName = parts.length > 1 ? parts[0] : undefined
     const mission = parts.length > 1 ? parts.slice(1).join(' | ') : (r.name ?? 'SpaceX launch')
+    const lat = r.pad?.latitude != null ? Number(r.pad.latitude) : NaN
+    const lon = r.pad?.longitude != null ? Number(r.pad.longitude) : NaN
     return {
       id: r.id,
       name: mission,
@@ -77,6 +86,9 @@ function normalize(results: LL2ListResult[]): UpcomingLaunch[] {
       pad: [r.pad?.name, r.pad?.location?.name].filter(Boolean).join(', '),
       net: r.net,
       status: r.status?.abbrev ?? 'TBD',
+      orbit: r.mission?.orbit?.abbrev ?? undefined,
+      padLat: Number.isFinite(lat) ? lat : undefined,
+      padLon: Number.isFinite(lon) ? lon : undefined,
     }
   })
 }
@@ -248,7 +260,7 @@ export async function fetchUpcomingLaunches(force = false): Promise<UpcomingLaun
   try {
     const res = await fetch(LL2_URL)
     if (res.ok) {
-      const json = (await res.json()) as { results?: LL2ListResult[] }
+      const json = (await res.json()) as { results?: LL2BoardResult[] }
       const launches = normalize(json.results ?? [])
       try {
         localStorage.setItem(CACHE_KEY, JSON.stringify({ fetchedAt: Date.now(), launches }))

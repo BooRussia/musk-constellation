@@ -169,6 +169,18 @@ export default function LaunchBar({ launch, onWatch, onExit, imperial }: Props) 
         </>
       )}
 
+      <span className="launchbar-divider" />
+      <div className="launchbar-stat">
+        <span className="launchbar-stat-k">Status</span>
+        <span className="launchbar-stat-v">{launch.status || 'TBD'}</span>
+      </div>
+      {launch.orbit && (
+        <div className="launchbar-stat">
+          <span className="launchbar-stat-k">Orbit</span>
+          <span className="launchbar-stat-v">{launch.orbit}</span>
+        </div>
+      )}
+
       {/* Hero T-minus. */}
       <span className="launchbar-divider" />
       <div className="launchbar-center">
@@ -177,18 +189,28 @@ export default function LaunchBar({ launch, onWatch, onExit, imperial }: Props) 
       </div>
       <span className="launchbar-divider" />
 
-      {/* Weather. */}
+      {/* Weather — temp/wind + outlook / precip / cloud. */}
       <div className="launchbar-stat launchbar-wx">
         <span className="launchbar-stat-k">
           <CloudSun className="h-3 w-3" aria-hidden="true" /> Weather
         </span>
         {wx ? (
-          <span className="launchbar-stat-v">
-            {imperial ? `${Math.round(wx.tempC * 1.8 + 32)}°F` : `${wx.tempC}°C`} ·{' '}
-            {imperial ? `${Math.round(wx.windKmh * 0.621371)} mph` : `${wx.windKmh} km/h`}
-          </span>
+          <>
+            <span className="launchbar-stat-v">
+              {imperial ? `${Math.round(wx.tempC * 1.8 + 32)}°F` : `${wx.tempC}°C`} ·{' '}
+              {imperial ? `${Math.round(wx.windKmh * 0.621371)} mph` : `${wx.windKmh} km/h`}
+            </span>
+            <span className="launchbar-stat-sub">
+              {wx.outlook} · {wx.precipProb}% precip · {wx.cloudPct}% cloud
+            </span>
+          </>
         ) : (
           <span className="launchbar-stat-v launchbar-stat-v--muted">—</span>
+        )}
+        {launch.weather && (
+          <span className="launchbar-stat-sub" title={launch.weather}>
+            {launch.weather.length > 42 ? `${launch.weather.slice(0, 41)}…` : launch.weather}
+          </span>
         )}
       </div>
 

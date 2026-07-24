@@ -19,6 +19,7 @@ import HomeController from './HomeController'
 import LaunchFocusController from './LaunchFocusController'
 import ActiveLaunchPad from './ActiveLaunchPad'
 import LaunchCone from './LaunchCone'
+import RecoveryMarker from './RecoveryMarker'
 import LaunchReplay, {
   LaunchSideViewApplier,
   type ReplayControl,
@@ -930,6 +931,8 @@ interface EarthSceneProps {
   launchSites?: boolean
   /** Show place-name labels (continents / oceans / cities). */
   labels?: boolean
+  /** Show country name labels (requires labels). */
+  countryLabels?: boolean
   /** Track the ISS live on the globe. */
   iss?: boolean
   /** The ISS tracked object (TLE/satrec), or null until fetched. */
@@ -948,6 +951,14 @@ interface EarthSceneProps {
   launchPad?: { lat: number; lon: number; name: string } | null
   /** Launch azimuth (deg from N) — draws the trajectory cone when set. */
   launchAzimuth?: number | null
+  /** Modeled booster recovery marker along the downrange corridor. */
+  recoveryOverlay?: {
+    padLat: number
+    padLon: number
+    azimuth: number
+    downrangeKm: number
+    label: string
+  } | null
   /** Bump to re-centre on the pad (e.g. re-clicking the launch pill). */
   launchFocusSignal?: number
   /** Bump to reset the camera to the default home framing. */
@@ -991,6 +1002,7 @@ export default function EarthScene({
   graticule = false,
   launchSites = false,
   labels = true,
+  countryLabels = true,
   iss = false,
   issSat = null,
   issTelemetryRef,
@@ -1000,6 +1012,7 @@ export default function EarthScene({
   launchFocusActive = false,
   launchPad = null,
   launchAzimuth = null,
+  recoveryOverlay = null,
   launchFocusSignal = 0,
   homeSignal = 0,
   replayLaunch = null,
@@ -1184,7 +1197,7 @@ export default function EarthScene({
         {/* Place-name labels (continents / oceans / cities) with
             zoom level-of-detail + back-side occlusion. Geographic, so
             shown on any globe skin; toggleable from the Layers menu. */}
-        {labels && <GlobeLabels />}
+        {labels && <GlobeLabels showCountries={countryLabels} />}
 
         {/* Country + US-state boundary overlay (lazy-loaded). Sits just
             above the surface so it works on any map skin. */}
@@ -1257,6 +1270,15 @@ export default function EarthScene({
             <ActiveLaunchPad lat={launchPad.lat} lon={launchPad.lon} name={launchPad.name} />
             {launchAzimuth != null && !liveSimLaunch && (
               <LaunchCone lat={launchPad.lat} lon={launchPad.lon} azimuth={launchAzimuth} />
+            )}
+            {recoveryOverlay && (
+              <RecoveryMarker
+                padLat={recoveryOverlay.padLat}
+                padLon={recoveryOverlay.padLon}
+                azimuth={recoveryOverlay.azimuth}
+                downrangeKm={recoveryOverlay.downrangeKm}
+                label={recoveryOverlay.label}
+              />
             )}
           </>
         )}

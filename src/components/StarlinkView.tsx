@@ -19,8 +19,13 @@ import MiniPlayer, { initialLiveStreamDelaySec } from './MiniPlayer'
 import ReplayPicker from './ReplayPicker'
 import ReplayControls from './ReplayControls'
 import ReplayInfoBar from './ReplayInfoBar'
+import UpcomingBoard from './UpcomingBoard'
 import type { ReplayControl } from './LaunchReplay'
-import { fetchNextLaunchDetailed, type DetailedLaunch } from '../lib/launches'
+import {
+  fetchNextLaunchDetailed,
+  type DetailedLaunch,
+  type UpcomingLaunch,
+} from '../lib/launches'
 import { loadPastLaunches, type PastLaunch } from '../lib/pastLaunches'
 import { launchAzimuth as computeLaunchAzimuth, orbitInclination } from '../lib/trajectory'
 import { falcon9FlightEvents } from '../lib/launchSequence'
@@ -168,6 +173,8 @@ export default function StarlinkView({ onBack }: Props) {
   const [launchSites, setLaunchSites] = useState(true)
   // Place-name labels (continents / oceans / cities; on by default).
   const [labels, setLabels] = useState(true)
+  // Country name labels (under Place names; on by default).
+  const [countryLabels, setCountryLabels] = useState(true)
   // Google-Maps-style high-res tile mosaic (streams in when you zoom in).
   const [detailTiles, setDetailTiles] = useState(true)
   const [tileProvider, setTileProvider] = useState<TileProvider>('satellite')
@@ -272,32 +279,67 @@ export default function StarlinkView({ onBack }: Props) {
     }
   }, [])
 
+  // Past-launch replay + upcoming board state.
+  const [replayPickerOpen, setReplayPickerOpen] = useState(false)
+  const [upcomingBoardOpen, setUpcomingBoardOpen] = useState(false)
+  /** Pad override when the user picks a non-next flight from the board. */
+  const [boardPad, setBoardPad] = useState<{ lat: number; lon: number; name: string } | null>(
+    null,
+  )
+
   // The pad to spin to, and whether the spin-to-pad focus is engaged.
-  // A replay's pad takes precedence over the next-launch pad.
+  // Replay pad > board pick > next-launch pad.
   const launchPad = useMemo(() => {
     if (replayLaunch) {
       const p = replayLaunch.pad
       return { lat: p.lat, lon: p.lon, name: p.name }
     }
+    if (boardPad && trackLaunch) return boardPad
     const p = detailedLaunch?.pad
     return p ? { lat: p.lat, lon: p.lon, name: p.name } : null
-  }, [replayLaunch, detailedLaunch])
+  }, [replayLaunch, boardPad, trackLaunch, detailedLaunch])
   const launchFocusActive = (!!replayLaunch || trackLaunch) && !!launchPad
 
-  // Launch heading for the trajectory cone — only for the live tracked
-  // launch (a replay draws its own full flight path instead).
+  // Launch heading for the trajectory cone / recovery marker.
   const launchAzimuthDeg = useMemo(() => {
-    if (!trackLaunch || !launchPad) return null
-    const orbit = detailedLaunch?.orbit ?? 'LEO'
+    if (!launchPad) return null
+    if (!trackLaunch && !replayLaunch) return null
+    const orbit = replayLaunch?.orbit ?? detailedLaunch?.orbit ?? 'LEO'
     return computeLaunchAzimuth(
       orbitInclination(orbit, launchPad.lat, launchPad.lon),
       launchPad.lat,
       launchPad.lon,
     )
-  }, [trackLaunch, launchPad, detailedLaunch])
+  }, [trackLaunch, replayLaunch, launchPad, detailedLaunch])
 
-  // Past-launch replay state.
-  const [replayPickerOpen, setReplayPickerOpen] = useState(false)
+  /** Modeled booster recovery — baked downrange for replays, typical ASDS for live. */
+  const recoveryOverlay = useMemo(() => {
+    if (!launchPad || launchAzimuthDeg == null) return null
+    if (replayLaunch?.landing?.downrangeKm != null && replayLaunch.landing.downrangeKm > 20) {
+      const t = replayLaunch.landing.type
+      return {
+        padLat: launchPad.lat,
+        padLon: launchPad.lon,
+        azimuth: launchAzimuthDeg,
+        downrangeKm: replayLaunch.landing.downrangeKm,
+        label: t === 'RTLS' ? 'RTLS' : t === 'ASDS' || t === 'Ocean' ? 'ASDS' : 'Recovery',
+      }
+    }
+    if (trackLaunch) {
+      const orbit = detailedLaunch?.orbit ?? 'LEO'
+      // Typical Starlink ASDS station-keeping ~500–700 km east of the Cape.
+      const km = orbit === 'GTO' ? 900 : orbit === 'Sub' ? 0 : 620
+      if (km < 20) return null
+      return {
+        padLat: launchPad.lat,
+        padLon: launchPad.lon,
+        azimuth: launchAzimuthDeg,
+        downrangeKm: km,
+        label: 'ASDS (typical)',
+      }
+    }
+    return null
+  }, [launchPad, launchAzimuthDeg, replayLaunch, trackLaunch, detailedLaunch])
   const [pastLaunches, setPastLaunches] = useState<PastLaunch[]>([])
   const replayCtrlRef = useRef<ReplayControl>({
     t: 0,
@@ -361,8 +403,28 @@ export default function StarlinkView({ onBack }: Props) {
   // and (re)centre the globe on the pad.
   const focusNextLaunch = useCallback(() => {
     setReplayLaunch(null)
+    setBoardPad(null)
+    setUpcomingBoardOpen(false)
     setTrackLaunch(true)
     setAutoRotate(false)
+    setLaunchFocusSignal((s) => s + 1)
+  }, [])
+
+  const selectUpcoming = useCallback((l: UpcomingLaunch) => {
+    setUpcomingBoardOpen(false)
+    setReplayLaunch(null)
+    setTrackISS(false)
+    setAutoRotate(false)
+    setTrackLaunch(true)
+    if (l.padLat != null && l.padLon != null) {
+      setBoardPad({
+        lat: l.padLat,
+        lon: l.padLon,
+        name: l.pad || l.name,
+      })
+    } else {
+      setBoardPad(null)
+    }
     setLaunchFocusSignal((s) => s + 1)
   }, [])
 
@@ -372,6 +434,8 @@ export default function StarlinkView({ onBack }: Props) {
     setTrackLaunch(false)
     setReplayLaunch(null)
     setReplayPickerOpen(false)
+    setUpcomingBoardOpen(false)
+    setBoardPad(null)
     setWatchOpen(false)
     setReplayWatchOpen(false)
     setAutoRotate(true)
@@ -599,6 +663,8 @@ export default function StarlinkView({ onBack }: Props) {
             onLaunchSites={() => setLaunchSites((s) => !s)}
             labels={labels}
             onLabels={() => setLabels((l) => !l)}
+            countryLabels={countryLabels}
+            onCountryLabels={() => setCountryLabels((c) => !c)}
             iss={iss}
             onIss={() => setIss((v) => !v)}
           />
@@ -624,8 +690,16 @@ export default function StarlinkView({ onBack }: Props) {
             issActive={trackISS}
             onTrackISS={toggleTrackISS}
             launchActive={trackLaunch}
-            onTrackLaunch={() => (trackLaunch ? setTrackLaunch(false) : focusNextLaunch())}
+            onTrackLaunch={() => {
+              if (trackLaunch) {
+                setTrackLaunch(false)
+                setBoardPad(null)
+              } else {
+                focusNextLaunch()
+              }
+            }}
             onOpenReplays={() => setReplayPickerOpen(true)}
+            onOpenUpcoming={() => setUpcomingBoardOpen(true)}
           />
 
           <div className="starlink-status">
@@ -656,6 +730,7 @@ export default function StarlinkView({ onBack }: Props) {
               graticule={graticule}
               launchSites={launchSites}
               labels={labels}
+              countryLabels={countryLabels}
               iss={iss}
               issSat={issSat}
               issTelemetryRef={issTelemetryRef}
@@ -665,6 +740,7 @@ export default function StarlinkView({ onBack }: Props) {
               launchFocusActive={launchFocusActive}
               launchPad={launchPad}
               launchAzimuth={launchAzimuthDeg}
+              recoveryOverlay={recoveryOverlay}
               launchFocusSignal={launchFocusSignal}
               homeSignal={homeSignal}
               replayLaunch={replayLaunch}
@@ -757,6 +833,12 @@ export default function StarlinkView({ onBack }: Props) {
             onClose={() => setReplayPickerOpen(false)}
           />
         )}
+        <UpcomingBoard
+          open={upcomingBoardOpen}
+          onClose={() => setUpcomingBoardOpen(false)}
+          onSelect={selectUpcoming}
+          activeId={detailedLaunch?.id}
+        />
         <AnimatePresence>
           {replayLaunch && (
             <motion.div

@@ -2979,6 +2979,14 @@ body {
   overflow: hidden;
   padding: 0 8px;
 }
+.layers-row--nested {
+  padding-left: 34px;
+  min-height: 32px;
+  font-size: 12px;
+}
+.layers-row--nested .layers-row-label {
+  font-size: 11.5px;
+}
 .layers-seg {
   display: flex;
   gap: 3px;
@@ -5371,6 +5379,168 @@ body {
   border-color: rgba(255, 255, 255, 0.35);
 }
 
+/* Upcoming flights board — Trackers → Upcoming flights. */
+.upcoming-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 12vh 16px 16px;
+  background: rgba(2, 4, 10, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.upcoming-board {
+  width: min(480px, 94vw);
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 12, 22, 0.96);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+.upcoming-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.upcoming-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 1.2px;
+  color: #ffb066;
+  text-transform: uppercase;
+}
+.upcoming-close {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+}
+.upcoming-hint {
+  margin: 0;
+  padding: 8px 14px 4px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+}
+.upcoming-empty {
+  padding: 28px 16px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 13px;
+}
+.upcoming-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+}
+.upcoming-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.upcoming-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.upcoming-item.is-active {
+  border-color: rgba(255, 150, 60, 0.4);
+  background: rgba(255, 150, 60, 0.1);
+}
+.upcoming-item-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.upcoming-mission {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.upcoming-status {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #9bb4ff;
+}
+.upcoming-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: rgba(255, 210, 160, 0.85);
+}
+.upcoming-pad {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.recovery-wrap {
+  pointer-events: none;
+}
+.recovery-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  transform: translateY(-18px);
+  white-space: nowrap;
+}
+.recovery-verb {
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  color: #0a1210;
+  background: #5eead4;
+}
+.recovery-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: #e0fffa;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+.recovery-range {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: rgba(180, 240, 220, 0.8);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+}
+
 .replaypicker-overlay {
   position: fixed;
   inset: 0;
@@ -5593,6 +5763,15 @@ body {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
 }
 
+/* Countries — between continents and cities; compact, muted. */
+.globe-label--country .globe-label-text {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  color: rgba(220, 228, 240, 0.78);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+}
+
 /* Cities — the DOT marks the exact location and is the anchor point
    (the <Html> is centered on the city's lat/lon). The label box is
    collapsed to a zero-size point so centering lands the dot — not the
@@ -5632,6 +5811,7 @@ body {
 @media (max-width: 639px) {
   .globe-label--continent .globe-label-text { font-size: 11px; letter-spacing: 2px; }
   .globe-label--ocean .globe-label-text { font-size: 10px; }
+  .globe-label--country .globe-label-text { font-size: 9.5px; }
   .globe-label--city .globe-label-text { font-size: 10px; }
 }
 
