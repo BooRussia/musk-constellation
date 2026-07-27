@@ -3,7 +3,7 @@
     "id": "5b2f05d7-9052-49fb-9bd7-2a05d4910576",
     "mission": "Starlink Group 17-51",
     "rocket": "Falcon 9 Block 5",
-    "net": "2026-07-24T14:00:00Z",
+    "net": "2026-07-25T15:51:55Z",
     "pad": {
       "name": "Space Launch Complex 4E",
       "lat": 34.632,
@@ -12,11 +12,12 @@
     },
     "orbit": "LEO",
     "missionType": "Communications",
-    "webcastUrl": "https://x.com/i/broadcasts/1wxWjjQvmrkJQ",
+    "webcastUrl": "https://www.youtube.com/watch?v=Lvt-g-X6JPs",
+    "webcastEmbed": "https://www.youtube.com/embed/Lvt-g-X6JPs",
     "landing": {
       "downrangeKm": 574,
       "location": "Of Course I Still Love You",
-      "success": null,
+      "success": true,
       "type": "ASDS"
     },
     "events": [
@@ -83,7 +84,7 @@
     "id": "ac897b9f-44d2-4ff4-8416-1a0a076e98a2",
     "mission": "Flight 13",
     "rocket": "Starship V3",
-    "net": "2026-07-23T22:45:00Z",
+    "net": "2026-07-24T22:51:00Z",
     "pad": {
       "name": "Orbital Launch Pad 2",
       "lat": 25.99677,
@@ -92,12 +93,12 @@
     },
     "orbit": "Sub",
     "missionType": "Test Flight",
-    "webcastUrl": "https://www.youtube.com/watch?v=0EnOQCjgq4E",
-    "webcastEmbed": "https://www.youtube.com/embed/0EnOQCjgq4E",
+    "webcastUrl": "https://www.youtube.com/watch?v=7dMblISWtz8",
+    "webcastEmbed": "https://www.youtube.com/embed/7dMblISWtz8",
     "landing": {
       "downrangeKm": null,
       "location": "Gulf of Mexico",
-      "success": null,
+      "success": false,
       "type": "Ocean"
     },
     "events": [
@@ -201,8 +202,8 @@
     },
     "orbit": "GTO",
     "missionType": "Mission Extension",
-    "webcastUrl": "https://www.youtube.com/watch?v=BEhu74LtIb0",
-    "webcastEmbed": "https://www.youtube.com/embed/BEhu74LtIb0",
+    "webcastUrl": "https://www.youtube.com/watch?v=qKgy0UbBZrk",
+    "webcastEmbed": "https://www.youtube.com/embed/qKgy0UbBZrk",
     "landing": {
       "downrangeKm": null,
       "location": "Atlantic Ocean",
@@ -273,7 +274,7 @@
     "id": "e1079d3a-c0a6-4b42-bc1d-92e48a5a78fc",
     "mission": "Starlink Group 17-39",
     "rocket": "Falcon 9 Block 5",
-    "net": "2026-07-20T14:00:00Z",
+    "net": "2026-07-21T14:49:34Z",
     "pad": {
       "name": "Space Launch Complex 4E",
       "lat": 34.632,
@@ -282,12 +283,12 @@
     },
     "orbit": "LEO",
     "missionType": "Communications",
-    "webcastUrl": "https://www.youtube.com/watch?v=p648NlL0fi4",
-    "webcastEmbed": "https://www.youtube.com/embed/p648NlL0fi4",
+    "webcastUrl": "https://www.youtube.com/watch?v=cBlgROX6OO4",
+    "webcastEmbed": "https://www.youtube.com/embed/cBlgROX6OO4",
     "landing": {
       "downrangeKm": 574,
       "location": "Of Course I Still Love You",
-      "success": null,
+      "success": true,
       "type": "ASDS"
     },
     "events": [
