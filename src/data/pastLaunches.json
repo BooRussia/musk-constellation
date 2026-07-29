@@ -1,5 +1,85 @@
 [
   {
+    "id": "e7e55b53-6f69-4c22-9fc5-df00df653a3f",
+    "mission": "Starlink Group 17-52",
+    "rocket": "Falcon 9 Block 5",
+    "net": "2026-07-29T02:00:00Z",
+    "pad": {
+      "name": "Space Launch Complex 4E",
+      "lat": 34.632,
+      "lon": -120.611,
+      "location": "Vandenberg SFB, CA, USA"
+    },
+    "orbit": "LEO",
+    "missionType": "Communications",
+    "webcastUrl": "https://x.com/i/broadcasts/1AxRnnrObgzxl",
+    "landing": {
+      "downrangeKm": 574,
+      "location": "Of Course I Still Love You",
+      "success": null,
+      "type": "ASDS"
+    },
+    "events": [
+      {
+        "label": "Liftoff",
+        "t": 0
+      },
+      {
+        "label": "Max-Q",
+        "t": 68
+      },
+      {
+        "label": "MECO",
+        "t": 145
+      },
+      {
+        "label": "Stage 2 Separation",
+        "t": 149
+      },
+      {
+        "label": "SES-1",
+        "t": 156
+      },
+      {
+        "label": "Fairing Separation",
+        "t": 177
+      },
+      {
+        "label": "Entry Burn Startup",
+        "t": 359
+      },
+      {
+        "label": "Entry Burn Shutdown",
+        "t": 382
+      },
+      {
+        "label": "Stage 1 Landing Burn",
+        "t": 477
+      },
+      {
+        "label": "Stage 1 Landing",
+        "t": 499
+      },
+      {
+        "label": "SECO-1",
+        "t": 520
+      },
+      {
+        "label": "SES-2",
+        "t": 3157
+      },
+      {
+        "label": "SECO-2",
+        "t": 3158
+      },
+      {
+        "label": "Starlink Deployment",
+        "t": 3688
+      }
+    ],
+    "hasRealTimeline": true
+  },
+  {
     "id": "5b2f05d7-9052-49fb-9bd7-2a05d4910576",
     "mission": "Starlink Group 17-51",
     "rocket": "Falcon 9 Block 5",
@@ -3222,115 +3302,6 @@
       {
         "label": "Starlink Deployment",
         "t": 3671
-      }
-    ],
-    "hasRealTimeline": true
-  },
-  {
-    "id": "4cc237b2-c61a-491e-9532-466cce81f524",
-    "mission": "ViaSat-3 F3 (ViaSat-3 Asia-Pacific)",
-    "rocket": "Falcon Heavy",
-    "net": "2026-04-29T14:13:00Z",
-    "pad": {
-      "name": "Launch Complex 39A",
-      "lat": 28.60822681,
-      "lon": -80.60428186,
-      "location": "Kennedy Space Center, FL, USA"
-    },
-    "orbit": "GTO",
-    "missionType": "Communications",
-    "webcastUrl": "https://www.youtube.com/watch?v=vdLb-RlctaY",
-    "webcastEmbed": "https://www.youtube.com/embed/vdLb-RlctaY",
-    "landing": {
-      "downrangeKm": 5.8,
-      "location": "Landing Zone 40",
-      "success": true,
-      "type": "RTLS"
-    },
-    "events": [
-      {
-        "label": "Liftoff",
-        "t": 0
-      },
-      {
-        "label": "Max-Q",
-        "t": 69
-      },
-      {
-        "label": "SBECO",
-        "t": 141
-      },
-      {
-        "label": "Boosters Separation",
-        "t": 145
-      },
-      {
-        "label": "Boosters Flip",
-        "t": 150
-      },
-      {
-        "label": "Boosters Boostback Burn Startup",
-        "t": 161
-      },
-      {
-        "label": "Boosters Boostback Burn Shutdown",
-        "t": 227
-      },
-      {
-        "label": "MECO",
-        "t": 230
-      },
-      {
-        "label": "Stage 2 Separation",
-        "t": 234
-      },
-      {
-        "label": "SES-1",
-        "t": 241
-      },
-      {
-        "label": "Fairing Separation",
-        "t": 257
-      },
-      {
-        "label": "Boosters Entry Burn Startup",
-        "t": 388
-      },
-      {
-        "label": "Boosters Entry Burn Shutdown",
-        "t": 404
-      },
-      {
-        "label": "Boosters Landing Burn",
-        "t": 461
-      },
-      {
-        "label": "Boosters Landing",
-        "t": 478
-      },
-      {
-        "label": "SECO-1",
-        "t": 493
-      },
-      {
-        "label": "SES-2",
-        "t": 1565
-      },
-      {
-        "label": "SECO-2",
-        "t": 1653
-      },
-      {
-        "label": "SES-3",
-        "t": 17267
-      },
-      {
-        "label": "SECO-3",
-        "t": 17310
-      },
-      {
-        "label": "Payload Separation",
-        "t": 17851
       }
     ],
     "hasRealTimeline": true
