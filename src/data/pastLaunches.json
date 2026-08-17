@@ -1,9 +1,74 @@
 [
   {
-    "id": "be8b4b0d-1989-48a5-a96d-e8e4d59ed8b3",
-    "mission": "Globalstar 2-R Mission 1 (x 9)",
+    "id": "55b79515-ddbf-4198-8a59-29a12ed21330",
+    "mission": "USSF-366",
     "rocket": "Falcon 9 Block 5",
-    "net": "2026-08-16T01:12:00Z",
+    "net": "2026-08-16T01:50:45Z",
+    "pad": {
+      "name": "Space Launch Complex 4E",
+      "lat": 34.632,
+      "lon": -120.611,
+      "location": "Vandenberg SFB, CA, USA"
+    },
+    "orbit": "LEO",
+    "missionType": "Government/Top Secret",
+    "webcastUrl": "https://www.youtube.com/watch?v=GCdmtmYyInM",
+    "webcastEmbed": "https://www.youtube.com/embed/GCdmtmYyInM",
+    "landing": {
+      "downrangeKm": 574,
+      "location": "Of Course I Still Love You",
+      "success": true,
+      "type": "ASDS"
+    },
+    "events": [
+      {
+        "label": "Liftoff",
+        "t": 0
+      },
+      {
+        "label": "Max-Q",
+        "t": 67
+      },
+      {
+        "label": "MECO",
+        "t": 145
+      },
+      {
+        "label": "Stage 2 Separation",
+        "t": 149
+      },
+      {
+        "label": "SES-1",
+        "t": 156
+      },
+      {
+        "label": "Fairing Separation",
+        "t": 178
+      },
+      {
+        "label": "Entry Burn Startup",
+        "t": 361
+      },
+      {
+        "label": "Entry Burn Shutdown",
+        "t": 385
+      },
+      {
+        "label": "Stage 1 Landing Burn",
+        "t": 478
+      },
+      {
+        "label": "Stage 1 Landing",
+        "t": 500
+      }
+    ],
+    "hasRealTimeline": true
+  },
+  {
+    "id": "be8b4b0d-1989-48a5-a96d-e8e4d59ed8b3",
+    "mission": "Globalstar 2-R Mission 1 (x 8)",
+    "rocket": "Falcon 9 Block 5",
+    "net": "2026-08-16T01:12:14Z",
     "pad": {
       "name": "Space Launch Complex 40",
       "lat": 28.56194122,
@@ -12,11 +77,12 @@
     },
     "orbit": "LEO",
     "missionType": "Communications",
-    "webcastUrl": "https://x.com/i/broadcasts/1pJkOOkmyQyJj",
+    "webcastUrl": "https://www.youtube.com/watch?v=o3t9usE9y5w",
+    "webcastEmbed": "https://www.youtube.com/embed/o3t9usE9y5w",
     "landing": {
       "downrangeKm": 0.3,
       "location": "Landing Zone 40",
-      "success": null,
+      "success": true,
       "type": "RTLS"
     },
     "events": [
@@ -96,32 +162,10 @@
     "hasRealTimeline": true
   },
   {
-    "id": "55b79515-ddbf-4198-8a59-29a12ed21330",
-    "mission": "R-1",
-    "rocket": "Falcon 9 Block 5",
-    "net": "2026-08-15T21:52:00Z",
-    "pad": {
-      "name": "Space Launch Complex 4E",
-      "lat": 34.632,
-      "lon": -120.611,
-      "location": "Vandenberg SFB, CA, USA"
-    },
-    "orbit": "LEO",
-    "missionType": "Unknown",
-    "landing": {
-      "downrangeKm": 574,
-      "location": "Of Course I Still Love You",
-      "success": null,
-      "type": "ASDS"
-    },
-    "events": [],
-    "hasRealTimeline": false
-  },
-  {
     "id": "6f94dbe4-1318-4ffb-a53d-351bbdcba733",
     "mission": "Starlink Group 17-49",
     "rocket": "Falcon 9 Block 5",
-    "net": "2026-08-12T02:00:00Z",
+    "net": "2026-08-12T04:46:47Z",
     "pad": {
       "name": "Space Launch Complex 4E",
       "lat": 34.632,
@@ -130,11 +174,12 @@
     },
     "orbit": "LEO",
     "missionType": "Communications",
-    "webcastUrl": "https://x.com/i/broadcasts/1nGnRRpkMDLGO",
+    "webcastUrl": "https://www.youtube.com/watch?v=vtEFuHsTYZs",
+    "webcastEmbed": "https://www.youtube.com/embed/vtEFuHsTYZs",
     "landing": {
       "downrangeKm": 574,
       "location": "Of Course I Still Love You",
-      "success": null,
+      "success": true,
       "type": "ASDS"
     },
     "events": [
@@ -201,7 +246,7 @@
     "id": "36ab6924-bb36-416a-b71d-cda9e88004be",
     "mission": "Starlink Group 10-19",
     "rocket": "Falcon 9 Block 5",
-    "net": "2026-08-10T15:07:28Z",
+    "net": "2026-08-11T15:58:26Z",
     "pad": {
       "name": "Space Launch Complex 40",
       "lat": 28.56194122,
@@ -210,12 +255,12 @@
     },
     "orbit": "LEO",
     "missionType": "Communications",
-    "webcastUrl": "https://www.youtube.com/watch?v=x6FNFhI98xw",
-    "webcastEmbed": "https://www.youtube.com/embed/x6FNFhI98xw",
+    "webcastUrl": "https://www.youtube.com/watch?v=p1UQU7ax4t8",
+    "webcastEmbed": "https://www.youtube.com/embed/p1UQU7ax4t8",
     "landing": {
       "downrangeKm": 600,
       "location": "A Shortfall of Gravitas",
-      "success": null,
+      "success": true,
       "type": "ASDS"
     },
     "events": [
