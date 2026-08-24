@@ -3,7 +3,7 @@
     "id": "6208f972-18ec-490f-bbe5-6f5c6cfcd48c",
     "mission": "Starlink Group 15-20",
     "rocket": "Falcon 9 Block 5",
-    "net": "2026-08-22T07:25:00Z",
+    "net": "2026-08-22T07:25:16Z",
     "pad": {
       "name": "Space Launch Complex 4E",
       "lat": 34.632,
@@ -12,11 +12,12 @@
     },
     "orbit": "LEO",
     "missionType": "Communications",
-    "webcastUrl": "https://x.com/i/broadcasts/1PKqrNNknkZGb",
+    "webcastUrl": "https://www.youtube.com/watch?v=7r0RfmKbr_Q",
+    "webcastEmbed": "https://www.youtube.com/embed/7r0RfmKbr_Q",
     "landing": {
       "downrangeKm": 574,
       "location": "Of Course I Still Love You",
-      "success": null,
+      "success": true,
       "type": "ASDS"
     },
     "events": [
@@ -83,7 +84,7 @@
     "id": "bbdc4d47-1de3-428e-9fe1-bbf45d9b1e04",
     "mission": "Starlink Group 10-39",
     "rocket": "Falcon 9 Block 5",
-    "net": "2026-08-20T15:19:00Z",
+    "net": "2026-08-21T15:14:22Z",
     "pad": {
       "name": "Space Launch Complex 40",
       "lat": 28.56194122,
@@ -92,11 +93,12 @@
     },
     "orbit": "LEO",
     "missionType": "Communications",
-    "webcastUrl": "https://x.com/i/broadcasts/1qKDzWPePyaJV",
+    "webcastUrl": "https://www.youtube.com/watch?v=1051Kv6YfKM",
+    "webcastEmbed": "https://www.youtube.com/embed/1051Kv6YfKM",
     "landing": {
       "downrangeKm": 600,
       "location": "A Shortfall of Gravitas",
-      "success": null,
+      "success": true,
       "type": "ASDS"
     },
     "events": [
@@ -163,7 +165,7 @@
     "id": "f6958a77-37bb-4559-a108-40ba0ff9e34a",
     "mission": "Starlink Group 17-50",
     "rocket": "Falcon 9 Block 5",
-    "net": "2026-08-19T02:00:00Z",
+    "net": "2026-08-19T04:01:07Z",
     "pad": {
       "name": "Space Launch Complex 4E",
       "lat": 34.632,
@@ -172,11 +174,12 @@
     },
     "orbit": "LEO",
     "missionType": "Communications",
-    "webcastUrl": "https://x.com/i/broadcasts/1RJjppgNbXwKw",
+    "webcastUrl": "https://www.youtube.com/watch?v=3vX-zLAGM38",
+    "webcastEmbed": "https://www.youtube.com/embed/3vX-zLAGM38",
     "landing": {
       "downrangeKm": 574,
       "location": "Of Course I Still Love You",
-      "success": null,
+      "success": true,
       "type": "ASDS"
     },
     "events": [
@@ -725,6 +728,10 @@
       {
         "label": "Payload Separation",
         "t": 3545
+      },
+      {
+        "label": "Payload Separation",
+        "t": 3865
       }
     ],
     "hasRealTimeline": true
@@ -1072,11 +1079,11 @@
     },
     "events": [
       {
-        "label": "Excitement Guaranteed",
+        "label": "Liftoff",
         "t": 0
       },
       {
-        "label": "Liftoff",
+        "label": "Excitement Guaranteed",
         "t": 0
       },
       {
