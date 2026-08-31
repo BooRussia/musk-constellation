@@ -3,7 +3,7 @@
     "id": "521f3a1c-f977-4306-9b7f-495858719adf",
     "mission": "Nancy Grace Roman Space Telescope",
     "rocket": "Falcon Heavy",
-    "net": "2026-08-30T11:26:00Z",
+    "net": "2026-08-30T11:26:04Z",
     "pad": {
       "name": "Launch Complex 39A",
       "lat": 28.60822681,
@@ -12,11 +12,12 @@
     },
     "orbit": "L2",
     "missionType": "Astrophysics",
-    "webcastUrl": "https://x.com/i/broadcasts/1jxXgBanvZeJZ",
+    "webcastUrl": "https://www.youtube.com/watch?v=9wq3VHsL_bE",
+    "webcastEmbed": "https://www.youtube.com/embed/9wq3VHsL_bE",
     "landing": {
       "downrangeKm": 5.8,
       "location": "Landing Zone 40",
-      "success": null,
+      "success": true,
       "type": "RTLS"
     },
     "events": [
@@ -103,7 +104,7 @@
     "id": "95653d52-bb77-4860-a815-dd7141778d17",
     "mission": "Starlink Group 15-22",
     "rocket": "Falcon 9 Block 5",
-    "net": "2026-08-26T09:27:00Z",
+    "net": "2026-08-26T09:35:11Z",
     "pad": {
       "name": "Space Launch Complex 4E",
       "lat": 34.632,
@@ -112,11 +113,12 @@
     },
     "orbit": "LEO",
     "missionType": "Communications",
-    "webcastUrl": "https://x.com/i/broadcasts/1AKEmvvQLayKL",
+    "webcastUrl": "https://www.youtube.com/watch?v=ZUSimYVey_c",
+    "webcastEmbed": "https://www.youtube.com/embed/ZUSimYVey_c",
     "landing": {
       "downrangeKm": 574,
       "location": "Of Course I Still Love You",
-      "success": null,
+      "success": true,
       "type": "ASDS"
     },
     "events": [
@@ -183,7 +185,7 @@
     "id": "ad501ebd-a357-4305-90c1-c46c6feb2ecf",
     "mission": "Starlink Group 10-49",
     "rocket": "Falcon 9 Block 5",
-    "net": "2026-08-25T05:49:00Z",
+    "net": "2026-08-25T09:33:38Z",
     "pad": {
       "name": "Space Launch Complex 40",
       "lat": 28.56194122,
@@ -192,11 +194,12 @@
     },
     "orbit": "LEO",
     "missionType": "Communications",
-    "webcastUrl": "https://x.com/i/broadcasts/1AKEmvmQBwgKL",
+    "webcastUrl": "https://www.youtube.com/watch?v=iXcAJQ5r0jI",
+    "webcastEmbed": "https://www.youtube.com/embed/iXcAJQ5r0jI",
     "landing": {
       "downrangeKm": 600,
       "location": "A Shortfall of Gravitas",
-      "success": null,
+      "success": true,
       "type": "ASDS"
     },
     "events": [
