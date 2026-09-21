@@ -12,11 +12,12 @@
     },
     "orbit": "LEO",
     "missionType": "Communications",
-    "webcastUrl": "https://x.com/i/broadcasts/1nxnRBXEladxO",
+    "webcastUrl": "https://www.youtube.com/watch?v=gOcigcsXtHk",
+    "webcastEmbed": "https://www.youtube.com/embed/gOcigcsXtHk",
     "landing": {
       "downrangeKm": 574,
       "location": "Of Course I Still Love You",
-      "success": null,
+      "success": true,
       "type": "ASDS"
     },
     "events": [
@@ -80,27 +81,10 @@
     "hasRealTimeline": true
   },
   {
-    "id": "7d1afb26-6f9c-429b-9ccf-29012fd1e519",
-    "mission": "Flight 14",
-    "rocket": "Starship V3",
-    "net": "2026-09-18T12:15:00Z",
-    "pad": {
-      "name": "Orbital Launch Pad 2",
-      "lat": 25.99677,
-      "lon": -97.15799,
-      "location": "SpaceX Starbase, TX, USA"
-    },
-    "orbit": "LEO",
-    "missionType": "Test Flight",
-    "landing": null,
-    "events": [],
-    "hasRealTimeline": false
-  },
-  {
     "id": "17c71937-dd80-406f-bb47-0c9ee9a24276",
     "mission": "USSF-259",
     "rocket": "Falcon 9 Block 5",
-    "net": "2026-09-16T01:00:00Z",
+    "net": "2026-09-17T01:07:56Z",
     "pad": {
       "name": "Space Launch Complex 4E",
       "lat": 34.632,
@@ -109,11 +93,12 @@
     },
     "orbit": "PO",
     "missionType": "Government/Top Secret",
-    "webcastUrl": "https://x.com/i/broadcasts/1nGeLMWbkpaKX",
+    "webcastUrl": "https://www.youtube.com/watch?v=7SMBsQ5MQCk",
+    "webcastEmbed": "https://www.youtube.com/embed/7SMBsQ5MQCk",
     "landing": {
       "downrangeKm": 574,
       "location": "Of Course I Still Love You",
-      "success": null,
+      "success": true,
       "type": "ASDS"
     },
     "events": [
@@ -492,8 +477,8 @@
     "webcastUrl": "https://www.youtube.com/watch?v=9wq3VHsL_bE",
     "webcastEmbed": "https://www.youtube.com/embed/9wq3VHsL_bE",
     "landing": {
-      "downrangeKm": 5.8,
-      "location": "Landing Zone 40",
+      "downrangeKm": 14.6,
+      "location": "Landing Zone 2",
       "success": true,
       "type": "RTLS"
     },
@@ -3177,6 +3162,95 @@
       {
         "label": "Stage 1 Landing",
         "t": 463
+      }
+    ],
+    "hasRealTimeline": true
+  },
+  {
+    "id": "c3f48f48-0e0a-4bca-917e-de494cfca35b",
+    "mission": "BlueBird 8-10 (Block 2 #3-5)",
+    "rocket": "Falcon 9 Block 5",
+    "net": "2026-06-17T06:39:00Z",
+    "pad": {
+      "name": "Space Launch Complex 40",
+      "lat": 28.56194122,
+      "lon": -80.57735736,
+      "location": "Cape Canaveral SFS, FL, USA"
+    },
+    "orbit": "LEO",
+    "missionType": "Communications",
+    "webcastUrl": "https://www.youtube.com/watch?v=YxVvwgWPgT8",
+    "webcastEmbed": "https://www.youtube.com/embed/YxVvwgWPgT8",
+    "landing": {
+      "downrangeKm": 635,
+      "location": "A Shortfall of Gravitas",
+      "success": true,
+      "type": "ASDS"
+    },
+    "events": [
+      {
+        "label": "Liftoff",
+        "t": 0
+      },
+      {
+        "label": "Max-Q",
+        "t": 73
+      },
+      {
+        "label": "MECO",
+        "t": 147
+      },
+      {
+        "label": "Stage 2 Separation",
+        "t": 151
+      },
+      {
+        "label": "SES-1",
+        "t": 159
+      },
+      {
+        "label": "Fairing Separation",
+        "t": 202
+      },
+      {
+        "label": "Entry Burn Startup",
+        "t": 376
+      },
+      {
+        "label": "Entry Burn Shutdown",
+        "t": 399
+      },
+      {
+        "label": "Stage 1 Landing Burn",
+        "t": 482
+      },
+      {
+        "label": "SECO-1",
+        "t": 510
+      },
+      {
+        "label": "Stage 1 Landing",
+        "t": 512
+      },
+      {
+        "label": "SES-2",
+        "t": 2760
+      },
+      {
+        "label": "SECO-2",
+        "t": 2766
+      },
+      {
+        "label": "Payload Separation",
+        "t": 3267
+      },
+      {
+        "label": "Payload Separation",
+        "t": 3587
+      },
+      {
+        "label": "Payload Separation",
+        "t": 3907
       }
     ],
     "hasRealTimeline": true
