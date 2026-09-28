@@ -3,7 +3,7 @@
     "id": "7330d83b-c478-426c-8859-f9e3a335876d",
     "mission": "USSF-385",
     "rocket": "Falcon 9 Block 5",
-    "net": "2026-09-26T11:56:00Z",
+    "net": "2026-09-26T14:00:54Z",
     "pad": {
       "name": "Space Launch Complex 4E",
       "lat": 34.632,
@@ -12,11 +12,12 @@
     },
     "orbit": "LEO",
     "missionType": "Government/Top Secret",
-    "webcastUrl": "https://x.com/i/broadcasts/1mxPaZqBEDjKN",
+    "webcastUrl": "https://www.youtube.com/watch?v=PeV6cdJBrYI",
+    "webcastEmbed": "https://www.youtube.com/embed/PeV6cdJBrYI",
     "landing": {
       "downrangeKm": 574,
       "location": "Of Course I Still Love You",
-      "success": null,
+      "success": true,
       "type": "ASDS"
     },
     "events": [
@@ -1698,7 +1699,7 @@
       "lon": -80.57735736,
       "location": "Cape Canaveral SFS, FL, USA"
     },
-    "orbit": "N/A",
+    "orbit": "LEO",
     "missionType": "Government/Top Secret",
     "webcastUrl": "https://www.youtube.com/watch?v=L6c0OzSQevo",
     "webcastEmbed": "https://www.youtube.com/embed/L6c0OzSQevo",
@@ -3172,7 +3173,7 @@
       "lon": -120.611,
       "location": "Vandenberg SFB, CA, USA"
     },
-    "orbit": "N/A",
+    "orbit": "LEO",
     "missionType": "Government/Top Secret",
     "webcastUrl": "https://www.youtube.com/watch?v=zXIu4nsv5uQ",
     "webcastEmbed": "https://www.youtube.com/embed/zXIu4nsv5uQ",
