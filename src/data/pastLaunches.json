@@ -1,5 +1,112 @@
 [
   {
+    "id": "67213393-7983-4c06-8b44-b8c785a5ed79",
+    "mission": "Transporter 18 (Dedicated SSO Rideshare)",
+    "rocket": "Falcon 9 Block 5",
+    "net": "2026-10-01T18:18:00Z",
+    "pad": {
+      "name": "Space Launch Complex 4E",
+      "lat": 34.632,
+      "lon": -120.611,
+      "location": "Vandenberg SFB, CA, USA"
+    },
+    "orbit": "SSO",
+    "missionType": "Dedicated Rideshare",
+    "webcastUrl": "https://x.com/i/broadcasts/1RJjpbyQpOBKw",
+    "landing": {
+      "downrangeKm": 0.4,
+      "location": "Landing Zone 4",
+      "success": null,
+      "type": "RTLS"
+    },
+    "events": [],
+    "hasRealTimeline": false
+  },
+  {
+    "id": "18441371-8b2e-457c-afb5-1ec1b11ab630",
+    "mission": "Crew-13",
+    "rocket": "Falcon 9 Block 5",
+    "net": "2026-10-01T15:10:06Z",
+    "pad": {
+      "name": "Space Launch Complex 40",
+      "lat": 28.56194122,
+      "lon": -80.57735736,
+      "location": "Cape Canaveral SFS, FL, USA"
+    },
+    "orbit": "LEO",
+    "missionType": "Human Exploration",
+    "webcastUrl": "https://x.com/i/broadcasts/1qxvvepEVdRxB",
+    "landing": {
+      "downrangeKm": 0.3,
+      "location": "Landing Zone 40",
+      "success": null,
+      "type": "RTLS"
+    },
+    "events": [
+      {
+        "label": "Liftoff",
+        "t": 0
+      },
+      {
+        "label": "Max-Q",
+        "t": 72
+      },
+      {
+        "label": "MECO",
+        "t": 144
+      },
+      {
+        "label": "Stage 2 Separation",
+        "t": 147
+      },
+      {
+        "label": "Stage 1 Flip",
+        "t": 151
+      },
+      {
+        "label": "SES-1",
+        "t": 155
+      },
+      {
+        "label": "Booster Boostback Burn Startup",
+        "t": 161
+      },
+      {
+        "label": "Booster Boostback Burn Shutdown",
+        "t": 207
+      },
+      {
+        "label": "Entry Burn Startup",
+        "t": 380
+      },
+      {
+        "label": "Entry Burn Shutdown",
+        "t": 392
+      },
+      {
+        "label": "Stage 1 Landing Burn",
+        "t": 444
+      },
+      {
+        "label": "Stage 1 Landing",
+        "t": 461
+      },
+      {
+        "label": "SECO-1",
+        "t": 527
+      },
+      {
+        "label": "Dragon Separation",
+        "t": 579
+      },
+      {
+        "label": "Dragon Nosecode Open",
+        "t": 625
+      }
+    ],
+    "hasRealTimeline": true
+  },
+  {
     "id": "7d1afb26-6f9c-429b-9ccf-29012fd1e519",
     "mission": "Starlink Group 31-1 (Starship Flight 14)",
     "rocket": "Starship V3",
@@ -22,11 +129,11 @@
     },
     "events": [
       {
-        "label": "Liftoff",
+        "label": "Excitement Guaranteed",
         "t": 0
       },
       {
-        "label": "Excitement Guaranteed",
+        "label": "Liftoff",
         "t": 0
       },
       {
@@ -3133,152 +3240,6 @@
       {
         "label": "Starlink Deployment",
         "t": 3706
-      }
-    ],
-    "hasRealTimeline": true
-  },
-  {
-    "id": "74bf8472-9ba1-42d6-9245-b014f8e91de9",
-    "mission": "Project Starfall Demonstration Mission",
-    "rocket": "Falcon 9 Block 5",
-    "net": "2026-06-23T10:53:00Z",
-    "pad": {
-      "name": "Space Launch Complex 40",
-      "lat": 28.56194122,
-      "lon": -80.57735736,
-      "location": "Cape Canaveral SFS, FL, USA"
-    },
-    "orbit": "LEO",
-    "missionType": "Technology",
-    "webcastUrl": "https://www.youtube.com/watch?v=BKicbMA9pyM",
-    "webcastEmbed": "https://www.youtube.com/embed/BKicbMA9pyM",
-    "landing": {
-      "downrangeKm": 650,
-      "location": "A Shortfall of Gravitas",
-      "success": true,
-      "type": "ASDS"
-    },
-    "events": [
-      {
-        "label": "Liftoff",
-        "t": 0
-      },
-      {
-        "label": "Max-Q",
-        "t": 68
-      },
-      {
-        "label": "MECO",
-        "t": 145
-      },
-      {
-        "label": "Stage 2 Separation",
-        "t": 148
-      },
-      {
-        "label": "SES-1",
-        "t": 156
-      },
-      {
-        "label": "Fairing Separation",
-        "t": 188
-      },
-      {
-        "label": "Entry Burn Startup",
-        "t": 391
-      },
-      {
-        "label": "Entry Burn Shutdown",
-        "t": 422
-      },
-      {
-        "label": "Stage 1 Landing Burn",
-        "t": 505
-      },
-      {
-        "label": "Stage 1 Landing",
-        "t": 529
-      }
-    ],
-    "hasRealTimeline": true
-  },
-  {
-    "id": "de5fbae3-66b9-4bbf-8938-4d55f3318c07",
-    "mission": "Starlink Group 17-28",
-    "rocket": "Falcon 9 Block 5",
-    "net": "2026-06-21T16:39:06Z",
-    "pad": {
-      "name": "Space Launch Complex 4E",
-      "lat": 34.632,
-      "lon": -120.611,
-      "location": "Vandenberg SFB, CA, USA"
-    },
-    "orbit": "LEO",
-    "missionType": "Communications",
-    "webcastUrl": "https://www.youtube.com/watch?v=y2TZ_KGcyZ4",
-    "webcastEmbed": "https://www.youtube.com/embed/y2TZ_KGcyZ4",
-    "landing": {
-      "downrangeKm": 574,
-      "location": "Of Course I Still Love You",
-      "success": true,
-      "type": "ASDS"
-    },
-    "events": [
-      {
-        "label": "Liftoff",
-        "t": 0
-      },
-      {
-        "label": "Max-Q",
-        "t": 69
-      },
-      {
-        "label": "MECO",
-        "t": 146
-      },
-      {
-        "label": "Stage 2 Separation",
-        "t": 150
-      },
-      {
-        "label": "SES-1",
-        "t": 157
-      },
-      {
-        "label": "Fairing Separation",
-        "t": 178
-      },
-      {
-        "label": "Entry Burn Startup",
-        "t": 360
-      },
-      {
-        "label": "Entry Burn Shutdown",
-        "t": 383
-      },
-      {
-        "label": "Stage 1 Landing Burn",
-        "t": 477
-      },
-      {
-        "label": "Stage 1 Landing",
-        "t": 500
-      },
-      {
-        "label": "SECO-1",
-        "t": 520
-      },
-      {
-        "label": "SES-2",
-        "t": 3298
-      },
-      {
-        "label": "SECO-2",
-        "t": 3299
-      },
-      {
-        "label": "Starlink Deployment",
-        "t": 3830
       }
     ],
     "hasRealTimeline": true
