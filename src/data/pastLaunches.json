@@ -3,7 +3,7 @@
     "id": "4651fd8a-43de-4166-bf8f-c168b3bd1d2c",
     "mission": "NROL-97",
     "rocket": "Falcon Heavy",
-    "net": "2026-10-02T03:53:00Z",
+    "net": "2026-10-02T03:54:00Z",
     "pad": {
       "name": "Launch Complex 39A",
       "lat": 28.60822681,
@@ -12,7 +12,8 @@
     },
     "orbit": "N/A",
     "missionType": "Government/Top Secret",
-    "webcastUrl": "https://x.com/i/broadcasts/1oJMvNkPPXlxQ",
+    "webcastUrl": "https://www.youtube.com/watch?v=5ypJLI6uwNs",
+    "webcastEmbed": "https://www.youtube.com/embed/5ypJLI6uwNs",
     "landing": {
       "downrangeKm": null,
       "location": "Atlantic Ocean",
@@ -87,7 +88,7 @@
     "id": "67213393-7983-4c06-8b44-b8c785a5ed79",
     "mission": "Transporter 18 (Dedicated SSO Rideshare)",
     "rocket": "Falcon 9 Block 5",
-    "net": "2026-10-01T18:18:00Z",
+    "net": "2026-10-01T18:32:00Z",
     "pad": {
       "name": "Space Launch Complex 4E",
       "lat": 34.632,
@@ -96,11 +97,12 @@
     },
     "orbit": "SSO",
     "missionType": "Dedicated Rideshare",
-    "webcastUrl": "https://x.com/i/broadcasts/1RJjpbyQpOBKw",
+    "webcastUrl": "https://www.youtube.com/watch?v=pjEhZcddNgc",
+    "webcastEmbed": "https://www.youtube.com/embed/pjEhZcddNgc",
     "landing": {
       "downrangeKm": 0.4,
       "location": "Landing Zone 4",
-      "success": null,
+      "success": true,
       "type": "RTLS"
     },
     "events": [],
@@ -119,11 +121,12 @@
     },
     "orbit": "LEO",
     "missionType": "Human Exploration",
-    "webcastUrl": "https://x.com/i/broadcasts/1qxvvepEVdRxB",
+    "webcastUrl": "https://www.youtube.com/watch?v=7ZiUbT1-djA",
+    "webcastEmbed": "https://www.youtube.com/embed/7ZiUbT1-djA",
     "landing": {
       "downrangeKm": 0.3,
       "location": "Landing Zone 40",
-      "success": null,
+      "success": true,
       "type": "RTLS"
     },
     "events": [
@@ -194,7 +197,7 @@
     "id": "7d1afb26-6f9c-429b-9ccf-29012fd1e519",
     "mission": "Starlink Group 31-1 (Starship Flight 14)",
     "rocket": "Starship V3",
-    "net": "2026-09-28T12:15:00Z",
+    "net": "2026-09-28T12:48:59Z",
     "pad": {
       "name": "Orbital Launch Pad 2",
       "lat": 25.99677,
@@ -203,12 +206,12 @@
     },
     "orbit": "LEO",
     "missionType": "Communications",
-    "webcastUrl": "https://www.youtube.com/watch?v=SqSGeLDIG-0",
-    "webcastEmbed": "https://www.youtube.com/embed/SqSGeLDIG-0",
+    "webcastUrl": "https://www.youtube.com/watch?v=Dun8yJ6qvmA",
+    "webcastEmbed": "https://www.youtube.com/embed/Dun8yJ6qvmA",
     "landing": {
       "downrangeKm": null,
       "location": "Gulf of Mexico",
-      "success": null,
+      "success": true,
       "type": "Ocean"
     },
     "events": [
@@ -297,12 +300,12 @@
         "t": 35413
       },
       {
-        "label": "Starship Landing",
+        "label": "Starship Landing Burn Shutdown",
         "t": 35421
       },
       {
-        "label": "Starship Landing",
-        "t": 35422
+        "label": "Starship Landing Burn Shutdown",
+        "t": 35428
       },
       {
         "label": "Starship Landing",
