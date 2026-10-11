@@ -88,10 +88,10 @@
     "webcastUrl": "https://www.youtube.com/watch?v=5ypJLI6uwNs",
     "webcastEmbed": "https://www.youtube.com/embed/5ypJLI6uwNs",
     "landing": {
-      "downrangeKm": 14.6,
-      "location": "Landing Zone 2",
-      "success": true,
-      "type": "RTLS"
+      "downrangeKm": null,
+      "location": "Atlantic Ocean",
+      "success": null,
+      "type": "EXP"
     },
     "events": [
       {
@@ -930,10 +930,10 @@
     "webcastUrl": "https://www.youtube.com/watch?v=9wq3VHsL_bE",
     "webcastEmbed": "https://www.youtube.com/embed/9wq3VHsL_bE",
     "landing": {
-      "downrangeKm": 14.6,
-      "location": "Landing Zone 2",
-      "success": true,
-      "type": "RTLS"
+      "downrangeKm": null,
+      "location": "Atlantic Ocean",
+      "success": null,
+      "type": "EXP"
     },
     "events": [
       {
