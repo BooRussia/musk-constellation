@@ -3,7 +3,7 @@
     "id": "df88cfbf-f504-4e11-8370-e33dd6280b5b",
     "mission": "USSF-481",
     "rocket": "Falcon 9 Block 5",
-    "net": "2026-10-15T23:44:00Z",
+    "net": "2026-10-16T00:01:05Z",
     "pad": {
       "name": "Space Launch Complex 4E",
       "lat": 34.632,
@@ -12,11 +12,12 @@
     },
     "orbit": "PO",
     "missionType": "Government/Top Secret",
-    "webcastUrl": "https://x.com/i/broadcasts/1aJbdEzYpPaKX",
+    "webcastUrl": "https://www.youtube.com/watch?v=0rd-mypixIg",
+    "webcastEmbed": "https://www.youtube.com/embed/0rd-mypixIg",
     "landing": {
       "downrangeKm": 574,
       "location": "Of Course I Still Love You",
-      "success": null,
+      "success": true,
       "type": "ASDS"
     },
     "events": [
@@ -81,7 +82,7 @@
     "landing": {
       "downrangeKm": 0.3,
       "location": "Landing Zone 40",
-      "success": null,
+      "success": true,
       "type": "RTLS"
     },
     "events": [
@@ -152,7 +153,7 @@
     "id": "97c6f5e1-299e-4652-b72d-9618ac047076",
     "mission": "Starlink Group 15-25",
     "rocket": "Falcon 9 Block 5",
-    "net": "2026-10-12T23:00:00Z",
+    "net": "2026-10-13T00:28:11Z",
     "pad": {
       "name": "Space Launch Complex 4E",
       "lat": 34.632,
@@ -161,11 +162,12 @@
     },
     "orbit": "LEO",
     "missionType": "Communications",
-    "webcastUrl": "https://x.com/i/broadcasts/1yKAPwdemygxb",
+    "webcastUrl": "https://www.youtube.com/watch?v=uwtmu8n99Pc",
+    "webcastEmbed": "https://www.youtube.com/embed/uwtmu8n99Pc",
     "landing": {
       "downrangeKm": 574,
       "location": "Of Course I Still Love You",
-      "success": null,
+      "success": true,
       "type": "ASDS"
     },
     "events": [
@@ -407,8 +409,77 @@
       "success": true,
       "type": "RTLS"
     },
-    "events": [],
-    "hasRealTimeline": false
+    "events": [
+      {
+        "label": "Liftoff",
+        "t": 0
+      },
+      {
+        "label": "Max-Q",
+        "t": 64
+      },
+      {
+        "label": "MECO",
+        "t": 134
+      },
+      {
+        "label": "Stage 2 Separation",
+        "t": 138
+      },
+      {
+        "label": "SES-1",
+        "t": 146
+      },
+      {
+        "label": "Booster Boostback Burn Startup",
+        "t": 151
+      },
+      {
+        "label": "Fairing Separation",
+        "t": 176
+      },
+      {
+        "label": "Booster Boostback Burn Shutdown",
+        "t": 205
+      },
+      {
+        "label": "Entry Burn Startup",
+        "t": 369
+      },
+      {
+        "label": "Entry Burn Shutdown",
+        "t": 379
+      },
+      {
+        "label": "Stage 1 Landing Burn",
+        "t": 434
+      },
+      {
+        "label": "Stage 1 Landing",
+        "t": 452
+      },
+      {
+        "label": "SECO-1",
+        "t": 504
+      },
+      {
+        "label": "SES-2",
+        "t": 3056
+      },
+      {
+        "label": "SECO-2",
+        "t": 3060
+      },
+      {
+        "label": "Payload Deployment Sequence Start",
+        "t": 3264
+      },
+      {
+        "label": "Payload Deployment Sequence End",
+        "t": 3917
+      }
+    ],
+    "hasRealTimeline": true
   },
   {
     "id": "18441371-8b2e-457c-afb5-1ec1b11ab630",
@@ -518,11 +589,11 @@
     },
     "events": [
       {
-        "label": "Excitement Guaranteed",
+        "label": "Liftoff",
         "t": 0
       },
       {
-        "label": "Liftoff",
+        "label": "Excitement Guaranteed",
         "t": 0
       },
       {
@@ -2486,11 +2557,11 @@
     },
     "events": [
       {
-        "label": "Excitement Guaranteed",
+        "label": "Liftoff",
         "t": 0
       },
       {
-        "label": "Liftoff",
+        "label": "Excitement Guaranteed",
         "t": 0
       },
       {
