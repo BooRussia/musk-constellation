@@ -1,5 +1,93 @@
 [
   {
+    "id": "3b430f81-0ff1-4d85-8a1a-cef0de326198",
+    "mission": "Bandwagon 5 (Dedicated Mid-Inclination Rideshare)",
+    "rocket": "Falcon 9 Block 5",
+    "net": "2026-10-19T10:30:00Z",
+    "pad": {
+      "name": "Space Launch Complex 40",
+      "lat": 28.56194122,
+      "lon": -80.57735736,
+      "location": "Cape Canaveral SFS, FL, USA"
+    },
+    "orbit": "LEO",
+    "missionType": "Dedicated Rideshare",
+    "webcastUrl": "https://x.com/i/broadcasts/1nxeLMddZlEJX",
+    "landing": {
+      "downrangeKm": 600,
+      "location": "A Shortfall of Gravitas",
+      "success": null,
+      "type": "ASDS"
+    },
+    "events": [
+      {
+        "label": "Liftoff",
+        "t": 0
+      },
+      {
+        "label": "Max-Q",
+        "t": 69
+      },
+      {
+        "label": "MECO",
+        "t": 146
+      },
+      {
+        "label": "Stage 2 Separation",
+        "t": 149
+      },
+      {
+        "label": "SES-1",
+        "t": 157
+      },
+      {
+        "label": "Fairing Separation",
+        "t": 180
+      },
+      {
+        "label": "Entry Burn Startup",
+        "t": 396
+      },
+      {
+        "label": "Entry Burn Shutdown",
+        "t": 423
+      },
+      {
+        "label": "SECO-1",
+        "t": 497
+      },
+      {
+        "label": "Stage 1 Landing Burn",
+        "t": 513
+      },
+      {
+        "label": "Stage 1 Landing",
+        "t": 538
+      },
+      {
+        "label": "SES-2",
+        "t": 3228
+      },
+      {
+        "label": "SECO-2",
+        "t": 3232
+      },
+      {
+        "label": "Payload Deployment Sequence Start",
+        "t": 3438
+      },
+      {
+        "label": "Payload Deployment Sequence End",
+        "t": 4170
+      },
+      {
+        "label": "Payload Separation",
+        "t": 10108
+      }
+    ],
+    "hasRealTimeline": true
+  },
+  {
     "id": "df88cfbf-f504-4e11-8370-e33dd6280b5b",
     "mission": "USSF-481",
     "rocket": "Falcon 9 Block 5",
@@ -3194,107 +3282,6 @@
       {
         "label": "Starlink Deployment",
         "t": 3811
-      }
-    ],
-    "hasRealTimeline": true
-  },
-  {
-    "id": "a6db1e67-5860-47c9-a674-adc0f35b62e0",
-    "mission": "Transporter 17 (Dedicated SSO Rideshare)",
-    "rocket": "Falcon 9 Block 5",
-    "net": "2026-07-07T07:12:00Z",
-    "pad": {
-      "name": "Space Launch Complex 4E",
-      "lat": 34.632,
-      "lon": -120.611,
-      "location": "Vandenberg SFB, CA, USA"
-    },
-    "orbit": "SSO",
-    "missionType": "Dedicated Rideshare",
-    "webcastUrl": "https://www.youtube.com/watch?v=kf6ZM4lFO5Q",
-    "webcastEmbed": "https://www.youtube.com/embed/kf6ZM4lFO5Q",
-    "landing": {
-      "downrangeKm": 600,
-      "location": "Of Course I Still Love You",
-      "success": true,
-      "type": "ASDS"
-    },
-    "events": [
-      {
-        "label": "Liftoff",
-        "t": 0
-      },
-      {
-        "label": "Max-Q",
-        "t": 69
-      },
-      {
-        "label": "MECO",
-        "t": 146
-      },
-      {
-        "label": "Stage 2 Separation",
-        "t": 150
-      },
-      {
-        "label": "SES-1",
-        "t": 158
-      },
-      {
-        "label": "Fairing Separation",
-        "t": 192
-      },
-      {
-        "label": "Entry Burn Startup",
-        "t": 365
-      },
-      {
-        "label": "Entry Burn Shutdown",
-        "t": 390
-      },
-      {
-        "label": "Stage 1 Landing Burn",
-        "t": 484
-      },
-      {
-        "label": "Stage 1 Landing",
-        "t": 506
-      },
-      {
-        "label": "SES-2",
-        "t": 3062
-      },
-      {
-        "label": "SECO-2",
-        "t": 3066
-      },
-      {
-        "label": "Payload Deployment Sequence Start",
-        "t": 3271
-      },
-      {
-        "label": "Payload Deployment Sequence End",
-        "t": 4344
-      },
-      {
-        "label": "SES-3",
-        "t": 6301
-      },
-      {
-        "label": "SECO-3",
-        "t": 6306
-      },
-      {
-        "label": "SES-4",
-        "t": 8764
-      },
-      {
-        "label": "SECO-4",
-        "t": 8766
-      },
-      {
-        "label": "Payload Separation",
-        "t": 9012
       }
     ],
     "hasRealTimeline": true
