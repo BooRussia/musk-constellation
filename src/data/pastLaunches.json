@@ -3,7 +3,7 @@
     "id": "57ce0a39-d035-4f16-a418-bd6108f78199",
     "mission": "Starlink Group 15-18",
     "rocket": "Falcon 9 Block 5",
-    "net": "2026-10-28T21:30:00Z",
+    "net": "2026-10-31T04:04:34Z",
     "pad": {
       "name": "Space Launch Complex 4E",
       "lat": 34.632,
@@ -12,11 +12,12 @@
     },
     "orbit": "LEO",
     "missionType": "Communications",
-    "webcastUrl": "https://x.com/i/broadcasts/1DGleVlqoaqJL",
+    "webcastUrl": "https://www.youtube.com/watch?v=Lie7RZffEh8",
+    "webcastEmbed": "https://www.youtube.com/embed/Lie7RZffEh8",
     "landing": {
       "downrangeKm": 574,
       "location": "Of Course I Still Love You",
-      "success": null,
+      "success": true,
       "type": "ASDS"
     },
     "events": [
@@ -83,7 +84,7 @@
     "id": "e2886a96-5ce9-4f45-872f-4e25a00be837",
     "mission": "Starlink Group 15-16",
     "rocket": "Falcon 9 Block 5",
-    "net": "2026-10-27T04:45:00Z",
+    "net": "2026-10-27T07:25:51Z",
     "pad": {
       "name": "Space Launch Complex 4E",
       "lat": 34.632,
@@ -92,11 +93,12 @@
     },
     "orbit": "LEO",
     "missionType": "Communications",
-    "webcastUrl": "https://x.com/i/broadcasts/1mGPaZgYgLDJN",
+    "webcastUrl": "https://www.youtube.com/watch?v=hj1OtIh4gCw",
+    "webcastEmbed": "https://www.youtube.com/embed/hj1OtIh4gCw",
     "landing": {
       "downrangeKm": 574,
       "location": "Of Course I Still Love You",
-      "success": null,
+      "success": true,
       "type": "ASDS"
     },
     "events": [
