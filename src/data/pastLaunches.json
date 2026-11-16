@@ -3,7 +3,7 @@
     "id": "0f867f0c-5422-4d44-93b8-d7faaae7019b",
     "mission": "Starlink Group 31-2 (Starship Flight 15)",
     "rocket": "Starship V3",
-    "net": "2026-11-13T22:45:00Z",
+    "net": "2026-11-13T22:47:36Z",
     "pad": {
       "name": "Orbital Launch Pad 2",
       "lat": 25.99677,
@@ -12,10 +12,12 @@
     },
     "orbit": "LEO",
     "missionType": "Communications",
+    "webcastUrl": "https://www.youtube.com/watch?v=dl4O6RqbvOs",
+    "webcastEmbed": "https://www.youtube.com/embed/dl4O6RqbvOs",
     "landing": {
       "downrangeKm": 0,
       "location": "Orbital Launch Mount B",
-      "success": null,
+      "success": false,
       "type": "RTLS"
     },
     "events": [
